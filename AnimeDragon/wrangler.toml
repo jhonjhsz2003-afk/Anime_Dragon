@@ -13,10 +13,6 @@ binding = "DB"
 database_name = "animedragon-db"
 database_id = "fdf0ea3e-42f9-46a3-b92f-e8b9632cca63"
 
-[[r2_buckets]]
-binding = "AVATARS"
-bucket_name = "animedragon-avatars"
-
 [triggers]
 crons = ["0 */6 * * *"]
 
