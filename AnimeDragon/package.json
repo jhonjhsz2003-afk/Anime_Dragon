@@ -1,0 +1,16 @@
+{
+  "name": "animedragon",
+  "version": "7.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "test": "node --test tests/worker.test.js",
+    "db:local": "wrangler d1 execute animedragon-db --local --file=db/schema.sql",
+    "db:remote": "wrangler d1 execute animedragon-db --remote --file=db/schema.sql"
+  },
+  "devDependencies": {
+    "wrangler": "^4.131.1"
+  }
+}
