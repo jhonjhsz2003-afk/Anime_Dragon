@@ -1,0 +1,24 @@
+{
+  "name": "animedragon",
+  "version": "9.3.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "test": "node --test tests/*.test.js",
+    "db:local": "wrangler d1 execute animedragon-db --local --file=db/schema.sql",
+    "db:remote": "wrangler d1 execute animedragon-db --remote --file=db/schema.sql",
+    "preview": "node scripts/local.mjs",
+    "test:server": "node --test tests/worker.test.js tests/addon.test.js tests/community-v9.test.js tests/legacy-auth.test.js",
+    "check": "node --check worker.js && node --check server/community.js && node --check server/database.js && node --check server/auth.js && node --check web/js/app.js && node --check web/js/dragon.js && node --check server/media.js",
+    "build": "npm run check"
+  },
+  "devDependencies": {
+    "wrangler": "^4.131.1",
+    "linkedom": "0.18.12"
+  },
+  "engines": {
+    "node": ">=22.13.0"
+  }
+}
