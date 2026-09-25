@@ -1,4 +1,4 @@
-# AnimeDragon Studio · v9.6.1
+# AnimeDragon Studio · v9.6.2
 
 Plataforma de animes para Cloudflare Workers + Static Assets + D1, com interface em português, contas, comentários, reações, coleções e perfis públicos ou privados.
 
@@ -8,7 +8,7 @@ Nesta versão: menu no topo, catálogo em largura total, capas responsivas em ma
 
 Leia PUBLICAR-ESTE-PACOTE.md. O ZIP contém a pasta AnimeDragon2: envie essa pasta para a raiz do repositório Anime_Dragon, sem criar outra pasta AnimeDragon2 dentro dela.
 
-Cloudflare: Root directory `AnimeDragon2`, Build command `npm run build`, Deploy command `npx wrangler deploy`. Preserve o banco `DB` e o segredo `TMDB_API_KEY`. O endpoint `/api/health` deve exibir `9.6.1` depois da publicação.
+Cloudflare: Root directory `AnimeDragon2`, Build command `npm run build`, Deploy command `npx wrangler deploy`. Preserve o banco `DB` e o segredo `TMDB_API_KEY`. O endpoint `/api/health` deve exibir `9.6.2` depois da publicação.
 
 ## Addons
 
@@ -24,3 +24,5 @@ Consulte docs/ADDONS-v9.6.md para funções, configuração e limites. Na verifi
 Requer Node.js 22.13 ou superior. Instale as dependências com `npm install`. Comandos: `npm run preview`, `npm run build`, `npm run test:server` e `npm test` (inclui os testes de DOM com linkedom). A prévia sem TMDB_API_KEY usa histórias ilustrativas e não fornece episódios reais.
 
 Os vídeos vêm dos servidores dos provedores. O aplicativo não inclui arquivos de episódios, motor de torrents ou transcodificação. Autoplay depende das regras do navegador: tenta áudio, depois modo sem som, e apresenta um botão se necessário. Os recursos do Worker Free continuam sujeitos às cotas, inclusive as requisições de segmentos HLS.
+
+GIFs de perfil: limite de 1,9 MB, armazenamento binário sem conversão ou redução de quadros. Avatares antigos continuam compatíveis.

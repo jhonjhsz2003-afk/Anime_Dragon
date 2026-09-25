@@ -1,3 +1,7 @@
+# Correção 9.6.2 — GIFs de perfil
+
+O envio aceita até 1,9 MB e salva os bytes originais como BLOB, sem conversão ou remoção de quadros. Avatares antigos em base64 continuam funcionando. Não exige alterar o banco manualmente. A versão em /api/health passa a ser 9.6.2. Validação: 85 testes passaram.
+
 # Publicar AnimeDragon v9.6.1
 
 1. Extraia AnimeDragon-v9.6.1-GitHub.zip. A pasta do site se chama AnimeDragon2.
