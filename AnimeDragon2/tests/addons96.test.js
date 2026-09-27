@@ -77,3 +77,18 @@ test('closing or switching episodes during pending play never starts a stale mut
  let active=true,calls=0,reject;const video={play:()=>{calls++;return new Promise((_,r)=>reject=r);}};
  const p=startMedia(video,()=>active);active=false;reject(Object.assign(Error(),{name:'NotAllowedError'}));assert.equal(await p,'cancelled');assert.equal(calls,1);
 });
+
+// Production failures: IMDb resolution returned no HLS while the exact anime ID did.
+test('verified anime matching rejects remakes, specials and ambiguous first seasons',async()=>{
+ const {verifiedAnimeMatch,verifiedMappedEpisode}=await import('../server/episode-identity.js');
+ const anime={name:'Re:ZERO -Starting Life in Another World-',first_air_date:'2016-04-04',seasons:[{season_number:1,episode_count:85}]};
+ const match={id:'anilist:21355',name:anime.name,type:'anime',description:'Format: TV | Status: FINISHED',released:'2016-04-04',episodes:25};
+ assert.equal(verifiedAnimeMatch(anime,[match],1,1)?.id,match.id);
+ for(const bad of [{...match,released:'2020-01-01'},{...match,description:'Format: OVA |'},{...match,name:'Re:ZERO Short Stories'}])assert.equal(verifiedAnimeMatch(anime,[bad],1,1),null);
+ assert.equal(verifiedAnimeMatch(anime,[match,match],1,1),null);
+ assert.equal(verifiedAnimeMatch(anime,[match],2,1),null);
+ assert.equal(verifiedAnimeMatch(anime,[match],1,26),null);
+ const map={seasonCounts:{1:85,2:0},episodes:{'1/1':'anilist:21355-1'}};
+ assert.equal(verifiedMappedEpisode(map,anime,1,1),'anilist:21355-1');
+ assert.equal(verifiedMappedEpisode(map,{...anime,seasons:[{season_number:1,episode_count:25}]},1,1),null);
+});
