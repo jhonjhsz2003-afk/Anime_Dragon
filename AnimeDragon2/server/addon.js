@@ -1,7 +1,7 @@
 // Protocol adapter. Only verified anime IDs from the catalog are sent to the addon.
 import {createCache} from './cache.js';
 import {canRelaySource} from './hls.js';
-import {episodeCoordinates} from './episode-identity.js';
+import {episodeCoordinates,verifiedAnimeMatch,verifiedMappedEpisode} from './episode-identity.js';
 const DEFAULT_MANIFEST='https://fenixflix.fenixhub.online/manifest.json';
 const metadata=createCache(160), playback=createCache(160);
 const fail=message=>Object.assign(new Error(message),{status:502});
@@ -62,7 +62,17 @@ async function resolvePlayback(anime,season,episode,env,origin,fresh) {
  const {m,id,mapped}=await identity(anime,env,origin);
  if(!id)return {ok:true,available:false,reason:'Este anime ainda não tem uma correspondência confirmada no provedor.'};
  const target=episodeCoordinates(anime,id,season,episode);
- let videoId=mapped?.episodes?.[`${season}/${episode}`];
+ let videoId=verifiedMappedEpisode(mapped,anime,season,episode);
+ // Nagare's anime catalog uses AniList IDs; IMDb IDs frequently return no streams.
+ if(!videoId&&env.PROVIDER_ID==='nagare'&&season===1&&m.data.catalogs?.some(c=>c.type==='anime'&&c.id==='nexio_search')){
+   const query=String(anime.name||anime.original_name||'').slice(0,150);
+   try{const catalog=await read(`${m.base}/catalog/anime/nexio_search/search=${encodeURIComponent(query)}.json`,3600000);
+     const match=verifiedAnimeMatch(anime,catalog.metas||[],season,episode);
+     if(match){const meta=await read(`${m.base}/meta/anime/${encodeURIComponent(match.id)}.json`,3600000);
+       if(meta.meta?.id===match.id)videoId=meta.meta.videos?.find(v=>v.season===1&&v.episode===episode)?.id;}
+   }catch{}
+ }
+ if(mapped?.seasonCounts&&!videoId)return {ok:true,available:false,reason:'A ordem dos episódios mudou; a correspondência precisa ser revisada.'};
  if(!videoId&&capability(m.data,'meta',id)) {
    const data=await read(`${m.base}/meta/series/${encodeURIComponent(id)}.json`,60000,fresh);
    if(data.meta?.id===id)videoId=data.meta.videos?.find(v=>v.season===target.season&&v.episode===target.episode)?.id;
