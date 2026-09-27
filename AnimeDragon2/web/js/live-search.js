@@ -8,35 +8,26 @@ export function createLiveSearch(request,show,{delay=180,schedule=setTimeout,can
      const cached=cache.get(text),data=cached?.until>Date.now()?cached.data:await request(text,controller.signal);
      if(closed||version!==revision)return;
      if(cache.size>=20)cache.delete(cache.keys().next().value);cache.set(text,{data,until:Date.now()+60000});
-     show({query:text,loading:false,results:data.results||[]});
+     show({query:text,loading:false,results:data.results||[],data});
    }catch(error){if(!closed&&version===revision&&error.name!=='AbortError')show({query:text,error:true,results:[]});}
  }
  return {change(value){query=String(value).trim().slice(0,120);++revision;cancel(timer);controller?.abort();if(!query){show({query:'',results:[]});return;}const version=revision;timer=schedule(()=>run(version),delay);},dismiss(){++revision;cancel(timer);controller?.abort();show({query:'',results:[]});},destroy(){closed=true;++revision;cancel(timer);controller?.abort();}};
 }
 
-export function bindLiveSearch(form,{request,choose,image,escape}){
- const input=form.querySelector('input'),panel=form.querySelector('.search-suggestions');let items=[],index=-1,composing=false;
- const close=()=>{panel.hidden=true;input.setAttribute('aria-expanded','false');input.removeAttribute('aria-activedescendant');index=-1;};
- function show(state){
-   items=state.results;index=-1;input.removeAttribute('aria-activedescendant');
-   if(!state.query||!form.contains(document.activeElement)){close();return;}
-   panel.hidden=false;input.setAttribute('aria-expanded','true');
-   const e=escape;
-   panel.innerHTML=state.loading?'<p role="status">Buscando animes…</p>':state.error?'<p role="status">Não foi possível buscar agora. Pressione Enter para tentar novamente.</p>':items.length?items.slice(0,8).map((item,n)=>`<button type="button" role="option" id="search-option-${n}" aria-selected="false" data-suggestion="${n}"><img src="${e(image(item))}" alt="" width="42" height="63"><span><b>${e(item.title)}</b><small>${e((item.first_air_date||item.release_date||'').slice(0,4))}</small></span></button>`).join(''):'<p role="status">Nenhum anime encontrado. Continue digitando.</p>';
- }
+export function rankSearchResults(items,query){
+ const clean=value=>String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('pt-BR').trim();
+ const q=clean(query),seen=new Set();
+ const score=item=>Math.min(...[item.title,item.original_title].filter(Boolean).map(value=>{const name=clean(value);return name===q?0:name.startsWith(q)?1:name.split(/\s+/).some(word=>word.startsWith(q))?2:name.includes(q)?3:4;}));
+ return items.filter(item=>{if(seen.has(String(item.id)))return false;seen.add(String(item.id));return true;}).sort((a,b)=>score(a)-score(b));
+}
+
+export function bindLiveSearch(form,{request,show,change=()=>{}}){
+ const input=form.querySelector('input');let composing=false;
  const engine=createLiveSearch(request,show);
- const select=n=>{const item=items[n];if(item){engine.dismiss();choose(item);}};
- input.oninput=event=>{if(!composing&&!event.isComposing)engine.change(input.value);};
- input.oncompositionstart=()=>{composing=true;};input.oncompositionend=()=>{composing=false;engine.change(input.value);};
- input.onfocus=()=>{if(input.value.trim())engine.change(input.value);};
- input.onkeydown=event=>{
-   if(event.key==='Escape'){engine.dismiss();return;}
-   const options=[...panel.querySelectorAll('[data-suggestion]')];
-   if((event.key==='ArrowDown'||event.key==='ArrowUp')&&!panel.hidden&&options.length){event.preventDefault();index=(index+(event.key==='ArrowDown'?1:-1)+options.length)%options.length;options.forEach((option,n)=>option.setAttribute('aria-selected',String(n===index)));input.setAttribute('aria-activedescendant',options[index].id);options[index].scrollIntoView({block:'nearest'});}
-   if(event.key==='Enter'&&!panel.hidden&&index>=0){event.preventDefault();select(index);}
- };
- panel.onpointerdown=event=>{if(event.target.closest('[data-suggestion]'))event.preventDefault();};
- panel.onclick=event=>{const button=event.target.closest('[data-suggestion]');if(button)select(Number(button.dataset.suggestion));};
- form.onfocusout=event=>{if(!form.contains(event.relatedTarget))engine.dismiss();};
- return {dismiss:engine.dismiss,destroy(){engine.destroy();close();}};
+ const update=()=>{change(input.value.trim());engine.change(input.value);};
+ input.oninput=event=>{if(!composing&&!event.isComposing)update();};
+ input.oncompositionstart=()=>{composing=true;};
+ input.oncompositionend=()=>{composing=false;update();};
+ form.onsubmit=event=>{event.preventDefault();update();};
+ return {dismiss:engine.dismiss,destroy(){engine.destroy();}};
 }

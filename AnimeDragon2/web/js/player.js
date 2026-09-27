@@ -99,7 +99,7 @@ export function mountWatchPlayer(host, options) {
     try{
       if(/mpegurl/i.test(source.type||'')||/\.m3u8(?:\?|$)/i.test(source.url)){
         if(video.canPlayType('application/vnd.apple.mpegurl'))video.src=source.url;
-        else {await o.loadHls();if(dead||version!==generation)return;if(!window.Hls?.isSupported())throw new Error('Este navegador não oferece suporte a HLS.');hls=new window.Hls({maxBufferLength:20,maxMaxBufferLength:40,backBufferLength:30});hls.on(window.Hls.Events.ERROR,(_,data)=>{if(!dead&&version===generation&&data.fatal)failure(data.type==='networkError'?'A conexão com este vídeo falhou. Tentaremos outra fonte.':playbackError(3));});for(const event of [window.Hls.Events.MANIFEST_PARSED,window.Hls.Events.LEVEL_LOADED,window.Hls.Events.FRAG_LOADED])if(event)hls.on(event,()=>{if(!dead&&version===generation)watchdog.progress();});hls.loadSource(source.url);hls.attachMedia(video);}
+        else {await o.loadHls();if(dead||version!==generation)return;if(!window.Hls?.isSupported())throw new Error('Este navegador não oferece suporte a HLS.');hls=new window.Hls({maxBufferLength:20,maxMaxBufferLength:40,backBufferLength:30,startLevel:0,manifestLoadingTimeOut:6000,manifestLoadingMaxRetry:1,levelLoadingTimeOut:6000,levelLoadingMaxRetry:1,fragLoadingTimeOut:8000,fragLoadingMaxRetry:1});hls.on(window.Hls.Events.ERROR,(_,data)=>{if(!dead&&version===generation&&data.fatal)failure(data.type==='networkError'?'A conexão com este vídeo falhou. Tentaremos outra fonte.':playbackError(3));});for(const event of [window.Hls.Events.MANIFEST_PARSED,window.Hls.Events.LEVEL_LOADED,window.Hls.Events.FRAG_LOADED])if(event)hls.on(event,()=>{if(!dead&&version===generation)watchdog.progress();});hls.loadSource(source.url);hls.attachMedia(video);}
       } else {video.src=source.url;video.load();}
       captionChoice='';captionTried.clear();void automaticCaption();
       void begin(version);
@@ -122,7 +122,7 @@ export function mountWatchPlayer(host, options) {
     try{const result=await o.loadSource({fresh,onUpdate:update});update(result);
     }catch(err){if(!dead&&requestVersion===loadGeneration){providersComplete=true;failure('Não foi possível buscar o vídeo. Tente novamente em instantes.');}}
   }
-  async function play(){if(!sources.length)return;if(!video.paused){video.pause();return;}try{await video.play();}catch(err){if(!dead&&err.name!=='AbortError'){if(err.name==='NotAllowedError')status.textContent='Toque em reproduzir para iniciar o vídeo.';else failure(playbackError(video.error?.code||4));}}}
+  async function play(){if(!sources.length)return;if(!video.paused){video.pause();return;}try{watchdog.start();await video.play();}catch(err){if(!dead&&err.name!=='AbortError'){if(err.name==='NotAllowedError'){watchdog.stop();status.textContent='Toque em reproduzir para iniciar o vídeo.';}else failure(playbackError(video.error?.code||4));}}}
   function skip(seconds){if(Number.isFinite(video.duration))video.currentTime=Math.max(0,Math.min(video.duration,video.currentTime+seconds));}
   async function fullscreen(){try{if(document.fullscreenElement)await document.exitFullscreen();else if(screen.requestFullscreen)await screen.requestFullscreen();else if(video.webkitEnterFullscreen)video.webkitEnterFullscreen();else status.textContent='Tela cheia não está disponível neste navegador.';}catch{status.textContent='Não foi possível ativar a tela cheia.';}}
   on(q('[data-play]'),'click',play);on(q('.watch-big-play'),'click',play);on(video,'click',play);

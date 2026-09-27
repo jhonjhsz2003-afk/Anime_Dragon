@@ -1,6 +1,6 @@
 import {sourcePriority} from './playback-watchdog.js?v=9.6.1';
 // Cache only short-lived source metadata. Video bytes are never prefetched.
-export function createSourceLoader(request,now=Date.now) {
+export function createSourceLoader(request,now=Date.now,{schedule=setTimeout,cancel=clearTimeout}={}) {
   const cache=new Map(),pending=new Map();let providerList=null,providerUntil=0,providerPending=null;
   async function providers(){
     if(providerList&&providerUntil>now())return providerList;
@@ -10,10 +10,11 @@ export function createSourceLoader(request,now=Date.now) {
     if(!fresh&&cache.get(path)?.until>now())return cache.get(path).data;
     const key=path+(fresh?'&fresh=1':'');
     if(pending.has(key))return pending.get(key);
-    const task=request(key).then(data=>{if(cache.size>=40)cache.delete(cache.keys().next().value);cache.set(path,{data,until:now()+(data.available?20000:3000)});return data;}).finally(()=>pending.delete(key));
+    const task=request(key).then(data=>{if(cache.size>=40)cache.delete(cache.keys().next().value);cache.set(path,{data,until:now()+(data.available?120000:3000)});return data;}).finally(()=>pending.delete(key));
     pending.set(key,task);return task;
   }
   const load=async function load(id,season,episode,{fresh=false,onUpdate=()=>{}}={}) {
+    let initialTimer=null,published=false;
     const list=(await providers()).filter(p=>p.role!=='external'),results=new Map();
     const snapshot=()=>{
       const unique=new Map(),external=new Map();
@@ -24,11 +25,21 @@ export function createSourceLoader(request,now=Date.now) {
       const streams=[...unique.values()].sort((a,b)=>sourcePriority(b)-sourcePriority(a));
       return {ok:true,available:!!streams.length,streams,externalStreams:[...external.values()],complete:results.size===list.length,pending:list.filter(p=>!results.has(p.id)).map(p=>p.name),providers:list.map(p=>({name:p.name,complete:results.has(p.id),available:!!results.get(p.id)?.available,reason:results.get(p.id)?.reason||''})),reason:'Nenhuma fonte reproduzível respondeu para este episódio. Tente atualizar as fontes mais tarde.'};
     };
+    function publish(){
+      const result=snapshot();
+      // Give concurrently loading HLS/MP4 a short head start over opaque containers.
+      if(!published&&!result.complete&&result.streams.length&&sourcePriority(result.streams[0])<2){
+        if(initialTimer===null)initialTimer=schedule(()=>{initialTimer=null;published=true;onUpdate(snapshot());},650);
+        return;
+      }
+      if(result.streams.length||result.complete){cancel(initialTimer);initialTimer=null;published=true;}
+      onUpdate(result);
+    }
     await Promise.all(list.map(async p=>{
       let result;try{result=await source(`/api/playback?id=${id}&season=${season}&episode=${episode}&provider=${encodeURIComponent(p.id)}`,fresh);}
       catch{result={available:false,reason:'Provedor temporariamente indisponível.'};}
-      results.set(p.id,{...result,streams:result.streams?.length?result.streams:result.url?[result]:[]});onUpdate(snapshot());
-    }));return snapshot();
+      results.set(p.id,{...result,streams:result.streams?.length?result.streams:result.url?[result]:[]});publish();
+    }));cancel(initialTimer);return snapshot();
   };
   load.prepare=providers;return load;
 }
