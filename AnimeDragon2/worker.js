@@ -27,7 +27,7 @@ export function isAnime(x) {
     (x.genre_ids || x.genres?.map(g => g.id) || []).includes(16) && (x.origin_country || []).includes('JP');
 }
 export const normalize = x => ({
-  id: x.id, media_type: 'tv', title: x.name || x.title || 'Sem título', overview: x.overview || '',
+  id: x.id, media_type: 'tv', title: x.name || x.title || 'Sem título', original_title: x.original_name || '', overview: x.overview || '',
   poster_path: x.poster_path || null, backdrop_path: x.backdrop_path || null,
   vote_average: Number(x.vote_average || 0), first_air_date: x.first_air_date || '',
   genres: x.genres || [], status: x.status || '', number_of_episodes: x.number_of_episodes || 0,
@@ -133,7 +133,7 @@ export default {
       if (url.pathname.startsWith('/api/community/')) return await community(request,env,animeDetail);
       if (url.pathname.startsWith('/api/auth/')) return await auth(request,env);
       if (request.method !== 'GET') return json({ok:false,error:'Método não permitido.'},405,{Allow:'GET'});
-      if (url.pathname === '/api/health') return json({ok:true,service:'AnimeDragon',version:'9.6.2'});
+      if (url.pathname === '/api/health') return json({ok:true,service:'AnimeDragon',version:'9.6.3'});
       if (url.pathname === '/api/addons/metadata') {
         const id=url.searchParams.get('id');if(!/^\d{1,10}$/.test(id||''))throw fail(400,'Anime inválido.');
         return json(await addonMetadata(await animeDetail(id,env),env));

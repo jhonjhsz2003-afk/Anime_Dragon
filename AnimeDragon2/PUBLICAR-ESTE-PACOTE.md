@@ -1,3 +1,13 @@
+# Atualização 9.6.3
+
+Este ZIP contém a pasta AnimeDragon2, pronta para substituir os arquivos dessa mesma pasta no GitHub. Extraia o ZIP antes de enviar; não envie o ZIP como código do site.
+
+Cloudflare Workers Builds: diretório raiz `AnimeDragon2`, build `npm run build`, deploy `npx wrangler deploy`. Preserve o banco D1 e os segredos existentes. Não precisa recriar o site nem o banco. Use o token de build válido já configurado na conta.
+
+Validação: 89 testes automatizados e verificação da busca e da janela em navegador. Busca por letra, refinamento de nome, limpeza e retorno dos detalhes conferidos. A disponibilidade de vídeo continua dependendo dos serviços externos.
+
+---
+
 # Correção 9.6.2 — GIFs de perfil
 
 O envio aceita até 1,9 MB e salva os bytes originais como BLOB, sem conversão ou remoção de quadros. Avatares antigos em base64 continuam funcionando. Não exige alterar o banco manualmente. A versão em /api/health passa a ser 9.6.2. Validação: 85 testes passaram.

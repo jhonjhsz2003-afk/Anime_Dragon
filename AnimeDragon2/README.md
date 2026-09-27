@@ -1,14 +1,22 @@
-# AnimeDragon Studio · v9.6.2
+# AnimeDragon Studio · v9.6.3
 
 Plataforma de animes para Cloudflare Workers + Static Assets + D1, com interface em português, contas, comentários, reações, coleções e perfis públicos ou privados.
 
 Nesta versão: menu no topo, catálogo em largura total, capas responsivas em maior resolução, início automático do episódio, tentativa de outra fonte em caso de falha e addons separados por função. Os episódios recentes e as estreias continuam em destaque no início.
 
+## Novidades da versão 9.6.3
+
+- Detalhes do anime ocupam a tela inteira, com grade de episódios adaptada à largura.
+- Busca automática desde a primeira letra em uma grade de capas na página, priorizando nome exato e início do título.
+- Preferência por fontes compatíveis, cache breve de links e início HLS em qualidade menor com ajuste automático.
+- Correspondências verificadas de Re:ZERO (primeiros 25 episódios) e Mushoku Tensei (23 episódios da primeira temporada), além de resolução conservadora de primeiras temporadas por título e estreia.
+- Fontes externas ainda podem ficar indisponíveis; a atualização não garante todos os episódios de todo o catálogo.
+
 ## Publicar pelo GitHub
 
 Leia PUBLICAR-ESTE-PACOTE.md. O ZIP contém a pasta AnimeDragon2: envie essa pasta para a raiz do repositório Anime_Dragon, sem criar outra pasta AnimeDragon2 dentro dela.
 
-Cloudflare: Root directory `AnimeDragon2`, Build command `npm run build`, Deploy command `npx wrangler deploy`. Preserve o banco `DB` e o segredo `TMDB_API_KEY`. O endpoint `/api/health` deve exibir `9.6.2` depois da publicação.
+Cloudflare: Root directory `AnimeDragon2`, Build command `npm run build`, Deploy command `npx wrangler deploy`. Preserve o banco `DB` e o segredo `TMDB_API_KEY`. O endpoint `/api/health` deve exibir `9.6.3` depois da publicação.
 
 ## Addons
 
