@@ -53,11 +53,32 @@ body{background:#0b0c11;color:var(--text)}body:before{display:none}::selection{b
 
 @supports(content-visibility:auto){.home-main>.section{content-visibility:auto;contain-intrinsic-size:auto 480px}.genre-grid{content-visibility:auto;contain-intrinsic-size:auto 600px}}
 
-/* Search remains in the header while only its suggestions update. */
-.site-header .search{position:relative;overflow:visible}
-.search-suggestions{position:absolute;z-index:80;top:calc(100% + 8px);left:0;right:0;max-height:min(65vh,560px);overflow-y:auto;background:#0b1522;border:1px solid #254c68;border-radius:14px;box-shadow:0 18px 50px #0009;padding:6px}
-.search-suggestions[hidden]{display:none}
-.search-suggestions button{width:100%;display:flex;align-items:center;gap:12px;text-align:left;border:0;border-radius:9px;padding:8px;background:transparent;color:#e7f3ff;cursor:pointer}
-.search-suggestions button:hover,.search-suggestions button[aria-selected=true]{background:#173b55}
-.search-suggestions img{width:42px;height:63px;object-fit:cover;border-radius:5px;flex-shrink:0}
-.search-suggestions span{display:grid;gap:5px}.search-suggestions small,.search-suggestions p{color:#a5c4df}.search-suggestions p{padding:12px;margin:0}
+/* Full viewport anime details, with room for the episode catalog. */
+.modal-back.detail-back{padding:0;display:block;background:#07111c;backdrop-filter:none}
+.modal.detail-modal{width:100%;max-width:none;height:100dvh;max-height:100dvh;box-sizing:border-box;border:0;border-radius:0;margin:0;padding:20px clamp(18px,3vw,64px) 48px;background:#08121e;scrollbar-gutter:stable}
+.detail-modal .modal-navigation{top:0;margin:0 0 14px;padding:0}
+.detail-modal .modal-head{margin:0 0 14px}
+.detail-modal .detail-backdrop{height:360px}
+.detail-modal .detail-summary{grid-template-columns:120px minmax(0,1fr);gap:24px}
+.detail-modal .detail-summary>.poster{width:120px;border-radius:12px}
+.detail-modal .detail-copy h2{font-size:clamp(26px,2.5vw,42px);letter-spacing:-1px}
+.detail-modal .synopsis{max-width:1050px;max-height:76px;margin:10px 0;font-size:13px;line-height:1.65}
+.detail-modal .genre-tags{margin:10px 0}
+.detail-modal .detail-copy .meta{margin:9px 0}
+.detail-modal .detail-copy .secondary{padding:8px 12px;min-height:32px;font-size:11px}
+.detail-modal .anime-actions{padding-top:18px;gap:10px}
+.detail-modal .episodes-heading{margin-top:18px;padding-top:18px}
+.detail-modal .episodes-heading h3{font-size:24px}
+.detail-modal .episode-toolbar{margin:14px 0 8px}
+.detail-modal .episode-grid{grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:18px}
+.detail-modal .episode-tile{transition:transform .18s,border-color .18s;box-shadow:0 5px 22px #0002}
+.detail-modal .episode-tile:hover{transform:translateY(-3px);border-color:#53bfff88}
+.detail-modal .episode-info b{font-size:13px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:2.8em}
+.detail-modal .episode-number{font-size:19px}
+.detail-modal .episode-preview img{transition:transform .25s}
+.detail-modal .episode:hover .episode-preview img{transform:scale(1.04)}
+.live-catalog{min-height:60vh}.live-catalog .page-heading{margin-bottom:24px}
+.search-catalog{grid-template-columns:repeat(auto-fill,minmax(185px,1fr));align-items:start}
+.search-catalog .card{max-width:270px;width:100%}.search-more{display:inline-flex;margin-top:26px}
+@media(max-width:720px){.modal.detail-modal{padding:14px 14px 30px}.detail-modal .detail-summary{grid-template-columns:82px minmax(0,1fr);gap:14px}.detail-modal .detail-summary>.poster{width:82px}.detail-modal .detail-copy h2{font-size:24px}.detail-modal .synopsis{font-size:12px;max-height:80px}.detail-modal .episode-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.detail-modal .episodes-heading{align-items:start;flex-direction:column;gap:10px}.detail-modal .episode-toolbar{gap:8px;align-items:stretch;flex-wrap:wrap}.detail-modal .episode-search{min-width:100%;max-width:none}.detail-modal .episode-info b{font-size:12px}.search-catalog{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(prefers-reduced-motion:reduce){.detail-modal .episode-tile,.detail-modal .episode-preview img{transition:none}}
