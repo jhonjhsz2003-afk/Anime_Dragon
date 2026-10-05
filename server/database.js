@@ -123,6 +123,8 @@ export const schema = [
 
  `CREATE INDEX IF NOT EXISTS anime_comments_order ON anime_comments(anime_id,created_at DESC,id DESC)`,
 
+ `CREATE INDEX IF NOT EXISTS anime_comments_parent ON anime_comments(parent_id,anime_id,created_at,id)`,
+
  `CREATE TABLE IF NOT EXISTS comment_reports(user_id TEXT NOT NULL,comment_id TEXT NOT NULL,created_at TEXT NOT NULL,PRIMARY KEY(user_id,comment_id))`
 
 ];

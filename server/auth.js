@@ -58,20 +58,38 @@ export async function throttle(env,key,limit) {
 
 const tokenFrom = r => r.headers.get('Cookie')?.match(/(?:^|;\s*)ad_session=([a-f0-9]{64})(?:;|$)/)?.[1];
 
+export const SESSION_MAX_AGE = 30*86400;
+const SESSION_RENEW_WINDOW = 7*86400;
+
 export async function getUser(r,env) {
 
   const token=tokenFrom(r);if(!token)return null;
 
-  const user=await env.DB.prepare(`SELECT users.*,COALESCE(profile_privacy.visibility,'private') visibility,COALESCE(user_appearance.name_color,'ice') name_color,pm.x avatar_x,pm.y avatar_y,pm.zoom avatar_zoom FROM sessions JOIN users ON users.id=sessions.user_id LEFT JOIN profile_privacy ON profile_privacy.user_id=users.id LEFT JOIN user_appearance ON user_appearance.user_id=users.id LEFT JOIN profile_media pm ON pm.user_id=users.id WHERE sessions.${env.AUTH_LAYOUT.sessionKey}=? AND sessions.expires_at>?`).bind(await digest(token),new Date().toISOString()).first();
+  const user=await env.DB.prepare(`SELECT users.*,sessions.expires_at session_expires_at,COALESCE(profile_privacy.visibility,'private') visibility,COALESCE(user_appearance.name_color,'ice') name_color,pm.x avatar_x,pm.y avatar_y,pm.zoom avatar_zoom FROM sessions JOIN users ON users.id=sessions.user_id LEFT JOIN profile_privacy ON profile_privacy.user_id=users.id LEFT JOIN user_appearance ON user_appearance.user_id=users.id LEFT JOIN profile_media pm ON pm.user_id=users.id WHERE sessions.${env.AUTH_LAYOUT.sessionKey}=? AND sessions.expires_at>?`).bind(await digest(token),new Date().toISOString()).first();
   return user&&!user.blocked?{...user,id:String(user.id)}:null;
 
 }
 
-const cookie = (r,token,age) => `ad_session=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${age}${new URL(r.url).protocol==='https:'?'; Secure':''}`;
+const cookie = (r,token,age) => `ad_session=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${age}; Expires=${new Date(age?Date.now()+age*1000:0).toUTCString()}${new URL(r.url).protocol==='https:'?'; Secure':''}`;
+
+async function restoreSession(request,env){
+  const user=await getUser(request,env);
+  if(!user)return reply({ok:true,user:null,session:null},200,{Vary:'Cookie'});
+  const now=new Date(),renewBefore=new Date(now.getTime()+SESSION_RENEW_WINDOW*1000);
+  let expiresAt=user.session_expires_at,headers={Vary:'Cookie'};
+  if(new Date(expiresAt).getTime()<=renewBefore.getTime()){
+    const token=tokenFrom(request),nextExpiry=new Date(now.getTime()+SESSION_MAX_AGE*1000).toISOString();
+    // Update the existing token in place. A logged-out or expired token must
+    // never be inserted again, including when another tab renews concurrently.
+    const renewed=await env.DB.prepare(`UPDATE sessions SET expires_at=? WHERE ${env.AUTH_LAYOUT.sessionKey}=? AND expires_at>? AND expires_at<=? RETURNING expires_at`).bind(nextExpiry,await digest(token),now.toISOString(),renewBefore.toISOString()).first();
+    if(renewed){expiresAt=renewed.expires_at;headers['Set-Cookie']=cookie(request,token,SESSION_MAX_AGE);}
+  }
+  return reply({ok:true,user:publicUser(user),session:{expiresAt}},200,headers);
+}
 
 async function createSession(r,env,u) {
 
-  const token=random(32),now=new Date(),expires=new Date(now.getTime()+604800000);
+  const token=random(32),now=new Date(),expires=new Date(now.getTime()+SESSION_MAX_AGE*1000);
 
   const old=tokenFrom(r);
 
@@ -81,7 +99,7 @@ async function createSession(r,env,u) {
 
   await env.DB.batch(statements);
 
-  return reply({ok:true,user:publicUser(u)},200,{'Set-Cookie':cookie(r,token,604800)});
+  return reply({ok:true,user:publicUser(u),session:{expiresAt:expires.toISOString()}},200,{'Set-Cookie':cookie(r,token,SESSION_MAX_AGE),Vary:'Cookie'});
 
 }
 
@@ -91,7 +109,7 @@ export async function auth(request,env) {
 
   const path=new URL(request.url).pathname;
 
-  if(request.method==='GET' && path==='/api/auth/me')return reply({ok:true,user:((u)=>u?publicUser(u):null)(await getUser(request,env))});
+  if(request.method==='GET' && path==='/api/auth/me')return restoreSession(request,env);
 
   if(request.method!=='POST')throw error(405,'Método não permitido.');
 
