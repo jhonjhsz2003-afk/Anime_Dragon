@@ -1,8 +1,16 @@
-# AnimeDragon · v10.0.0
+# AnimeDragon · v11.0.0
 
 Site de animes em português para **Cloudflare Workers + Static Assets + D1**, com catálogo, busca, temporadas, player, contas, biblioteca, progresso e comentários.
 
 O pacote entregue coloca `package.json`, `package-lock.json` e `wrangler.toml` diretamente na raiz. Envie os arquivos extraídos para a raiz do repositório GitHub; não envie somente o ZIP nem crie outra pasta dentro da raiz.
+
+## Atualização v11
+
+A sessão permanece conectada por 30 dias e é renovada durante o uso. A página restaura a conta ao abrir e repete a consulta após falhas temporárias, sem salvar senha ou token em localStorage. Sessões já expiradas precisam de um novo login no AnimeDragon.
+
+A página do anime tem fundo amplo, ações centrais e prévias dos episódios. O player usa uma janela preta imersiva com controles sobre o vídeo, menus de fontes/legendas/velocidade, lista recolhível de episódios e acesso aos comentários do episódio. As opções disponíveis dependem das fontes de vídeo configuradas.
+
+Os comentários têm respostas aninhadas recolhíveis, paginação, votos, spoilers, edição, exclusão e denúncia. São comentários da comunidade do AnimeDragon; comentários e contas de outros sites não são importados.
 
 ## Começar
 
