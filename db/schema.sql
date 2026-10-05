@@ -182,5 +182,7 @@ CREATE TABLE IF NOT EXISTS playback_activity(user_id TEXT NOT NULL,anime_id INTE
 
 CREATE TABLE IF NOT EXISTS user_appearance(user_id TEXT PRIMARY KEY,name_color TEXT NOT NULL DEFAULT 'ice' CHECK(name_color IN ('ice','blue','cyan','green','gold','orange','pink','violet')));
 
+CREATE TABLE IF NOT EXISTS profile_identity(user_id TEXT PRIMARY KEY,cover TEXT NOT NULL DEFAULT 'aurora' CHECK(cover IN ('aurora','inferno','nebula','moon')),frame TEXT NOT NULL DEFAULT 'flame' CHECK(frame IN ('flame','crystal','halo','plain')),title TEXT NOT NULL DEFAULT 'Explorador de universos');
+
 
 CREATE TABLE IF NOT EXISTS profile_media(user_id TEXT PRIMARY KEY,mime TEXT NOT NULL,data TEXT NOT NULL,x REAL NOT NULL DEFAULT 50,y REAL NOT NULL DEFAULT 50,zoom REAL NOT NULL DEFAULT 100);

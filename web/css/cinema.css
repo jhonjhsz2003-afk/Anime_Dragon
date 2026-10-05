@@ -674,20 +674,6 @@ select { min-height: 41px; padding: 10px 32px 10px 13px; border: 1px solid #ffff
 .discussion-sort select { font-size: 12px; }
 .spoiler { border-color: #d8c09529; background: #d8c09505; }
 .toast { border: 1px solid #67c8ff48; border-radius: 12px; background: #1b2229; color: #eaf3f8; font-size: 13px; }
-
-/* Account forms remain part of the same product, with a little blue in the art. */
-.auth-shell { background: #080808; }
-.auth-panel { background: #0c0c0e; }
-.auth-world { background: radial-gradient(ellipse at 55% 60%, #173342, transparent 65%), linear-gradient(155deg, #0b1018, #0b1b29 55%, #080d16); }
-.auth-world-copy { top: 14%; }
-.auth-world-copy .badge { border-color: #67c8ff2b; background: #67c8ff08; color: #bbe7fd; }
-.auth-world h1 em { color: #b3e7ff; }
-.auth-world-copy p { color: #afc0cd; }
-.auth-form-wrap h2 { font-size: 40px; letter-spacing: -1.4px; }
-.auth-form-wrap > p { color: #aaaab6; font-size: 14px; }
-.auth-tabs { border-color: #ffffff1c; border-radius: 999px; background: #18181b; }
-.auth-tabs a { border-radius: 999px; font-size: 13px; }
-.auth-tabs a.active { border-color: #67c8ff4d; background: #67c8ff19; color: #b3e7ff; }
 .field { margin-bottom: 19px; }
 .field label { margin-bottom: 8px; color: #c0c0ca; font-size: 12px; }
 .field input,
@@ -697,12 +683,7 @@ select { min-height: 41px; padding: 10px 32px 10px 13px; border: 1px solid #ffff
 .field textarea::placeholder { color: #81818e; }
 .field input:focus,
 .field textarea:focus { border-color: var(--cyan); box-shadow: 0 0 0 3px #67c8ff12; }
-.password-field button { color: #b2d8eb; font-size: 11px; }
-.auth-submit { min-height: 48px; border-radius: 999px; font-size: 14px; }
-.auth-footnote,
-.auth-copyright,
-.upload-signup-note { color: #9898a5; font-size: 12px; }
-.auth-footnote a { color: #acdfff; }
+.upload-signup-note{ color: #9898a5; font-size: 12px; }
 .avatar-choice { border-color: #ffffff20; background: #18181c; }
 .avatar-choice.selected { border-color: var(--cyan); box-shadow: 0 0 0 2px #67c8ff26; }
 
@@ -954,16 +935,8 @@ textarea:focus-visible,
   .comment-tools { gap: 12px; }
   .comment-tools button { font-size: 11px; }
   .discussion-sort { align-items: flex-start; flex-direction: column; gap: 10px; }
-  .auth-world { height: 345px; }
-  .auth-world-copy { top: 95px; left: 24px; right: 28%; }
-  .auth-world-copy h1 { font-size: 32px; }
-  .auth-world-copy p { font-size: 12px; }
-  .auth-panel { padding: 28px 23px 40px; }
-  .auth-form-wrap h2 { font-size: 32px; }
-  .auth-form-wrap > p { font-size: 13px; }
   .field input,
   .field textarea { font-size: 16px; }
-  .auth-submit { font-size: 13px; }
 }
 
 @media (max-width: 380px) {

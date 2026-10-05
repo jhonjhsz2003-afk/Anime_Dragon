@@ -1,4 +1,4 @@
-# Publicar AnimeDragon v11.0.0 no Cloudflare
+# Publicar AnimeDragon v12.0.0 no Cloudflare
 
 Este pacote usa **Workers + Static Assets + D1**. O `wrangler.toml` está diretamente na raiz do repositório. O caminho de build é `/`; não configure `AnimeDragon2` para esta entrega.
 
@@ -79,7 +79,7 @@ npm run deploy
 
 Após a publicação:
 
-1. Abra a URL do Worker e `/api/health`: a versão deve ser `11.0.0`.
+1. Abra a URL do Worker e `/api/health`: a versão deve ser `12.0.0`.
 2. Confira catálogo, capas, busca e detalhes com sua chave TMDB configurada.
 3. Crie uma conta de teste, saia, entre novamente e confirme a persistência da biblioteca após recarregar.
 4. Confira comentários, avatar e progresso de episódios.

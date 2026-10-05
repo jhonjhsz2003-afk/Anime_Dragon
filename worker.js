@@ -1,5 +1,6 @@
 import { streamMime } from './server/addon.js';
 import {createCache} from './server/cache.js';
+import {withinCatalogBudget} from './server/catalog-budget.js';
 import {providers} from './server/providers.js';
 import {addonMetadata,addonSubtitles} from './server/services.js';
 import {compatibleSources,videoRelay} from './server/hls.js';
@@ -70,28 +71,35 @@ async function animeDetail(id, env) {
   if (!isAnime(d)) throw fail(404, 'Este título não faz parte do catálogo de animes.');
   return d;
 }
-async function catalog(request, env) {
+async function catalog(request, env, ctx) {
   const url = new URL(request.url), p = url.pathname.replace('/api/tmdb/', '/api/catalog/');
   if (p === '/api/catalog/home') {
     const today=new Date();
     const dateAt=days=>new Date(today.getTime()+days*86400000).toISOString().slice(0,10);
     const todayDate=dateAt(0),fromDate=dateAt(-120),weekDate=dateAt(-7),tomorrowDate=dateAt(1),upcomingEnd=dateAt(180);
     const dates={'air_date.gte':fromDate,'air_date.lte':todayDate};
-    const [current,recent,airing,ranked,popular,next]=await Promise.all([
-      discover(env,{sort_by:'popularity.desc',...dates}),
-      discover(env,{sort_by:'first_air_date.desc','first_air_date.gte':fromDate,'first_air_date.lte':todayDate}),
-      discover(env,{sort_by:'popularity.desc','air_date.gte':weekDate,'air_date.lte':todayDate}).catch(()=>({results:[]})),
-      discover(env,{sort_by:'vote_average.desc','vote_count.gte':'100','first_air_date.lte':todayDate}).catch(()=>({results:[]})),
-      discover(env,{sort_by:'popularity.desc','first_air_date.lte':todayDate}).catch(()=>({results:[]})),
-      discover(env,{sort_by:'first_air_date.asc','first_air_date.gte':tomorrowDate,'first_air_date.lte':upcomingEnd}).catch(()=>({results:[]}))
+    const currentTask=discover(env,{sort_by:'popularity.desc',...dates});
+    const recentTask=discover(env,{sort_by:'first_air_date.desc','first_air_date.gte':fromDate,'first_air_date.lte':todayDate});
+    const airingTask=discover(env,{sort_by:'popularity.desc','air_date.gte':weekDate,'air_date.lte':todayDate}).catch(()=>({results:[]}));
+    // Start episode-date enrichment as soon as its own discovery is ready.
+    const detailsTask=airingTask.then(airing=>Promise.all(airing.results.slice(0,12).map(p=>animeDetail(p.id,env).then(normalize).catch(()=>null))));
+    const background=ctx?.waitUntil?task=>ctx.waitUntil(task):null;
+    const optional=(task,fallback)=>withinCatalogBudget(task,2500,fallback,background);
+    const emptyRail={results:[]},emptyDetails=[];
+    const [current,recent,ranked,popular,next,details]=await Promise.all([
+      currentTask,recentTask,
+      optional(discover(env,{sort_by:'vote_average.desc','vote_count.gte':'100','first_air_date.lte':todayDate}),emptyRail),
+      optional(discover(env,{sort_by:'popularity.desc','first_air_date.lte':todayDate}),emptyRail),
+      optional(discover(env,{sort_by:'first_air_date.asc','first_air_date.gte':tomorrowDate,'first_air_date.lte':upcomingEnd}),emptyRail),
+      optional(detailsTask,emptyDetails)
     ]);
     const trending=current.results.length?current.results:recent.results;
-    const details=await Promise.all(airing.results.slice(0,12).map(p=>animeDetail(p.id,env).then(normalize).catch(()=>null)));
     // Catalog air dates describe the broadcast schedule, not stream availability.
     const updated=details.filter(p=>p?.last_episode_to_air?.air_date>=weekDate&&p.last_episode_to_air.air_date<=todayDate).sort((a,b)=>b.last_episode_to_air.air_date.localeCompare(a.last_episode_to_air.air_date));
     const featured=[...updated,...recent.results,...trending].filter((p,i,all)=>all.findIndex(x=>x.id===p.id)===i).slice(0,6);
     const upcoming=next.results.filter(p=>p.first_air_date>=tomorrowDate&&p.first_air_date<=upcomingEnd);
-    return {ok:true,trending,anime:trending,featured,updated,top:ranked.results,popular:popular.results,upcoming,recent:recent.results};
+    const partial=[ranked,popular,next].includes(emptyRail)||details===emptyDetails;
+    return {ok:true,trending,anime:trending,featured,updated,top:ranked.results,popular:popular.results,upcoming,recent:recent.results,...(partial?{partial:true}:{})};
   }
   if (p === '/api/catalog/discover') {
     if (url.searchParams.get('type') === 'movie') throw fail(404, 'O catálogo contém somente animes em série.');
@@ -139,7 +147,7 @@ export default {
       if (url.pathname.startsWith('/api/community/')) return await community(request,env,animeDetail);
       if (url.pathname.startsWith('/api/auth/')) return await auth(request,env);
       if (request.method !== 'GET') return json({ok:false,error:'Método não permitido.'},405,{Allow:'GET'});
-      if (url.pathname === '/api/health') return json({ok:true,service:'AnimeDragon',version:'11.0.0'});
+      if (url.pathname === '/api/health') return json({ok:true,service:'AnimeDragon',version:'12.0.0'});
       if (url.pathname === '/api/addons/metadata') {
         const id=url.searchParams.get('id');if(!/^\d{1,10}$/.test(id||''))throw fail(400,'Anime inválido.');
         return json(await addonMetadata(await animeDetail(id,env),env));
@@ -171,8 +179,8 @@ export default {
       const key=new Request(cacheUrl.toString(),{method:'GET'});
       const hit=cache?await cache.match(key):null;
       if (hit) return hit;
-      const data=await catalog(request,env);
-      const response=json(data,200,{'Cache-Control':'public, max-age=60, s-maxage=300'});
+      const data=await catalog(request,env,ctx);
+      const response=json(data,200,{'Cache-Control':data.partial?'public, max-age=15, s-maxage=15':'public, max-age=60, s-maxage=300'});
       if (cache) ctx.waitUntil(cache.put(key,response.clone()));
       return response;
     } catch(e) {

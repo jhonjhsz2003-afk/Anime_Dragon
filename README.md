@@ -1,14 +1,22 @@
-# AnimeDragon · v11.0.0
+# AnimeDragon · v12.0.0
 
 Site de animes em português para **Cloudflare Workers + Static Assets + D1**, com catálogo, busca, temporadas, player, contas, biblioteca, progresso e comentários.
 
 O pacote entregue coloca `package.json`, `package-lock.json` e `wrangler.toml` diretamente na raiz. Envie os arquivos extraídos para a raiz do repositório GitHub; não envie somente o ZIP nem crie outra pasta dentro da raiz.
 
-## Atualização v11
+## Atualização v12
+
+O detalhe do anime mantém a navegação superior e apresenta o herói à esquerda, episódios amplos e controles maiores. Temporadas únicas não exibem um seletor desnecessário. A lista renderiza 40 episódios por vez, com busca na temporada inteira e prévias responsivas. O novo login abre em modal preto e azul sobre a página atual, com fogo leve em CSS. O perfil oferece quatro atmosferas, quatro molduras e título pessoal com prévia instantânea; as escolhas ficam salvas no D1.
+
+Animações respeitam preferências de movimento reduzido. O início limita a espera por listas auxiliares e aquece o cache em segundo plano. A disponibilidade e a velocidade de vídeos continuam dependendo de conexão, dispositivo e fontes externas.
+
+Veja [docs/VALIDACAO-v12.md](docs/VALIDACAO-v12.md) para a conferência desta entrega.
+
+## Recursos mantidos da v11
 
 A sessão permanece conectada por 30 dias e é renovada durante o uso. A página restaura a conta ao abrir e repete a consulta após falhas temporárias, sem salvar senha ou token em localStorage. Sessões já expiradas precisam de um novo login no AnimeDragon.
 
-A página do anime tem fundo amplo, ações centrais e prévias dos episódios. O player usa uma janela preta imersiva com controles sobre o vídeo, menus de fontes/legendas/velocidade, lista recolhível de episódios e acesso aos comentários do episódio. As opções disponíveis dependem das fontes de vídeo configuradas.
+A página do anime tem fundo amplo, ações à esquerda e prévias dos episódios. O player usa uma janela preta imersiva com controles sobre o vídeo, menus de fontes/legendas/velocidade, lista recolhível de episódios e acesso aos comentários do episódio. As opções disponíveis dependem das fontes de vídeo configuradas.
 
 Os comentários têm respostas aninhadas recolhíveis, paginação, votos, spoilers, edição, exclusão e denúncia. São comentários da comunidade do AnimeDragon; comentários e contas de outros sites não são importados.
 

@@ -1,0 +1,184 @@
+/* Useful motion stays short and uses composited properties. */
+:root {
+  --motion-fast: 140ms;
+  --motion-enter: 240ms;
+  --motion-ease: cubic-bezier(.2,.8,.2,1);
+  --control-size: 44px;
+}
+
+button, a, summary, input, select, textarea {
+  -webkit-tap-highlight-color: #67c8ff25;
+  touch-action: manipulation;
+}
+
+:is(button, a, summary, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid #9ee1ff;
+  outline-offset: 4px;
+}
+
+:is(.primary, .secondary, .page-back, .filter, .upload-label, .login-link, .text-link,
+    .library-tabs a, .profile-tabs button, .settings-nav button, .tab, .comment-tools button) {
+  min-height: var(--control-size);
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+:is(.primary, .secondary, .page-back, .upload-label, .login-link, .text-link, .library-tabs a) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.site-header .top-nav > a,
+.site-header .header-more > summary,
+.site-header .header-more a {
+  min-height: var(--control-size);
+}
+
+.site-header .header-tools .icon-btn,
+.site-header .header-account .icon-btn,
+.menu-toggle,
+#header-search-close,
+.hero-switcher .icon-btn,
+.hero-switcher .hero-pause,
+.close {
+  width: var(--control-size);
+  height: var(--control-size);
+  min-width: var(--control-size);
+  min-height: var(--control-size);
+}
+
+.site-header .header-account .primary,
+.site-header .header-account .login-link,
+.site-header .header-account .profile-chip {
+  min-height: var(--control-size);
+}
+
+.header-account .login-link { padding-inline: 8px; }
+.header-account .primary { font-size: 14px; }
+.rail-arrow { width: 44px; min-width: 44px; min-height: 52px; }
+.rail-prev { left: -12px; }
+.rail-next { right: -12px; }
+.name-swatch { width: 44px; height: 44px; }
+.switch { width: 48px; height: 28px; min-height: 28px; }
+.switch::before { content: ""; position: absolute; inset: -8px 0; }
+.switch::after { width: 22px; height: 22px; }
+.switch.on::after { left: 22px; }
+
+/* Small visual indicators retain a full touch target. */
+.hero-dots { gap: 0; }
+.hero-dots button,
+.hero-dots button.active {
+  position: relative;
+  width: 28px;
+  height: 44px;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.hero-dots button::after {
+  content: "";
+  position: absolute;
+  top: 19px;
+  left: 11px;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: #ffffff50;
+  transition: transform var(--motion-fast), background-color var(--motion-fast);
+}
+.hero-dots button.active::after { background: #91ddff; transform: scaleX(2.4); }
+
+:is(.field input, .field select, .episode-search input, .library-search input, .search input) {
+  min-height: 48px;
+}
+.photo-adjustments input[type="range"] { min-height: 44px; }
+
+:is(.primary, .secondary, .icon-btn, .close, .page-back, .filter, .menu-toggle,
+    .hero-pause, .watched-toggle, .profile-tabs button, .comment-tools button) {
+  transition: transform var(--motion-fast) var(--motion-ease),
+    color var(--motion-fast), background-color var(--motion-fast), border-color var(--motion-fast);
+}
+
+:is(.card, .continue-card, .genre, .schedule-card) {
+  transition: transform 180ms var(--motion-ease), border-color var(--motion-fast);
+}
+
+:is(.primary, .secondary, .icon-btn, .close, .page-back, .menu-toggle, .hero-pause):active:not(:disabled) {
+  transform: scale(.97);
+}
+.filter:active:not(:disabled), .profile-tabs button:active:not(:disabled) { transform: translateY(1px); }
+
+.content > .page-heading,
+.content > .page-title,
+.hero .hero-content,
+.toast,
+.header-more[open] > ul {
+  animation: dragon-enter var(--motion-enter) var(--motion-ease) both;
+}
+.toast { overflow-wrap: anywhere; max-width: min(440px, calc(100vw - 32px)); }
+.toast.err { border-color: #ff6b87; }
+.toast.ok { border-color: #72d7b0; }
+.skeleton { animation: dragon-loading 1400ms ease-in-out 3; }
+
+@keyframes dragon-enter {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes dragon-loading {
+  0%, 100% { opacity: .65; }
+  50% { opacity: 1; }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .primary:hover, .secondary:hover { transform: translateY(-2px); filter: none; }
+  .continue-card:hover, .genre:hover, .schedule-card:hover { transform: translateY(-3px); }
+}
+
+@media (hover: none) {
+  .card:hover, .primary:hover, .secondary:hover, .genre:hover { transform: none; }
+  .card:hover .poster { transform: none; }
+}
+
+/* Reserve each cover's space and postpone rendering cards below the viewport. */
+.poster-wrap { aspect-ratio: 2 / 3; }
+.continue-card img { aspect-ratio: 16 / 9; object-fit: cover; }
+@supports (content-visibility: auto) {
+  .catalog-grid > :is(.card, .library-item) {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 380px;
+  }
+}
+
+@media (max-width: 760px) {
+  /* Avoid browser zoom when focusing a form on a phone. */
+  input:not([type="checkbox"]):not([type="range"]), textarea, select { font-size: 16px; }
+  .site-header .header-account .primary { min-height: 44px; padding: 10px 14px; font-size: 13px; }
+  .site-header .header-account .login-link { min-height: 44px; font-size: 14px; }
+  .site-header .header-account { gap: 4px; }
+  .hero-switcher { gap: 6px; }
+  .hero-switcher .icon-btn, .hero-switcher .hero-pause { width: 44px; height: 44px; }
+  .home-view .hero .actions .primary,
+  .home-view .hero .actions .secondary { min-height: 48px; font-size: 14px; }
+  .home-discovery .discovery-bar button,
+  .mood-chips a { min-height: 44px; font-size: 13px; }
+  .library-tabs { overflow-x: auto; flex-wrap: nowrap; padding: 4px 0 8px; }
+  .library-tabs a, .library-tabs button { flex-shrink: 0; white-space: nowrap; }
+  .toast { bottom: max(16px, env(safe-area-inset-bottom)); right: 16px; }
+  .card-score, .hero .actions .secondary { backdrop-filter: none; }
+}
+
+/* The preference applies to pseudo-elements as well as the controls themselves. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation: none !important;
+    transition: none !important;
+  }
+}
+.reduce-motion *, .reduce-motion *::before, .reduce-motion *::after {
+  scroll-behavior: auto !important;
+  animation: none !important;
+  transition: none !important;
+}

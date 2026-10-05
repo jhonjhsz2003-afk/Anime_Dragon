@@ -1,4 +1,4 @@
-# AnimeDragon v10.0.0 — enviar este pacote
+# AnimeDragon v12.0.0 — enviar este pacote
 
 O ZIP desta entrega contém o projeto **diretamente na raiz**: ao extrair, você deve encontrar `package.json`, `package-lock.json`, `worker.js` e `wrangler.toml` junto às pastas `web/`, `server/`, `db/`, `tests/` e `scripts/`.
 
@@ -40,7 +40,7 @@ npm run preview
 
 A prévia sem chave TMDB é uma demonstração identificada, com catálogo ilustrativo e banco SQLite local. Produção precisa do Secret `TMDB_API_KEY` para catálogo real. Vídeos dependem de fontes separadas; o ZIP não contém episódios.
 
-Depois de publicar, `/api/health` deve responder com `version: "10.0.0"`. Confira o catálogo com sua chave, cadastro/login, biblioteca, comentários e uma reprodução real. O health não testa banco ou serviços externos.
+Depois de publicar, `/api/health` deve responder com `version: "12.0.0"`. Confira o catálogo com sua chave, cadastro/login, biblioteca, comentários e uma reprodução real. O health não testa banco ou serviços externos.
 
 ## Prontidão técnica
 

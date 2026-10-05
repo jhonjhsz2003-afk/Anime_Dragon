@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
-import {livingDragon,bindDragon} from '../web/js/dragon.js';
+import {createAccountDialog} from '../web/js/account-dialog.js';
 import {createCatalogCache,createIntentPreloader} from '../web/js/navigation.js';
 import {createSourceLoader} from '../web/js/sources.js';
 import {bindLiveSearch,rankSearchResults} from '../web/js/live-search.js';
@@ -18,7 +18,9 @@ function setup({saved=false,sessionUser=null,fetchOverride}={}){
  let focused=null;
  Object.defineProperty(document,'activeElement',{get:()=>focused});
  window.HTMLElement.prototype.focus=function(){focused=this};
- const context=vm.createContext({createAuthSession,mountDiscussion,preferredCaptionLocale,mountWatchPlayer:(host,options)=>{player.options=options;host.innerHTML='<video data-fixture-player></video>';return {destroy(){player.destroyed++;}};},AbortController,createCatalogCache,createIntentPreloader,createSourceLoader,bindLiveSearch,rankSearchResults,console,window,document,location,history:{replaceState(_state,_title,hash){location.hash=hash}},navigator:{language:'pt-BR',languages:['pt-BR'],connection:{}},URLSearchParams,AbortSignal,Date,Intl,Map,HTMLImageElement:window.HTMLImageElement,matchMedia:()=>({matches:true}),livingDragon,bindDragon:()=>bindDragon(document),requestAnimationFrame:cb=>cb(),setTimeout:()=>0,clearTimeout(){},setInterval:()=>0,clearInterval(){},localStorage:{getItem:k=>memory.get(k)||null,setItem:(k,v)=>memory.set(k,v)},fetch:async(path,options={})=>{
+ window.HTMLElement.prototype.showModal=function(){this.setAttribute('open','');this.querySelector('input')?.focus()};
+ window.HTMLElement.prototype.close=function(){this.removeAttribute('open')};
+ const context=vm.createContext({createAuthSession,createAccountDialog,mountDiscussion,preferredCaptionLocale,mountWatchPlayer:(host,options)=>{player.options=options;host.innerHTML='<video data-fixture-player></video>';return {destroy(){player.destroyed++;}};},AbortController,createCatalogCache,createIntentPreloader,createSourceLoader,bindLiveSearch,rankSearchResults,console,window,document,location,history:{replaceState(_state,_title,hash){location.hash=hash}},navigator:{language:'pt-BR',languages:['pt-BR'],connection:{}},URLSearchParams,AbortSignal,Date,Intl,Map,HTMLImageElement:window.HTMLImageElement,matchMedia:()=>({matches:true}),requestAnimationFrame:cb=>cb(),setTimeout:()=>0,clearTimeout(){},setInterval:()=>0,clearInterval(){},localStorage:{getItem:k=>memory.get(k)||null,setItem:(k,v)=>memory.set(k,v)},fetch:async(path,options={})=>{
   calls.push({path,options});
   const overridden=fetchOverride?.(path,options);if(overridden!==undefined)return overridden;
   if(path==='/api/auth/me')return Response.json({ok:true,user:sessionUser});
@@ -43,7 +45,28 @@ function setup({saved=false,sessionUser=null,fetchOverride}={}){
 }
 const settle=async()=>{for(let i=0;i<10;i++)await new Promise(resolve=>setImmediate(resolve));};
 test('home binds overlay arrows and switches the featured anime',async()=>{const t=setup();await t.run('render()');assert.equal(t.document.querySelectorAll('.catalog-rail .rail-arrow').length,6);assert.equal(t.document.querySelector('.hero h1').textContent,'Anime & teste');t.document.querySelector('[data-hero-step="1"]').onclick();assert.equal(t.document.querySelector('.hero h1').textContent,'Segundo anime');});
-test('registration shows celestial dragon and submits real API request',async()=>{const t=setup();await t.run("location.hash='#cadastro';render()");assert.ok(t.document.querySelector('.celestial-dragon .celestial-art'));assert.equal(t.document.querySelectorAll('[data-avatar]').length,0);assert.equal(t.document.querySelector('.auth-dragon'),null);t.document.querySelector('#auth-name').value='Testador';t.document.querySelector('#auth-email').value='test@example.com';t.document.querySelector('#auth-password').value='uma-senha-longa-123';t.document.querySelector('#auth-confirm').value='uma-senha-longa-123';const form=t.document.querySelector('#auth-form');await form.onsubmit({preventDefault(){},currentTarget:form});assert.equal(t.run('state.user.id'),'u1');assert.ok(t.calls.some(x=>x.path==='/api/auth/register'&&x.options.method==='POST'));});
+test('registration uses a compact blue flame dialog and submits a real API request',async()=>{
+ const t=setup();await t.run("location.hash='#cadastro';render()");
+ assert.ok(t.document.querySelector('.account-dialog[open] .blue-fire'));assert.equal(t.document.querySelector('.auth-shell'),null);assert.ok(t.document.querySelector('.site-header'));assert.equal(t.run('location.hash'),'#home');
+ t.document.querySelector('#account-name').value='Testador';t.document.querySelector('#account-email').value='test@example.com';t.document.querySelector('#account-password').value='uma-senha-longa-123';t.document.querySelector('#account-confirm').value='uma-senha-longa-123';
+ const form=t.document.querySelector('#account-form');await form.onsubmit({preventDefault(){},currentTarget:form});
+ assert.equal(t.run('state.user.id'),'u1');assert.ok(t.calls.some(x=>x.path==='/api/auth/register'&&x.options.method==='POST'));assert.equal(t.document.querySelector('.account-dialog'),null);t.run('authSession.destroy()');
+});
+
+test('opening, switching and closing account access preserves the current anime and route',async()=>{
+ const t=setup();await t.run('render();openDetails(1)');await settle();const detail=t.document.querySelector('.detail-modal'),before=t.run('location.hash');
+ t.run("nav('entrar')");assert.ok(t.document.querySelector('.account-dialog[open]'));assert.equal(t.document.querySelector('.detail-modal'),detail);assert.equal(t.run('location.hash'),before);
+ t.document.querySelector('#account-email').value='remember@example.com';t.document.querySelector('[data-account-tab="register"]').onclick();assert.equal(t.document.querySelector('#account-email').value,'remember@example.com');assert.ok(t.document.querySelector('#account-confirm'));
+ t.document.querySelector('.account-close').onclick();assert.equal(t.document.querySelector('.account-dialog'),null);assert.equal(t.document.querySelector('.detail-modal'),detail);t.run('closeModal();authSession.destroy()');
+});
+
+test('profile appearance previews instantly and submits selected choices to the server',async()=>{
+ let submitted;const user={id:'u1',name:'Testador',email:'test@example.com',avatar:'/assets/avatar-default.svg',bio:''};
+ const t=setup({fetchOverride:(path,options)=>{if(path==='/api/auth/profile'){submitted=JSON.parse(options.body);return Response.json({ok:true,user:{...user,identity:submitted.identity}});}}});t.context.confirmedUser=user;t.run("authSession.accept(confirmedUser);location.hash='#profile';render()");await settle();
+ t.document.querySelector('[data-identity-cover="nebula"]').onclick();t.document.querySelector('[data-identity-frame="halo"]').onclick();const title=t.document.querySelector('#profile-title');title.value='Guardião das madrugadas';title.oninput();
+ assert.ok(t.document.querySelector('.profile-cover.identity-cover-nebula.identity-ring-halo'));assert.equal(t.document.querySelector('#identity-title-preview').textContent,title.value);
+ await t.document.querySelector('#profile-form').onsubmit({preventDefault(){}});assert.deepEqual(submitted.identity,{cover:'nebula',frame:'halo',title:'Guardião das madrugadas'});assert.equal(t.run('state.user.identity.cover'),'nebula');t.run('authSession.destroy()');
+});
 test('details binds episode previews, recommendations and community controls',async()=>{const t=setup();await t.run('openDetails(1)');await settle();assert.ok(t.document.querySelector('.detail-hero-art'));assert.equal(t.document.querySelectorAll('[data-episode]').length,2);assert.ok(t.document.querySelector('.episode-preview img'));assert.equal(t.document.querySelectorAll('.similar-grid .card').length,1);assert.equal(t.document.querySelectorAll('[data-reaction]').length,2);assert.ok(t.document.querySelector('.comment-guest'));assert.equal(t.document.querySelector('#detail-watch').disabled,false);});
 
 test('detail window has a persistent return control that closes and restores the page',async()=>{const t=setup();await t.run('render();openDetails(1)');await settle();assert.ok(t.document.querySelector('.modal-navigation #modal-back'));assert.equal(t.document.querySelector('#mclose'),null);assert.equal(t.document.querySelector('#back-episodes'),null);t.document.querySelector('#modal-back').onclick();assert.equal(t.document.querySelector('.modal'),null);assert.equal(t.document.querySelector('#app').inert,false);});
