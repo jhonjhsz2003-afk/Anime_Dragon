@@ -128,6 +128,19 @@ test('manual captions can be enabled with auto captions disabled and removed wit
   }finally{f.controller.destroy();}
 });
 
+test('external captions start disabled unless automatic captions were explicitly enabled',async()=>{
+  const subtitles=[{src:'https://subtitle.test/pt.vtt',language:'pt-BR',label:'Português'}];
+  for(const autoCaptions of [undefined,false,true]){
+    const f=fixture({autoCaptions,loadSubtitles:async()=>({subtitles})});try{
+      await settle();
+      assert.equal(f.q('#watch-caption').value,autoCaptions===true?'auto':'off');
+      assert.equal(f.calls.captions.length,autoCaptions===true?1:0);
+      assert.equal(!!f.q('video track'),autoCaptions===true);
+      assert.equal(f.q('video').paused,false);
+    }finally{f.controller.destroy();}
+  }
+});
+
 test('destroy silences the video, releases captions and ignores delayed provider updates',async()=>{
   let update;const f=fixture({loadSource:async({onUpdate})=>{update=onUpdate;return {streams:[{url:'https://video.test/first.mp4',type:'video/mp4'}],complete:false};}});
   await settle();f.controller.destroy();
