@@ -1,4 +1,5 @@
 import { database } from './database.js';
+import {identityColumns,identityJoin,profileIdentity,validateIdentity} from './profile-identity.js';
 
 // Passwords and session tokens never leave the server or enter localStorage.
 
@@ -16,7 +17,7 @@ const digest = async s => hex(await crypto.subtle.digest('SHA-256',enc.encode(s)
 
 const avatar = a => /^\/assets\/avatars\/avatar-([1-9]|1[0-2])(-animated)?\.svg$/.test(a || '') || /^\/api\/avatar\/[a-zA-Z0-9-]{1,80}\?v=[a-zA-Z0-9-]+$/.test(a||'') ? a : '/assets/avatar-default.svg';
 
-const publicUser = u => ({id:String(u.id),name:u.username,email:u.email,bio:u.bio || '',avatar:avatar(u.avatar_url),visibility:u.visibility||'private',nameColor:u.name_color||'ice',avatarFrame:{x:u.avatar_x??50,y:u.avatar_y??50,zoom:u.avatar_zoom??100}});
+const publicUser = u => ({id:String(u.id),name:u.username,email:u.email,bio:u.bio || '',avatar:avatar(u.avatar_url),visibility:u.visibility||'private',nameColor:u.name_color||'ice',identity:profileIdentity(u),avatarFrame:{x:u.avatar_x??50,y:u.avatar_y??50,zoom:u.avatar_zoom??100}});
 
 async function hmac(text,secret) {
 
@@ -65,7 +66,7 @@ export async function getUser(r,env) {
 
   const token=tokenFrom(r);if(!token)return null;
 
-  const user=await env.DB.prepare(`SELECT users.*,sessions.expires_at session_expires_at,COALESCE(profile_privacy.visibility,'private') visibility,COALESCE(user_appearance.name_color,'ice') name_color,pm.x avatar_x,pm.y avatar_y,pm.zoom avatar_zoom FROM sessions JOIN users ON users.id=sessions.user_id LEFT JOIN profile_privacy ON profile_privacy.user_id=users.id LEFT JOIN user_appearance ON user_appearance.user_id=users.id LEFT JOIN profile_media pm ON pm.user_id=users.id WHERE sessions.${env.AUTH_LAYOUT.sessionKey}=? AND sessions.expires_at>?`).bind(await digest(token),new Date().toISOString()).first();
+  const user=await env.DB.prepare(`SELECT users.*,sessions.expires_at session_expires_at,COALESCE(profile_privacy.visibility,'private') visibility,COALESCE(user_appearance.name_color,'ice') name_color,${identityColumns},pm.x avatar_x,pm.y avatar_y,pm.zoom avatar_zoom FROM sessions JOIN users ON users.id=sessions.user_id LEFT JOIN profile_privacy ON profile_privacy.user_id=users.id LEFT JOIN user_appearance ON user_appearance.user_id=users.id ${identityJoin} LEFT JOIN profile_media pm ON pm.user_id=users.id WHERE sessions.${env.AUTH_LAYOUT.sessionKey}=? AND sessions.expires_at>?`).bind(await digest(token),new Date().toISOString()).first();
   return user&&!user.blocked?{...user,id:String(user.id)}:null;
 
 }
@@ -152,16 +153,17 @@ export async function auth(request,env) {
     if(!/^[\p{L}\p{N}_ -]{3,30}$/u.test(name) || bio.length>300)throw error(400,'Use um nome de 3 a 30 caracteres e uma bio de até 300.');
 
     const nameColor=data.nameColor??u.name_color??'ice';
+    const identity=validateIdentity(data.identity,u);
 
     if(!['ice','blue','cyan','green','gold','orange','pink','violet'].includes(nameColor))throw error(400,'Escolha uma das cores disponíveis.');
 
     if(env.AUTH_LAYOUT.legacyNames&&await env.DB.prepare('SELECT id FROM users WHERE username=? AND id<>? LIMIT 1').bind(name,u.id).first())throw error(409,'Esse nome já está em uso.');
 
-    try {await env.DB.batch([env.DB.prepare('UPDATE users SET username=?,bio=?,avatar_url=?,updated_at=? WHERE id=?').bind(name,bio,avatar(u.avatar_url),new Date().toISOString(),u.id),env.DB.prepare('INSERT INTO user_appearance VALUES(?,?) ON CONFLICT(user_id) DO UPDATE SET name_color=excluded.name_color').bind(u.id,nameColor)]);}
+    try {await env.DB.batch([env.DB.prepare('UPDATE users SET username=?,bio=?,avatar_url=?,updated_at=? WHERE id=?').bind(name,bio,avatar(u.avatar_url),new Date().toISOString(),u.id),env.DB.prepare('INSERT INTO user_appearance VALUES(?,?) ON CONFLICT(user_id) DO UPDATE SET name_color=excluded.name_color').bind(u.id,nameColor),env.DB.prepare('INSERT INTO profile_identity(user_id,cover,frame,title) VALUES(?,?,?,?) ON CONFLICT(user_id) DO UPDATE SET cover=excluded.cover,frame=excluded.frame,title=excluded.title').bind(u.id,identity.cover,identity.frame,identity.title)]);}
 
     catch(e){if(String(e.message).includes('UNIQUE'))throw error(409,'Esse nome já está em uso.');throw e;}
 
-    return reply({ok:true,user:publicUser({...u,username:name,bio,avatar_url:avatar(u.avatar_url),name_color:nameColor})});
+    return reply({ok:true,user:publicUser({...u,username:name,bio,avatar_url:avatar(u.avatar_url),name_color:nameColor,profile_cover:identity.cover,profile_frame:identity.frame,profile_title:identity.title})});
 
   }
 
@@ -177,7 +179,7 @@ export async function auth(request,env) {
 
   if(path==='/api/auth/login') {
 
-    const u=await env.DB.prepare(`SELECT users.*,COALESCE(profile_privacy.visibility,'private') visibility,COALESCE(user_appearance.name_color,'ice') name_color,pm.x avatar_x,pm.y avatar_y,pm.zoom avatar_zoom FROM users LEFT JOIN profile_privacy ON profile_privacy.user_id=users.id LEFT JOIN user_appearance ON user_appearance.user_id=users.id LEFT JOIN profile_media pm ON pm.user_id=users.id WHERE email=?`).bind(email).first();
+    const u=await env.DB.prepare(`SELECT users.*,COALESCE(profile_privacy.visibility,'private') visibility,COALESCE(user_appearance.name_color,'ice') name_color,${identityColumns},pm.x avatar_x,pm.y avatar_y,pm.zoom avatar_zoom FROM users LEFT JOIN profile_privacy ON profile_privacy.user_id=users.id LEFT JOIN user_appearance ON user_appearance.user_id=users.id ${identityJoin} LEFT JOIN profile_media pm ON pm.user_id=users.id WHERE email=?`).bind(email).first();
 
     const hash=await passwordHash(password,u?.password_salt || 'unknown-account-salt',env.AUTH_SECRET);
 

@@ -1,6 +1,7 @@
 import { database } from './database.js';
 
 import { getUser, throttle } from './auth.js';
+import {identityColumns,identityJoin,profileIdentity} from './profile-identity.js';
 
 const fail=(status,message)=>Object.assign(new Error(message),{status});
 
@@ -39,14 +40,14 @@ export async function community(request, env, validateAnime) {
 
    if(request.method!=='GET')throw fail(405,'Método não permitido.');
 
-   const target=await env.DB.prepare(`SELECT users.id,users.username,users.avatar_url,users.bio,COALESCE(user_appearance.name_color,'ice') name_color,COALESCE(profile_privacy.visibility,'private') visibility,pm.x avatar_x,pm.y avatar_y,pm.zoom avatar_zoom FROM users LEFT JOIN profile_privacy ON profile_privacy.user_id=users.id LEFT JOIN user_appearance ON user_appearance.user_id=users.id LEFT JOIN profile_media pm ON pm.user_id=users.id WHERE users.id=?`).bind(profileMatch[1]).first();
+   const target=await env.DB.prepare(`SELECT users.id,users.username,users.avatar_url,users.bio,COALESCE(user_appearance.name_color,'ice') name_color,COALESCE(profile_privacy.visibility,'private') visibility,${identityColumns},pm.x avatar_x,pm.y avatar_y,pm.zoom avatar_zoom FROM users LEFT JOIN profile_privacy ON profile_privacy.user_id=users.id LEFT JOIN user_appearance ON user_appearance.user_id=users.id ${identityJoin} LEFT JOIN profile_media pm ON pm.user_id=users.id WHERE users.id=?`).bind(profileMatch[1]).first();
 
    if(!target)throw fail(404,'Perfil não encontrado.');
 
    target.id=String(target.id);
    const owner=user?.id===target.id;
 
-   const profile={id:target.id,name:target.username,avatar:target.avatar_url,visibility:target.visibility,nameColor:target.name_color,avatarFrame:{x:target.avatar_x??50,y:target.avatar_y??50,zoom:target.avatar_zoom??100}};
+   const profile={id:target.id,name:target.username,avatar:target.avatar_url,visibility:target.visibility,nameColor:target.name_color,identity:profileIdentity(target),avatarFrame:{x:target.avatar_x??50,y:target.avatar_y??50,zoom:target.avatar_zoom??100}};
 
    if(!owner&&target.visibility!=='public')return json({ok:true,private:true,owner:false,profile});
 
