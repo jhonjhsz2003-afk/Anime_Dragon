@@ -73,6 +73,6 @@ Fontes oficiais: [Workers](https://developers.cloudflare.com/workers/platform/pr
 
 O workflow `.github/workflows/ci.yml` executa `npm ci`, build e a suíte completa de testes em Linux a cada push e pull request. Não publica o site e não precisa de segredos Cloudflare ou TMDB. O build verifica a sintaxe e prepara o Worker com `wrangler deploy --dry-run`, sem publicar. Os testes verificam os comportamentos cobertos. Reprodução externa e configuração real devem ser conferidas após o deploy.
 
-Os detalhes da conferência desta entrega estão em [docs/VALIDACAO-v10.md](docs/VALIDACAO-v10.md). Documentos de atualização v9.3/v9.4 foram mantidos em `docs/historico/` como registro das versões anteriores.
+Os detalhes da conferência desta entrega estão em [docs/VALIDACAO-v11.md](docs/VALIDACAO-v11.md). Documentos de atualização v9.3/v9.4 foram mantidos em `docs/historico/` como registro das versões anteriores.
 
-Os arquivos `ATUALIZAR-v9.3.md`, `ATUALIZAR-v9.4.md` e notas técnicas de versões v9 em `docs/` são históricos. Instruções antigas sobre a pasta `AnimeDragon2`, versões ou números de testes não se aplicam a este pacote na raiz. Use os três documentos principais desta v10 como referência para publicar.
+Os arquivos `ATUALIZAR-v9.3.md`, `ATUALIZAR-v9.4.md` e notas técnicas de versões v9 em `docs/` são históricos. Instruções antigas sobre a pasta `AnimeDragon2`, versões ou números de testes não se aplicam a este pacote na raiz. Use os documentos principais deste pacote v11 como referência para publicar.
