@@ -1,3 +1,4 @@
+import {createHeaderScroll} from './header-scroll.js?v=12.0.2';
 import {createAuthSession} from './auth-session.js?v=11.0.0';
 import {mountDiscussion} from './discussion.js?v=11.0.0';
 import {bindLiveSearch,rankSearchResults} from './live-search.js?v=11.0.0';
@@ -174,13 +175,15 @@ function showCatalogSearch(result){
  if(result.data?.totalPages>1){target.insertAdjacentHTML('beforeend',`<a class="secondary search-more" href="#search?q=${encodeURIComponent(result.query)}&page=2">Ver mais resultados →</a>`);}
  bindCards();
 }
+let headerScrollController=null;
 function bindHeader(){
  const header=$('.site-header');if(!header)return;
+ headerScrollController?.destroy();headerScrollController=createHeaderScroll(header);
  const menu=$('#mobile-menu-toggle'),search=$('#header-search-toggle'),close=$('#header-search-close');
  const setMenu=open=>{header.classList.toggle('menu-open',open);menu.setAttribute('aria-expanded',String(open));menu.setAttribute('aria-label',open?'Fechar menu':'Abrir menu');};
  const setSearch=open=>{header.classList.toggle('search-open',open);search.setAttribute('aria-expanded',String(open));if(open){closeModal();setMenu(false);$('#global-search').focus();}};
  header.addEventListener('click',event=>{const link=event.target.closest('a[href^="#"]');if(link&&!['#entrar','#cadastro'].includes(link.getAttribute('href')))closeModal();});
- menu.onclick=()=>setMenu(!header.classList.contains('menu-open'));
+ menu.onclick=()=>{const open=!header.classList.contains('menu-open');if(open)setSearch(false);setMenu(open)};
  search.onclick=()=>setSearch(!header.classList.contains('search-open'));
  close.onclick=()=>{setSearch(false);search.focus();};
  header.onkeydown=event=>{if(event.key==='Escape'){setMenu(false);setSearch(false);$('.header-more')?.removeAttribute('open');search.focus();}};
@@ -204,12 +207,13 @@ function bind(){bindHeader();bindProfilePrivacy();bindCards();bindExtras();bindH
 function reducedMotion(){return !state.prefs.motion||matchMedia('(prefers-reduced-motion: reduce)').matches}
 
 let detailHeaderObserver=null;
+function refreshHeaderScroll(){document.dispatchEvent(new document.defaultView.Event('header-contextchange'));}
 function setModal(content,watch=false){
  discussionController?.destroy();discussionController=null;if(watchController){watchController.destroy();watchController=null;}
  detailHeaderObserver?.disconnect();detailHeaderObserver=null;
  $('#modal-root').innerHTML=`<div class="modal-back ${watch?'watch-back':'detail-back'}"><section class="modal ${watch?'watch-modal':'detail-modal'}" role="${watch?'dialog':'region'}" ${watch?'aria-modal="true" ':''}aria-labelledby="detail-title" tabindex="-1"><div class="modal-navigation"><button class="modal-back-button" id="modal-back">${icon('left')} Voltar</button><span>ANIMEDRAGON</span></div>${content}</section></div>`;
  document.body.classList.add('modal-open');document.body.classList.toggle('detail-open',!watch);$('#app').inert=watch;
- const main=$('#app .main');if(main)main.inert=!watch;
+ const main=$('#app .main');if(main)main.inert=!watch;refreshHeaderScroll();
  if(!watch){const header=$('.site-header');const measure=()=>document.documentElement.style.setProperty('--detail-header-height',`${header?.getBoundingClientRect?.().height||0}px`);measure();if(header&&typeof ResizeObserver==='function'){detailHeaderObserver=new ResizeObserver(measure);detailHeaderObserver.observe(header);}}
  $('#modal-root .modal').focus();$('#modal-root .modal-back').onclick=e=>{if(e.target===e.currentTarget)closeModal()};
  $('#modal-back').onclick=()=>{if($('#playback-body')&&state.details){openDetails(state.details.id,state.season,null,true);return}const previous=detailTrail.pop();if(previous)openDetails(previous.id,previous.season,null,true);else closeModal()};
@@ -276,7 +280,7 @@ function renderEpisodes(options={}){
 }
 function closeModal(){
  discussionController?.destroy();discussionController=null;detailHeaderObserver?.disconnect();detailHeaderObserver=null;detailTrail=[];
- if(watchController){watchController.destroy();watchController=null;}++modalVersion;++seasonVersion;const had=!!$('#modal-root').innerHTML;$('#modal-root').innerHTML='';document.body.classList.remove('modal-open','detail-open');$('#app').inert=false;const main=$('#app .main');if(main)main.inert=false;
+ if(watchController){watchController.destroy();watchController=null;}++modalVersion;++seasonVersion;const had=!!$('#modal-root').innerHTML;$('#modal-root').innerHTML='';document.body.classList.remove('modal-open','detail-open');$('#app').inert=false;const main=$('#app .main');if(main)main.inert=false;refreshHeaderScroll();
  if(had&&focusBeforeModal?.isConnected)focusBeforeModal.focus();
 }
 async function openPlayer(episode){
