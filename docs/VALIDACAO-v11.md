@@ -2,7 +2,7 @@
 
 Atualização de sessão, página do anime, player e comentários sobre a versão v10 já publicada.
 
-- 147 testes aprovados, executados por arquivo com Node.js 24 e `--test-isolation=none` no ambiente local. A separação por arquivo preserva o isolamento dos mocks de rede; o ambiente local restringe a criação de processos filhos.
+- 148 testes aprovados, executados por arquivo com Node.js 24 e `--test-isolation=none` no ambiente local. A separação por arquivo preserva o isolamento dos mocks de rede; o ambiente local restringe a criação de processos filhos.
 - Sessões novas de 30 dias; renovação da sessão válida na última semana, sem substituir token ou usuários legados. Falhas temporárias não apagam cookies ou usuário confirmado. Logout invalida consultas antigas.
 - Login local conferido no navegador e conta restaurada após recarregar a página.
 - Perfil, privacidade e avatar testados contra respostas atrasadas depois de logout. Revalidação não desmonta anime ou player aberto.
