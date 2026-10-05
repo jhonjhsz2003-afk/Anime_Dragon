@@ -1,3 +1,4 @@
+import {createHeaderScroll} from '../web/js/header-scroll.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
@@ -20,7 +21,7 @@ function setup({saved=false,sessionUser=null,fetchOverride}={}){
  window.HTMLElement.prototype.focus=function(){focused=this};
  window.HTMLElement.prototype.showModal=function(){this.setAttribute('open','');this.querySelector('input')?.focus()};
  window.HTMLElement.prototype.close=function(){this.removeAttribute('open')};
- const context=vm.createContext({createAuthSession,createAccountDialog,mountDiscussion,preferredCaptionLocale,mountWatchPlayer:(host,options)=>{player.options=options;host.innerHTML='<video data-fixture-player></video>';return {destroy(){player.destroyed++;}};},AbortController,createCatalogCache,createIntentPreloader,createSourceLoader,bindLiveSearch,rankSearchResults,console,window,document,location,history:{replaceState(_state,_title,hash){location.hash=hash}},navigator:{language:'pt-BR',languages:['pt-BR'],connection:{}},URLSearchParams,AbortSignal,Date,Intl,Map,HTMLImageElement:window.HTMLImageElement,matchMedia:()=>({matches:true}),requestAnimationFrame:cb=>cb(),setTimeout:()=>0,clearTimeout(){},setInterval:()=>0,clearInterval(){},localStorage:{getItem:k=>memory.get(k)||null,setItem:(k,v)=>memory.set(k,v)},fetch:async(path,options={})=>{
+ const context=vm.createContext({createHeaderScroll,createAuthSession,createAccountDialog,mountDiscussion,preferredCaptionLocale,mountWatchPlayer:(host,options)=>{player.options=options;host.innerHTML='<video data-fixture-player></video>';return {destroy(){player.destroyed++;}};},AbortController,createCatalogCache,createIntentPreloader,createSourceLoader,bindLiveSearch,rankSearchResults,console,window,document,location,history:{replaceState(_state,_title,hash){location.hash=hash}},navigator:{language:'pt-BR',languages:['pt-BR'],connection:{}},URLSearchParams,AbortSignal,Date,Intl,Map,HTMLImageElement:window.HTMLImageElement,matchMedia:()=>({matches:true}),requestAnimationFrame:cb=>cb(),setTimeout:()=>0,clearTimeout(){},setInterval:()=>0,clearInterval(){},localStorage:{getItem:k=>memory.get(k)||null,setItem:(k,v)=>memory.set(k,v)},fetch:async(path,options={})=>{
   calls.push({path,options});
   const overridden=fetchOverride?.(path,options);if(overridden!==undefined)return overridden;
   if(path==='/api/auth/me')return Response.json({ok:true,user:sessionUser});
@@ -80,7 +81,7 @@ test('header menu and search expose their state and restore focus on closing',as
  search.onclick();assert.equal(search.getAttribute('aria-expanded'),'true');assert.equal(header.classList.contains('search-open'),true);
  assert.equal(menu.getAttribute('aria-expanded'),'false');assert.equal(t.document.activeElement.id,'global-search');
  t.document.querySelector('#header-search-close').onclick();assert.equal(search.getAttribute('aria-expanded'),'false');assert.equal(t.document.activeElement,search);
- menu.onclick();search.onclick();header.onkeydown({key:'Escape'});
+ search.onclick();menu.onclick();assert.equal(header.classList.contains('search-open'),false);assert.equal(menu.getAttribute('aria-expanded'),'true');header.onkeydown({key:'Escape'});
  assert.equal(header.classList.contains('menu-open'),false);assert.equal(header.classList.contains('search-open'),false);
  assert.equal(search.getAttribute('aria-expanded'),'false');assert.equal(t.document.activeElement,search);
 });
