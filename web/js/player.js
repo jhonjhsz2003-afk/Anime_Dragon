@@ -57,7 +57,7 @@ export function mountWatchPlayer(host, options) {
   let resume=o.resume||0, lastSave=0, activity=false, started=false, captionUrls=[], auto=!!o.autoplay;
   let loadGeneration=0,prefetchedAt=0,sourceFailed=false,providersComplete=false;const attempted=new Set();
   let extraCaptions=[],captionList=[],captionChoice='',captionRequest=0,captionAbort=null,captionTried=new Set();
-  let controlsTimer=null,captionMode=o.autoCaptions===false?'off':'auto',commentCount=null,keyboardControls=false;
+  let controlsTimer=null,captionMode=o.autoCaptions===true?'auto':'off',commentCount=null,keyboardControls=false;
   const sourceId=s=>s?.key||s?.url;
   const availableEpisodes=o.episodes.filter(x=>!x.air_date||x.air_date<=new Date().toISOString().slice(0,10));
   const previous=availableEpisodes.find(x=>x.episode_number===o.episode-1), next=availableEpisodes.find(x=>x.episode_number===o.episode+1);

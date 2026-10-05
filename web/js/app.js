@@ -3,7 +3,7 @@ import {mountDiscussion} from './discussion.js?v=11.0.0';
 import {bindLiveSearch,rankSearchResults} from './live-search.js?v=11.0.0';
 import {preferredCaptionLocale} from './caption-language.js?v=9.6.1';
 import {createCatalogCache,createIntentPreloader} from './navigation.js?v=9.6';
-import { mountWatchPlayer } from './player.js?v=11.0.0';
+import { mountWatchPlayer } from './player.js?v=11.0.0-r2';
 import {createSourceLoader} from './sources.js?v=11.0.0';
 import { livingDragon, bindDragon } from './dragon.js?v=9.2';
 const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
@@ -32,7 +32,7 @@ const rating=p=>Number(p.vote_average||0)>0?Number(p.vote_average).toFixed(1):'â
 const state={authStatus:'loading',user:null,avatar:defaultAvatar,home:null,items:new Map(),list:[],history:[],prefs:store.get('ad_preferences',{motion:true,economy:false}),details:null,episodes:[],season:1};
 let detailTrail=[],pageTrail=[],lastPage=location.hash||'#home';
 let renderVersion=0,modalVersion=0,seasonVersion=0,focusBeforeModal=null,heroTimer=null,watchController=null,searchController=null,discussionController=null;
-if(state.prefs.autoCaptions===undefined)state.prefs.autoCaptions=true;
+if(state.prefs.autoCaptions===undefined)state.prefs.autoCaptions=false;
 state.heroIndex=0;state.favorites=[];state.library=[];state.watched=[];state.commentSort='recent';
 const pending=new Map(),cache=new Map();let catalogStorage;try{catalogStorage=sessionStorage;}catch{}const catalogMemory=createCatalogCache(catalogStorage);
 function route(){const [page='home',query='']=(location.hash.slice(1)||'home').split('?');return {page,params:new URLSearchParams(query)}}
