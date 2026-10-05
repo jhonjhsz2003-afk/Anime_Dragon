@@ -1,8 +1,8 @@
-# Dragão celestial azul
+# Histórico da arte removida
 
-Criado com a ferramenta integrada de geração de imagens, usando a referência fornecida pelo usuário. Arte final: `web/assets/dragon-celestial.png` (1024 × 1536). Animação: `web/js/dragon.js` e `web/css/celestial.css`.
+O antigo login usava uma ilustração de dragão com filtros SVG, partículas e paralaxe. Essa tela, seu JavaScript, seus estilos e sua imagem foram removidos na versão 12, conforme a mudança solicitada.
 
-A arte permanece em sua resolução original. O navegador aplica ondulação SVG, movimento CSS, aura, partículas e paralaxe. Há controle de pausa e respeito à preferência de movimento reduzido. Não é um GIF nem uma animação quadro a quadro.
+O acesso à conta agora usa um diálogo compacto sobre a página atual, com chamas azuis animadas por `transform` e `opacity`. O formulário respeita a preferência de movimento reduzido. O prompt abaixo fica somente como registro histórico.
 
 ## Prompt utilizado
 
