@@ -1,0 +1,14 @@
+# Copie para .dev.vars apenas para desenvolvimento com `npm run dev`.
+# .dev.vars nunca deve ir para o GitHub. Este exemplo não contém credenciais.
+# Preencha com sua chave ou token de leitura TMDB; deixe vazio para não configurado.
+TMDB_API_KEY=""
+
+# Opcional para uma NOVA instalação: segredo aleatório de pelo menos 32 caracteres.
+# O aplicativo também cria uma chave de instalação no D1 automaticamente.
+# Em banco existente, preserve o AUTH_SECRET anterior; não invente outro valor.
+# AUTH_SECRET=""
+
+# Opcionais: manifestos próprios de provedores compatíveis.
+# Configure URLs que contenham tokens como Secrets no Cloudflare, nunca em arquivos públicos.
+# STREMIO_MANIFEST_URL="https://seu-provedor.example/manifest.json"
+# AIOMETADATA_MANIFEST_URL="https://seu-provedor.example/manifest.json"
