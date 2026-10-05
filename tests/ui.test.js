@@ -6,17 +6,22 @@ import {livingDragon,bindDragon} from '../web/js/dragon.js';
 import {createCatalogCache,createIntentPreloader} from '../web/js/navigation.js';
 import {createSourceLoader} from '../web/js/sources.js';
 import {bindLiveSearch,rankSearchResults} from '../web/js/live-search.js';
+import {createAuthSession} from '../web/js/auth-session.js';
+import {mountDiscussion} from '../web/js/discussion.js';
+import {preferredCaptionLocale} from '../web/js/caption-language.js';
 const {parseHTML}=await import(process.env.ANIMEDRAGON_DOM_MODULE||'linkedom');
 const fixture={id:1,title:'Anime & teste',overview:'Uma aventura de teste',media_type:'tv',poster_path:'/poster.jpg',backdrop_path:'/back.jpg',first_air_date:'2026-01-01',vote_average:8.5,genres:[],number_of_episodes:2,seasons:[{season_number:1,episode_count:2}]};
-function setup({saved=false}={}){
+function setup({saved=false,sessionUser=null,fetchOverride}={}){
  const {window,document}=parseHTML('<html><head></head><body><div id="app"></div><div id="modal-root"></div><div id="toast-root"></div></body></html>');
  window.scrollTo=()=>{};window.HTMLElement.prototype.scrollIntoView=function(){};window.HTMLElement.prototype.scrollBy=function(){};
- const memory=new Map(),calls=[],location={hash:'#home',origin:'https://anime.test',pathname:'/'};
+ const memory=new Map(),calls=[],player={destroyed:0,options:null},location={hash:'#home',origin:'https://anime.test',pathname:'/'};
  let focused=null;
  Object.defineProperty(document,'activeElement',{get:()=>focused});
  window.HTMLElement.prototype.focus=function(){focused=this};
- const context=vm.createContext({createCatalogCache,createIntentPreloader,createSourceLoader,bindLiveSearch,rankSearchResults,console,window,document,location,history:{replaceState(_state,_title,hash){location.hash=hash}},navigator:{language:'pt-BR',languages:['pt-BR'],connection:{}},URLSearchParams,AbortSignal,Date,Intl,Map,HTMLImageElement:window.HTMLImageElement,matchMedia:()=>({matches:true}),livingDragon,bindDragon:()=>bindDragon(document),requestAnimationFrame:cb=>cb(),setTimeout:()=>0,clearTimeout(){},setInterval:()=>0,clearInterval(){},localStorage:{getItem:k=>memory.get(k)||null,setItem:(k,v)=>memory.set(k,v)},fetch:async(path,options={})=>{
+ const context=vm.createContext({createAuthSession,mountDiscussion,preferredCaptionLocale,mountWatchPlayer:(host,options)=>{player.options=options;host.innerHTML='<video data-fixture-player></video>';return {destroy(){player.destroyed++;}};},AbortController,createCatalogCache,createIntentPreloader,createSourceLoader,bindLiveSearch,rankSearchResults,console,window,document,location,history:{replaceState(_state,_title,hash){location.hash=hash}},navigator:{language:'pt-BR',languages:['pt-BR'],connection:{}},URLSearchParams,AbortSignal,Date,Intl,Map,HTMLImageElement:window.HTMLImageElement,matchMedia:()=>({matches:true}),livingDragon,bindDragon:()=>bindDragon(document),requestAnimationFrame:cb=>cb(),setTimeout:()=>0,clearTimeout(){},setInterval:()=>0,clearInterval(){},localStorage:{getItem:k=>memory.get(k)||null,setItem:(k,v)=>memory.set(k,v)},fetch:async(path,options={})=>{
   calls.push({path,options});
+  const overridden=fetchOverride?.(path,options);if(overridden!==undefined)return overridden;
+  if(path==='/api/auth/me')return Response.json({ok:true,user:sessionUser});
   if(path.includes('/api/community/')){
    if(options.method==='POST'){
     const payload=JSON.parse(options.body);
@@ -32,14 +37,14 @@ function setup({saved=false}={}){
   return Response.json({ok:true});
  }});
  // Remove startup calls only; later function declarations are needed by details.
- let code=readFileSync(new URL('../web/js/app.js',import.meta.url),'utf8').replace(/^import.*\r?\n/gm,'').replace(/^applyPrefs\(\);loadPersonal\(\);render\(\);\r?$/m,'').replace(/^api\('\/api\/auth\/me'\).*\r?$/m,'');
+ let code=readFileSync(new URL('../web/js/app.js',import.meta.url),'utf8').replace(/^import.*\r?\n/gm,'').replace(/^applyPrefs\(\);loadPersonal\(\);render\(\);\r?$/m,'').replace(/^authSession.start\(\);\r?$/m,'');
  vm.runInContext(code,context);context.fixture=fixture;vm.runInContext('state.home={trending:[fixture,{...fixture,id:2,title:"Segundo anime"}],recent:[fixture],top:[fixture]};remember(state.home.trending);',context);
- return {context,document,calls,run:s=>vm.runInContext(s,context)};
+ return {context,document,calls,player,run:s=>vm.runInContext(s,context)};
 }
 const settle=async()=>{for(let i=0;i<10;i++)await new Promise(resolve=>setImmediate(resolve));};
 test('home binds overlay arrows and switches the featured anime',async()=>{const t=setup();await t.run('render()');assert.equal(t.document.querySelectorAll('.catalog-rail .rail-arrow').length,6);assert.equal(t.document.querySelector('.hero h1').textContent,'Anime & teste');t.document.querySelector('[data-hero-step="1"]').onclick();assert.equal(t.document.querySelector('.hero h1').textContent,'Segundo anime');});
 test('registration shows celestial dragon and submits real API request',async()=>{const t=setup();await t.run("location.hash='#cadastro';render()");assert.ok(t.document.querySelector('.celestial-dragon .celestial-art'));assert.equal(t.document.querySelectorAll('[data-avatar]').length,0);assert.equal(t.document.querySelector('.auth-dragon'),null);t.document.querySelector('#auth-name').value='Testador';t.document.querySelector('#auth-email').value='test@example.com';t.document.querySelector('#auth-password').value='uma-senha-longa-123';t.document.querySelector('#auth-confirm').value='uma-senha-longa-123';const form=t.document.querySelector('#auth-form');await form.onsubmit({preventDefault(){},currentTarget:form});assert.equal(t.run('state.user.id'),'u1');assert.ok(t.calls.some(x=>x.path==='/api/auth/register'&&x.options.method==='POST'));});
-test('details binds episode previews, recommendations and community controls',async()=>{const t=setup();await t.run('openDetails(1)');await settle();assert.ok(t.document.querySelector('.detail-backdrop img'));assert.equal(t.document.querySelectorAll('[data-episode]').length,2);assert.ok(t.document.querySelector('.episode-preview img'));assert.equal(t.document.querySelectorAll('.similar-grid .card').length,1);assert.equal(t.document.querySelectorAll('[data-reaction]').length,2);assert.ok(t.document.querySelector('.comment-login'));});
+test('details binds episode previews, recommendations and community controls',async()=>{const t=setup();await t.run('openDetails(1)');await settle();assert.ok(t.document.querySelector('.detail-hero-art'));assert.equal(t.document.querySelectorAll('[data-episode]').length,2);assert.ok(t.document.querySelector('.episode-preview img'));assert.equal(t.document.querySelectorAll('.similar-grid .card').length,1);assert.equal(t.document.querySelectorAll('[data-reaction]').length,2);assert.ok(t.document.querySelector('.comment-guest'));assert.equal(t.document.querySelector('#detail-watch').disabled,false);});
 
 test('detail window has a persistent return control that closes and restores the page',async()=>{const t=setup();await t.run('render();openDetails(1)');await settle();assert.ok(t.document.querySelector('.modal-navigation #modal-back'));assert.equal(t.document.querySelector('#mclose'),null);assert.equal(t.document.querySelector('#back-episodes'),null);t.document.querySelector('#modal-back').onclick();assert.equal(t.document.querySelector('.modal'),null);assert.equal(t.document.querySelector('#app').inert,false);});
 
@@ -69,6 +74,62 @@ test('typing uses live search, ranks matching titles and keeps the search field 
  assert.equal(t.document.querySelector('.search-more').getAttribute('href'),'#search?q=Anime&page=2');
  assert.ok(t.calls.some(({path})=>path==='/api/catalog/search?q=Anime'));
  t.run('searchController.destroy()');
+});
+
+test('a restored account replaces the loading header and opens home from the login route',async()=>{
+ const user={id:'persistent-user',name:'Usuário persistente',avatar:'/assets/avatars/avatar-1.svg'};
+ const t=setup({sessionUser:user});
+ await t.run('render()');assert.ok(t.document.querySelector('.account-restoring'));assert.equal(t.document.querySelector('.login-link'),null);
+ await t.run("authSession.restore({force:true})");assert.ok(t.document.querySelector('.profile-chip'));assert.equal(t.document.querySelector('.profile-chip b').textContent,user.name);assert.equal(t.document.querySelector('.account-restoring'),null);
+ t.run("location.hash='#entrar'");await t.run("authSession.restore({force:true})");assert.equal(t.run('location.hash').replace(/^#/,''),'home');
+ t.run('authSession.destroy()');
+});
+
+test('session revalidation updates the account without closing an open anime',async()=>{
+ const user={id:'persistent-user',name:'Persistente',avatar:'/assets/avatars/avatar-1.svg'},t=setup({sessionUser:user});
+ await t.run('render();openDetails(1)');await settle();const modal=t.document.querySelector('.detail-modal');
+ await t.run('authSession.restore({force:true})');await settle();assert.equal(t.document.querySelector('.detail-modal'),modal);assert.equal(t.document.querySelector('#detail-title').textContent,fixture.title);assert.ok(t.document.querySelector('.comment-composer'));
+ t.run('authSession.destroy()');
+});
+
+test('account restoration and anonymous revalidation keep the active player mounted',async()=>{
+ const user={id:'persistent-user',name:'Persistente',avatar:'/assets/avatars/avatar-1.svg'},t=setup({sessionUser:user});
+ await t.run('render();openDetails(1)');await settle();await t.run('openPlayer(1)');await settle();
+ const video=t.document.querySelector('[data-fixture-player]'),modal=t.document.querySelector('.watch-modal');
+ assert.ok(video);assert.ok(modal);
+ await t.run('authSession.restore({force:true})');await settle();
+ assert.equal(t.document.querySelector('[data-fixture-player]'),video);assert.equal(t.document.querySelector('.watch-modal'),modal);assert.equal(t.player.destroyed,0);
+ t.run('authSession.clear()');await settle();
+ assert.equal(t.document.querySelector('[data-fixture-player]'),video);assert.equal(t.player.destroyed,0);assert.equal(t.run('state.user'),null);
+ t.run('authSession.destroy();closeModal()');assert.equal(t.player.destroyed,1);
+});
+
+test('a late profile or privacy response cannot restore an explicitly logged-out account',async()=>{
+ for(const endpoint of ['/api/auth/profile','/api/auth/privacy']){
+  let finish;
+  const user={id:'u1',name:'Testador',email:'test@example.com',avatar:'/assets/avatars/avatar-1.svg',visibility:'private'};
+  const t=setup({fetchOverride:path=>path===endpoint?new Promise(resolve=>finish=resolve):undefined});t.context.confirmedUser=user;
+  t.run("authSession.accept(confirmedUser);location.hash='#profile'");await t.run('render()');await settle();
+  const form=t.document.querySelector(endpoint.endsWith('privacy')?'#privacy-form':'#profile-form');
+  const saving=form.onsubmit({preventDefault(){},currentTarget:form});await settle();assert.equal(typeof finish,'function');
+  await t.document.querySelector('.header-account [data-logout]').onclick();assert.equal(t.run('state.user'),null);
+  finish(Response.json({ok:true,user:{...user,name:'Nome atualizado',visibility:'public'}}));await saving;await settle();
+  assert.equal(t.run('state.user'),null,`${endpoint} must not restore the logged-out user`);assert.equal(t.document.querySelector('.profile-chip'),null);
+  t.run('authSession.destroy()');
+ }
+});
+
+test('a confirmed avatar update invalidates an older account restoration',async()=>{
+ let finish;
+ const user={id:'u1',name:'Testador',email:'test@example.com',avatar:'/assets/avatars/avatar-1.svg'},oldUser={...user};
+ const updatedAvatar='/api/avatar/u1?v=updated';
+ const t=setup({fetchOverride:path=>path==='/api/auth/me'?new Promise(resolve=>finish=resolve):path.startsWith('/api/profile/avatar/crop?')?Response.json({ok:true,avatar:updatedAvatar,avatarFrame:{x:50,y:50,zoom:120}}):undefined});
+ t.context.confirmedUser=user;t.run("authSession.accept(confirmedUser);location.hash='#profile'");await t.run('render()');await settle();
+ const restoring=t.run('authSession.restore({force:true})');await settle();assert.equal(typeof finish,'function');
+ await t.document.querySelector('#save-photo').onclick();assert.equal(t.run('state.avatar'),updatedAvatar);
+ finish(Response.json({ok:true,user:oldUser}));await restoring;
+ assert.equal(t.run('state.avatar'),updatedAvatar);assert.equal(t.document.querySelector('.profile-chip img').getAttribute('src'),updatedAvatar);
+ t.run('authSession.destroy()');
 });
 
 test('detail tabs support arrows, Home and End while exposing only the selected panel',async()=>{

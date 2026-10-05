@@ -65,7 +65,9 @@ test('community persists reactions, separate collections and author-owned commen
  assert.equal((await send({action:'delete',id},b)).status,403);
  await send({action:'edit',id,body:'Minha opinião atualizada',spoiler:false});assert.equal((await read()).comments[0].body,'Minha opinião atualizada');
  await send({action:'comment',body:'Concordo com você',parentId:id},b);assert.equal((await read()).total,2);
- assert.equal((await read(a,'?season=1&episode=2')).total,1);assert.equal((await read(a,'?season=1&episode=3')).total,0);
+ const episodeDiscussion=await read(a,'?season=1&episode=2');assert.equal(episodeDiscussion.total,2);
+ assert.ok(episodeDiscussion.comments.some(c=>c.id===id));assert.ok(episodeDiscussion.comments.some(c=>c.parentId===id));
+ assert.equal((await read(a,'?season=1&episode=3')).total,0);
  await send({action:'report',id},b);await send({action:'report',id},b);const reports=await clean.DB.prepare('SELECT COUNT(*) n FROM comment_reports').first();assert.equal(reports.n,1);
  await send({action:'delete',id});assert.equal((await read()).total,1);
  const c=await (await invoke('/api/community/collections',null,a)).json();assert.equal(c.items[0].kind,'watchlater');

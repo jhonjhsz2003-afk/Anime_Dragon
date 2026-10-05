@@ -1,0 +1,137 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import vm from 'node:vm';
+import {parseHTML} from 'linkedom';
+import {chooseCaption} from '../web/js/caption-language.js';
+import {mergeCaptions} from '../web/js/captions.js';
+import {disposeMedia} from '../web/js/media-lifecycle.js';
+import {preferredAlternative} from '../web/js/playback-watchdog.js';
+import {playbackSourceLabel} from '../web/js/player.js';
+
+const settle=async()=>{for(let i=0;i<6;i++)await new Promise(resolve=>setImmediate(resolve));};
+function fixture(overrides={},externalDiscussion=false){
+  const {window,document}=parseHTML(`<html><body><div id="player"></div>${externalDiscussion?'<section id="discussion" hidden></section>':''}</body></html>`);
+  const calls={episodes:[],comments:[],progress:[],captions:[],revoked:[],closed:0};
+  const media=window.HTMLElement.prototype;
+  Object.defineProperties(media,{
+    paused:{configurable:true,get(){return this._paused!==false;}},
+    currentTime:{configurable:true,get(){return this._currentTime||0;},set(value){this._currentTime=value;}},
+    duration:{configurable:true,get(){return 120;}},
+  });
+  media.load=function(){this.currentTime=0;};
+  media.pause=function(){this._paused=true;this.dispatchEvent(new window.Event('pause'));};
+  media.play=function(){this._paused=false;this.dispatchEvent(new window.Event('playing'));return Promise.resolve();};
+  media.canPlayType=()=>'';media.scrollIntoView=function(){};media.focus=function(){};
+  const createElement=document.createElement.bind(document);
+  document.createElement=name=>{const el=createElement(name);if(name==='track')el.track={mode:'disabled'};return el;};
+  let seq=0;const timers=new Map();
+  const context=vm.createContext({window,document,MutationObserver:window.MutationObserver,AbortController,Blob,chooseCaption,mergeCaptions,disposeMedia,preferredAlternative,console,Date,
+    URL:{createObjectURL:()=>`blob:caption-${++seq}`,revokeObjectURL:value=>calls.revoked.push(value)},
+    setTimeout:(fn,delay)=>{const id=++seq;timers.set(id,{fn,delay});return id;},clearTimeout:id=>timers.delete(id),
+    createPlaybackWatchdog:()=>({start(){},stop(){},progress(){}}),
+    readCaption:async(src,signal)=>{calls.captions.push({src,signal});return 'WEBVTT\n\n00:00.000 --> 00:02.000\nOlá';},
+  });
+  let code=readFileSync(new URL('../web/js/player.js',import.meta.url),'utf8').replace(/^import.*\r?\n/gm,'').replace(/^export /gm,'');
+  vm.runInContext(code,context);
+  const options={title:'Anime & teste',poster:'/poster.svg',season:1,episode:1,autoplay:false,
+    episodes:[{episode_number:1,name:'Primeira história'},{episode_number:2,name:'Próximo capítulo'},{episode_number:3,name:'Ainda não chegou',air_date:'2099-01-01'}],
+    loadSource:async()=>({streams:[{url:'https://video.test/first.mp4',type:'video/mp4',label:'Vídeo original'},{url:'https://video.test/second.mp4',type:'video/mp4',label:'1080p'}],complete:true}),
+    loadCommunity:async()=>({total:12,comments:[],progress:[]}),loadHls:async()=>{},
+    onProgress:(...args)=>calls.progress.push(args),onActivity:async()=>{},onEnded:async()=>{},onMutation:async()=>{},
+    onEpisode:episode=>calls.episodes.push(episode),onComments:payload=>{calls.comments.push(payload);const panel=document.querySelector('#discussion');panel.hidden=!panel.hidden;},onClose:()=>calls.closed++,
+    ...overrides,
+  };
+  context.host=document.querySelector('#player');context.options=options;
+  const controller=vm.runInContext('mountWatchPlayer(host,options)',context);
+  const q=selector=>document.querySelector(selector);
+  const fire=(selector,type='click')=>q(selector).dispatchEvent(new window.Event(type,{bubbles:true}));
+  const choose=(selector,value)=>{Object.defineProperty(q(selector),'value',{configurable:true,value});fire(selector,'change');};
+  return {q,fire,choose,calls,controller,window,document,timers,
+    runControlsTimer(){for(const [id,job] of [...timers])if(job.delay===2600){timers.delete(id);job.fn();}},
+  };
+}
+
+test('source labels describe supplied video metadata without inventing audio variants',()=>{
+  assert.equal(playbackSourceLabel({label:'1080p'}),'1080p');
+  assert.equal(playbackSourceLabel({},1),'Vídeo 2');
+  assert.equal(playbackSourceLabel({label:'  '}),'Vídeo 1');
+});
+
+test('player exposes real comments count, close callback and a collapsed episode list',async()=>{
+  const f=fixture();try{
+    await settle();
+    assert.equal(f.q('.watch-heading h2').textContent,'Anime & teste');
+    assert.match(f.q('.watch-heading p').textContent,/T1 EP\.1 — Primeira história/);
+    assert.equal(f.q('#watch-episode-panel').hidden,true);
+    f.fire('[data-episodes-toggle]');
+    assert.equal(f.q('#watch-episode-panel').hidden,false);
+    assert.equal(f.q('[data-episodes-toggle]').getAttribute('aria-expanded'),'true');
+    assert.equal(f.q('[data-episode="3"]').disabled,true);
+    f.fire('[data-next]');assert.deepEqual(f.calls.episodes,[2]);
+    assert.equal(f.q('[data-comment-count]').textContent,'12');
+    assert.equal(f.q('#discussion').hidden,true);
+    f.fire('[data-comments]');assert.equal(f.q('#discussion').hidden,false);
+    assert.equal(f.calls.comments[0].count,12);assert.equal(f.calls.comments[0].episode,1);
+    f.fire('[data-player-close]');assert.equal(f.calls.closed,1);
+  }finally{f.controller.destroy();}
+});
+
+test('controls hide after playback inactivity and remain visible for pause and open settings',async()=>{
+  const f=fixture();try{
+    await settle();
+    assert.equal(f.q('[data-play]').getAttribute('aria-label'),'Pausar');
+    f.runControlsTimer();assert.equal(f.q('.watch-screen').classList.contains('controls-hidden'),true);
+    f.fire('.watch-screen','pointermove');assert.equal(f.q('.watch-screen').classList.contains('controls-hidden'),false);
+    f.fire('[data-settings]');assert.equal(f.q('.watch-settings-panel').hidden,false);
+    f.runControlsTimer();assert.equal(f.q('.watch-screen').classList.contains('controls-hidden'),false);
+    f.fire('[data-settings-close]');f.fire('[data-play]');
+    assert.equal(f.q('video').paused,true);assert.equal(f.q('.watch-center').hidden,false);
+    f.runControlsTimer();assert.equal(f.q('.watch-screen').classList.contains('controls-hidden'),false);
+  }finally{f.controller.destroy();}
+});
+
+test('an existing discussion panel is reused without duplicate ids or interrupting playback',async()=>{
+  const f=fixture({},true);try{
+    await settle();const video=f.q('video');
+    assert.equal(f.document.querySelectorAll('#discussion').length,1);
+    f.fire('[data-comments]');await settle();
+    assert.equal(f.q('#discussion').hidden,false);assert.equal(f.q('video'),video);assert.equal(video.paused,false);
+    assert.equal(f.q('[data-comments]').getAttribute('aria-expanded'),'true');
+    f.fire('[data-comments]');await settle();
+    assert.equal(f.q('#discussion').hidden,true);assert.equal(f.q('[data-comments]').getAttribute('aria-expanded'),'false');
+  }finally{f.controller.destroy();}
+});
+
+test('switching video preserves position and speed while skip remains bounded by duration',async()=>{
+  const f=fixture();try{
+    await settle();const video=f.q('video');
+    video.currentTime=47;f.choose('#watch-speed','1.5');assert.equal(video.playbackRate,1.5);
+    assert.equal(video.defaultPlaybackRate,1.5);
+    f.choose('#watch-source','1');await settle();video.dispatchEvent(new f.window.Event('loadedmetadata'));
+    assert.equal(video.src,'https://video.test/second.mp4');assert.equal(video.currentTime,47);assert.equal(video.playbackRate,1.5);
+    video.currentTime=118;f.fire('[data-skip="10"]');assert.equal(video.currentTime,120);
+    video.currentTime=3;f.fire('[data-skip="-10"]');assert.equal(video.currentTime,0);
+    assert.ok(f.calls.progress.some(([position])=>position===47));
+  }finally{f.controller.destroy();}
+});
+
+test('manual captions can be enabled with auto captions disabled and removed without stopping video',async()=>{
+  const f=fixture({autoCaptions:false,loadSubtitles:async()=>({subtitles:[{src:'https://subtitle.test/pt.vtt',language:'pt-BR',label:'Português'}]})});try{
+    await settle();assert.equal(f.q('#watch-caption').disabled,false);assert.equal(f.calls.captions.length,0);
+    f.choose('#watch-caption','https://subtitle.test/pt.vtt');await settle();
+    assert.equal(f.q('video track').track.mode,'showing');assert.equal(f.calls.captions.length,1);
+    assert.equal(f.q('video').paused,false);
+    f.choose('#watch-caption','off');
+    assert.equal(f.q('video track'),null);assert.equal(f.q('video').paused,false);
+    assert.equal(f.calls.revoked.length,1);
+  }finally{f.controller.destroy();}
+});
+
+test('destroy silences the video, releases captions and ignores delayed provider updates',async()=>{
+  let update;const f=fixture({loadSource:async({onUpdate})=>{update=onUpdate;return {streams:[{url:'https://video.test/first.mp4',type:'video/mp4'}],complete:false};}});
+  await settle();f.controller.destroy();
+  assert.equal(f.q('video').muted,true);assert.equal(f.q('video').paused,true);assert.equal(f.q('video').getAttribute('src'),null);
+  update({streams:[{url:'https://video.test/late.mp4'}],complete:true});await settle();
+  assert.equal(f.q('video').getAttribute('src'),null);assert.equal(f.timers.size,0);
+});

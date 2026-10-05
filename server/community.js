@@ -6,6 +6,27 @@ const fail=(status,message)=>Object.assign(new Error(message),{status});
 
 const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{'Content-Type':'application/json','Cache-Control':'no-store'}});
 
+const commentFields=`c.*,u.username,u.avatar_url,pm.x avatar_x,pm.y avatar_y,pm.zoom avatar_zoom,
+ COALESCE((SELECT name_color FROM user_appearance WHERE user_id=u.id),'ice') name_color,
+ (SELECT COALESCE(SUM(value),0) FROM comment_reactions WHERE comment_id=c.id) comment_score,
+ (SELECT COUNT(*) FROM comment_reactions WHERE comment_id=c.id AND value=1) likes,
+ (SELECT COUNT(*) FROM comment_reactions WHERE comment_id=c.id AND value=-1) dislikes,
+ (SELECT value FROM comment_reactions WHERE comment_id=c.id AND user_id=?) reaction,
+ (SELECT COUNT(*) FROM anime_comments child WHERE child.parent_id=c.id AND child.anime_id=c.anime_id) reply_count`;
+const commentJoins='anime_comments c JOIN users u ON u.id=c.user_id LEFT JOIN profile_media pm ON pm.user_id=u.id';
+function publicComment(c,user){
+ // Empty bodies are deletion placeholders. Published comments require 2+ characters,
+ // so existing databases need no new column or rewritten discussion records.
+ const deleted=c.body==='';
+ return {id:c.id,userId:deleted?null:String(c.user_id),nameColor:deleted?'ice':c.name_color,
+  likes:deleted?0:c.likes,dislikes:deleted?0:c.dislikes,reaction:deleted?0:c.reaction||0,
+  body:deleted?'Comentário excluído.':c.body,spoiler:!deleted&&!!c.spoiler,season:c.season,episode:c.episode,
+  parentId:c.parent_id,replyCount:c.reply_count||0,deleted,createdAt:c.created_at,updatedAt:c.updated_at,
+  name:deleted?'Comentário excluído':c.username,avatar:deleted?'/assets/avatar-default.svg':c.avatar_url,
+  avatarFrame:deleted?{x:50,y:50,zoom:100}:{x:c.avatar_x??50,y:c.avatar_y??50,zoom:c.avatar_zoom??100},
+  mine:!deleted&&String(c.user_id)===user?.id};
+}
+
 export async function community(request, env, validateAnime) {
 
  env=await database(env);
@@ -61,15 +82,29 @@ export async function community(request, env, validateAnime) {
 
  if(request.method==='GET') {
 
-   const after=Math.max(0,Math.trunc(Number(u.searchParams.get('offset')))||0);
+   const value=Number(u.searchParams.get('offset'));
+   const after=Number.isSafeInteger(value)&&value>0?value:0;
+   const limit=20, parentId=u.searchParams.get('parent'), threaded=u.searchParams.get('view')==='threads';
 
    const scopeSeason=u.searchParams.get('season'),scopeEpisode=u.searchParams.get('episode');
 
    const scoped=/^\d+$/.test(scopeSeason||'')&&/^\d+$/.test(scopeEpisode||'');
 
-   const where=scoped?' AND c.season=? AND c.episode=?':'';
-
-   const args=scoped?[animeId,Number(scopeSeason),Number(scopeEpisode)]:[animeId];
+   const scopeWhere=scoped?' AND c.season=? AND c.episode=?':'';
+   const scopeArgs=scoped?[animeId,Number(scopeSeason),Number(scopeEpisode)]:[animeId];
+   let parent=null;
+   if(parentId!==null){
+     parent=await env.DB.prepare('SELECT c.id,c.user_id,c.parent_id,c.season,c.episode,c.body,u.username FROM anime_comments c JOIN users u ON u.id=c.user_id WHERE c.id=? AND c.anime_id=?').bind(parentId,animeId).first();
+     if(!parent)throw fail(404,'O comentário original não existe mais.');
+     if(scoped&&(parent.season!==Number(scopeSeason)||parent.episode!==Number(scopeEpisode)))throw fail(400,'O comentário pertence a outro episódio.');
+   }
+   const roots=" AND (c.parent_id IS NULL OR NOT EXISTS(SELECT 1 FROM anime_comments parent WHERE parent.id=c.parent_id AND parent.anime_id=c.anime_id))";
+   // Older replies did not inherit episode scope. The validated parent's identity
+   // is sufficient to find those existing replies without silently hiding them.
+   const where=parent?' AND c.parent_id=?':scopeWhere+(threaded?roots:" AND c.body<>''");
+   const args=parent?[animeId,parent.id]:scopeArgs;
+   const order=u.searchParams.get('sort')||(parent?'oldest':'recent');
+   const sorting=order==='popular'?'comment_score DESC,c.created_at DESC,c.id DESC':order==='oldest'?'c.created_at ASC,c.id ASC':'c.created_at DESC,c.id DESC';
 
    const [counts,mine,collections,comments,total,progress]=await Promise.all([
 
@@ -79,7 +114,7 @@ export async function community(request, env, validateAnime) {
 
      user?env.DB.prepare('SELECT kind FROM anime_library WHERE user_id=? AND anime_id=?').bind(user.id,animeId).all():{results:[]},
 
-     env.DB.prepare(`SELECT c.*,u.username,u.avatar_url,pm.x avatar_x,pm.y avatar_y,pm.zoom avatar_zoom,COALESCE((SELECT name_color FROM user_appearance WHERE user_id=u.id),'ice') name_color,(SELECT COALESCE(SUM(value),0) FROM comment_reactions WHERE comment_id=c.id) comment_score,(SELECT COUNT(*) FROM comment_reactions WHERE comment_id=c.id AND value=1) likes,(SELECT COUNT(*) FROM comment_reactions WHERE comment_id=c.id AND value=-1) dislikes,(SELECT value FROM comment_reactions WHERE comment_id=c.id AND user_id=?) reaction FROM anime_comments c JOIN users u ON u.id=c.user_id LEFT JOIN profile_media pm ON pm.user_id=u.id WHERE c.anime_id=?${where} ORDER BY ${u.searchParams.get('sort')==='popular'?'comment_score DESC,':''} c.created_at DESC,c.id DESC LIMIT 20 OFFSET ?`).bind(user?.id||'',...args,after).all(),
+     env.DB.prepare(`SELECT ${commentFields} FROM ${commentJoins} WHERE c.anime_id=?${where} ORDER BY ${sorting} LIMIT ? OFFSET ?`).bind(user?.id||'',...args,limit,after).all(),
 
      env.DB.prepare(`SELECT COUNT(*) total FROM anime_comments c WHERE c.anime_id=?${where}`).bind(...args).first(),
 
@@ -87,9 +122,12 @@ export async function community(request, env, validateAnime) {
 
    ]);
 
-   return json({ok:true,progress:progress.results,...counts,reaction:mine?.value||0,collections:collections.results.map(x=>x.kind),total:total.total,offset:after,
-
-    comments:comments.results.map(c=>({id:c.id,userId:String(c.user_id),nameColor:c.name_color,likes:c.likes,dislikes:c.dislikes,reaction:c.reaction||0,body:c.body,spoiler:!!c.spoiler,season:c.season,episode:c.episode,parentId:c.parent_id,createdAt:c.created_at,updatedAt:c.updated_at,name:c.username,avatar:c.avatar_url,avatarFrame:{x:c.avatar_x??50,y:c.avatar_y??50,zoom:c.avatar_zoom??100},mine:String(c.user_id)===user?.id}))});
+   const totalComments=await env.DB.prepare(`SELECT COUNT(*) total FROM anime_comments c WHERE c.anime_id=?${scopeWhere} AND c.body<>''`).bind(...scopeArgs).first();
+   const hasMore=after+comments.results.length<total.total;
+   return json({ok:true,progress:progress.results,...counts,reaction:mine?.value||0,collections:collections.results.map(x=>x.kind),
+    total:total.total,totalComments:totalComments.total,offset:after,limit,hasMore,nextOffset:hasMore?after+comments.results.length:null,
+    view:parent?'replies':threaded?'threads':'comments',parent:parent?{id:parent.id,parentId:parent.parent_id,name:parent.body===''?'Comentário excluído':parent.username,deleted:parent.body==='',season:parent.season,episode:parent.episode}:null,
+    comments:comments.results.map(c=>publicComment(c,user))});
 
  }
 
@@ -105,7 +143,7 @@ export async function community(request, env, validateAnime) {
 
  let d;try{d=JSON.parse(raw)}catch{throw fail(400,'Dados inválidos.');}
 
- if(!d||typeof d!=='object')throw fail(400,'Dados inválidos.');
+ if(!d||typeof d!=='object'||Array.isArray(d))throw fail(400,'Dados inválidos.');
 
  await throttle(env,`community:${user.id}`,100);
 
@@ -143,7 +181,7 @@ export async function community(request, env, validateAnime) {
 
    if(![-1,0,1].includes(d.value))throw fail(400,'Reação inválida.');
 
-   const row=await env.DB.prepare('SELECT id FROM anime_comments WHERE id=? AND anime_id=?').bind(String(d.id),animeId).first();
+   const row=await env.DB.prepare("SELECT id FROM anime_comments WHERE id=? AND anime_id=? AND body<>''").bind(String(d.id),animeId).first();
 
    if(!row)throw fail(404,'Comentário não encontrado.');
 
@@ -185,7 +223,7 @@ export async function community(request, env, validateAnime) {
 
    if(d.action==='edit') {
 
-     const row=await env.DB.prepare('SELECT user_id FROM anime_comments WHERE id=? AND anime_id=?').bind(String(d.id),animeId).first();
+     const row=await env.DB.prepare("SELECT user_id FROM anime_comments WHERE id=? AND anime_id=? AND body<>''").bind(String(d.id),animeId).first();
 
      if(String(row?.user_id)!==user.id)throw fail(403,'Você só pode editar seus comentários.');
 
@@ -197,27 +235,51 @@ export async function community(request, env, validateAnime) {
 
      let parent=null;
 
-     if(d.parentId){parent=await env.DB.prepare('SELECT id FROM anime_comments WHERE id=? AND anime_id=?').bind(String(d.parentId),animeId).first();if(!parent)throw fail(400,'O comentário original não existe mais.');}
+     if(d.parentId){parent=await env.DB.prepare('SELECT id,season,episode FROM anime_comments WHERE id=? AND anime_id=?').bind(String(d.parentId),animeId).first();if(!parent)throw fail(400,'O comentário original não existe mais.');}
 
-     const season=Number.isInteger(d.season)&&d.season>=0?d.season:null,episode=Number.isInteger(d.episode)&&d.episode>0?d.episode:null;
+     // A reply always belongs to its parent's debate, even when the client omits
+     // the episode or sends a conflicting one. This keeps it discoverable there.
+     const season=parent?parent.season:Number.isInteger(d.season)&&d.season>=0?d.season:null,
+      episode=parent?parent.episode:Number.isInteger(d.episode)&&d.episode>0?d.episode:null;
 
      const commentId=crypto.randomUUID();
 
      await commit([reserve(commentId),env.DB.prepare('INSERT INTO anime_comments(id,user_id,anime_id,season,episode,parent_id,body,spoiler,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?)').bind(commentId,user.id,animeId,season,episode,parent?.id||null,body,d.spoiler?1:0,now,now)]);
 
+     return json({ok:true,id:commentId,parentId:parent?.id||null,season,episode});
+
    }
 
  } else if(d.action==='delete') {
 
-   const row=await env.DB.prepare('SELECT user_id FROM anime_comments WHERE id=? AND anime_id=?').bind(String(d.id),animeId).first();
+   const row=await env.DB.prepare("SELECT user_id,parent_id FROM anime_comments WHERE id=? AND anime_id=? AND body<>''").bind(String(d.id),animeId).first();
 
    if(String(row?.user_id)!==user.id)throw fail(403,'Você só pode excluir seus comentários.');
 
-   await env.DB.batch([env.DB.prepare('DELETE FROM comment_reactions WHERE comment_id=?').bind(String(d.id)),env.DB.prepare('DELETE FROM comment_keys WHERE comment_id=?').bind(String(d.id)),env.DB.prepare('UPDATE anime_comments SET parent_id=NULL WHERE parent_id=?').bind(String(d.id)),env.DB.prepare('DELETE FROM anime_comments WHERE id=?').bind(String(d.id)),env.DB.prepare('DELETE FROM comment_reports WHERE comment_id=?').bind(String(d.id))]);
+   await env.DB.batch([
+    env.DB.prepare('DELETE FROM comment_reactions WHERE comment_id=?').bind(String(d.id)),
+    env.DB.prepare('DELETE FROM comment_keys WHERE comment_id=?').bind(String(d.id)),
+    env.DB.prepare("UPDATE anime_comments SET body='',spoiler=0,updated_at=? WHERE id=?").bind(now,String(d.id)),
+    // Keep the node when other people have replied; its original text is erased.
+    env.DB.prepare("DELETE FROM anime_comments WHERE id=? AND NOT EXISTS(SELECT 1 FROM anime_comments child WHERE child.parent_id=?)").bind(String(d.id),String(d.id)),
+   env.DB.prepare('DELETE FROM comment_reports WHERE comment_id=?').bind(String(d.id))
+   ]);
+
+   // Once the last reply is removed, discard empty deletion placeholders up the
+   // same ancestry chain. Other people's live conversations are never removed.
+   let ancestor=row.parent_id;const visited=new Set();
+   while(ancestor&&!visited.has(ancestor)){
+    visited.add(ancestor);
+    const node=await env.DB.prepare("SELECT parent_id FROM anime_comments WHERE id=? AND anime_id=? AND body=''").bind(ancestor,animeId).first();
+    if(!node)break;
+    const result=await env.DB.prepare("DELETE FROM anime_comments WHERE id=? AND body='' AND NOT EXISTS(SELECT 1 FROM anime_comments child WHERE child.parent_id=?)").bind(ancestor,ancestor).run();
+    if((result.meta?.changes??result.changes??0)!==1)break;
+    ancestor=node.parent_id;
+   }
 
  } else if(d.action==='report') {
 
-   const row=await env.DB.prepare('SELECT id FROM anime_comments WHERE id=? AND anime_id=?').bind(String(d.id),animeId).first();if(!row)throw fail(404,'Comentário não encontrado.');
+   const row=await env.DB.prepare("SELECT id FROM anime_comments WHERE id=? AND anime_id=? AND body<>''").bind(String(d.id),animeId).first();if(!row)throw fail(404,'Comentário não encontrado.');
 
    await env.DB.prepare('INSERT OR IGNORE INTO comment_reports(user_id,comment_id,created_at) VALUES(?,?,?)').bind(user.id,String(d.id),now).run();
 
