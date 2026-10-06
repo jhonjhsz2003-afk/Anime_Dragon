@@ -1,0 +1,64 @@
+/* A small translucent header; the page keeps its space while it contracts. */
+:root { --header-space: 68px; --header-search-space: 76px; }
+.site-header,
+.home-view .site-header,
+body.detail-open .site-header {
+  position: fixed;
+  inset: 0 0 auto;
+  background: #07101ea3;
+  border-bottom: 1px solid #91d5ff12;
+  backdrop-filter: blur(8px);
+  transition: background-color 180ms ease, border-color 180ms ease;
+}
+.site-header { z-index: 60; }
+body.detail-open .site-header { z-index: 130; }
+.site-header .masthead {
+  min-height: var(--header-space);
+  padding-block: 12px;
+  transition: min-height 180ms ease, padding 180ms ease;
+}
+.site-header .brand img { width: 34px; height: 34px; }
+.site-header .brand strong { font-size: 21px; }
+.site-header .brand img,
+.site-header .brand strong { transition: width 180ms ease, height 180ms ease, font-size 180ms ease; }
+.site-header.header-compact,
+body.detail-open .site-header.header-compact { background: #07101e73; border-bottom-color: #91d5ff0c; }
+.site-header.header-compact .masthead { min-height: 56px; padding-block: 6px; }
+.site-header.header-compact .brand img { width: 30px; height: 30px; }
+.site-header.header-compact .brand strong { font-size: 19px; }
+.site-header.search-open,
+.site-header.menu-open,
+body.detail-open .site-header.search-open,
+body.detail-open .site-header.menu-open { background: #07101eef; }
+.shell > .main { padding-top: var(--header-space); }
+.shell.home-view > .main { padding-top: 0; }
+.shell:not(.home-view):has(.site-header.search-open) > .main {
+  padding-top: calc(var(--header-space) + var(--header-search-space));
+}
+/* The anime artwork sits behind the header. Only the episode tabs stay pinned. */
+.modal-back.detail-back { top: 0; }
+.detail-modal .modal-navigation { position: relative; top: var(--header-space); }
+.detail-modal > .detail-tabs { top: var(--detail-header-height); }
+.detail-modal .detail-hero {
+  min-height: clamp(620px, calc(100dvh - var(--header-space) - 58px), 920px);
+}
+@media (max-width: 760px) {
+  :root { --header-space: 64px; --header-search-space: 70px; }
+  .site-header .masthead { padding-block: 10px; }
+  .site-header .brand img { width: 29px; height: 29px; }
+  .site-header .brand strong { font-size: 18px; }
+  .site-header.header-compact .brand img { width: 26px; height: 26px; }
+  .site-header.header-compact .brand strong { font-size: 18px; }
+  .site-header .top-nav { top: 100%; max-height: calc(100dvh - var(--header-space) - 12px); }
+}
+@media (max-width: 600px) {
+  .detail-modal .detail-hero { min-height: 720px; }
+}
+@media (max-width: 380px) {
+  .site-header .brand strong,
+  .site-header.header-compact .brand strong { font-size: 16px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .site-header, .site-header .masthead,
+  .site-header .brand img, .site-header .brand strong { transition: none; }
+}
