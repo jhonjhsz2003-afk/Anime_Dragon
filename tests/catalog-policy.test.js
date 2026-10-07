@@ -44,6 +44,19 @@ test('reliable audience ratings outrank a perfect single vote and duplicate rows
   assert.equal(merged.last_episode_to_air.air_date,'2026-10-07');assert.deepEqual(merged.curation_genres,['Romance']);
 });
 
+test('sparse weekly rows preserve enriched details while a complete ended detail can clear its next episode',()=>{
+  const rich=item(99,{genres:[{id:16,name:'Animação'},{id:10759,name:'Ação'}],seasons:[{season_number:1,episode_count:12}],number_of_episodes:12,status:'Returning Series',overview:'Sinopse completa',next_episode_to_air:{air_date:'2026-10-14',season_number:1,episode_number:13},last_episode_to_air:{air_date:'2026-10-07',season_number:1,episode_number:12}});
+  const weekly=item(99,{genres:[],seasons:[],number_of_episodes:0,status:'',overview:'',vote_average:0,next_episode_to_air:null,last_episode_to_air:null,weekly_trending:1});
+  const [merged]=mergeCatalogItems([rich,weekly]);
+  for(const name of ['genres','seasons','number_of_episodes','status','overview','vote_average','next_episode_to_air','last_episode_to_air'])assert.deepEqual(merged[name],rich[name]);
+  assert.equal(merged.weekly_trending,1);
+  const [reversed]=mergeCatalogItems([weekly,rich]);
+  assert.deepEqual(reversed.seasons,rich.seasons);assert.equal(reversed.number_of_episodes,12);assert.equal(reversed.weekly_trending,1);
+  const [ended]=mergeCatalogItems([rich,{...rich,status:'Ended',next_episode_to_air:null}]);
+  assert.equal(ended.status,'Ended');assert.equal(ended.next_episode_to_air,null);
+  assert.deepEqual(ended.last_episode_to_air,rich.last_episode_to_air);
+});
+
 test('the weekly endpoint is real, anime-only and excludes future premieres before curating home',async t=>{
   const today=new Date().toISOString().slice(0,10),requests=[];
   const valid={id:871,name:'Em alta',first_air_date:'2001-01-01',genre_ids:[16,10759],origin_country:['JP'],vote_average:8.4,vote_count:500,popularity:100};

@@ -1,5 +1,6 @@
 import {createHeaderScroll} from '../web/js/header-scroll.js';
 import {releasesPage,mountReleases,releaseDay} from '../web/js/releases.js';
+import {giphyPage,mountGiphy,createGiphyClient,giphyId} from '../web/js/giphy.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
@@ -13,18 +14,21 @@ import {mountDiscussion} from '../web/js/discussion.js';
 import {preferredCaptionLocale} from '../web/js/caption-language.js';
 const {parseHTML}=await import(process.env.ANIMEDRAGON_DOM_MODULE||'linkedom');
 const fixture={id:1,title:'Anime & teste',overview:'Uma aventura de teste',media_type:'tv',poster_path:'/poster.jpg',backdrop_path:'/back.jpg',first_air_date:'2026-01-01',vote_average:8.5,genres:[],number_of_episodes:2,seasons:[{season_number:1,episode_count:2}]};
-function setup({saved=false,sessionUser=null,fetchOverride}={}){
+function setup({saved=false,sessionUser=null,fetchOverride,preferences}={}){
  const {window,document}=parseHTML('<html><head></head><body><div id="app"></div><div id="modal-root"></div><div id="toast-root"></div></body></html>');
  window.scrollTo=()=>{};window.HTMLElement.prototype.scrollIntoView=function(){};window.HTMLElement.prototype.scrollBy=function(){};
  const memory=new Map(),calls=[],player={destroyed:0,options:null},location={hash:'#home',origin:'https://anime.test',pathname:'/'};
+ if(preferences)memory.set('ad_preferences',JSON.stringify(preferences));
  let focused=null;
  Object.defineProperty(document,'activeElement',{get:()=>focused});
  window.HTMLElement.prototype.focus=function(){focused=this};
  window.HTMLElement.prototype.showModal=function(){this.setAttribute('open','');this.querySelector('input')?.focus()};
  window.HTMLElement.prototype.close=function(){this.removeAttribute('open')};
- const context=vm.createContext({releasesPage,mountReleases,releaseDay,createHeaderScroll,createAuthSession,createAccountDialog,mountDiscussion,preferredCaptionLocale,mountWatchPlayer:(host,options)=>{player.options=options;host.innerHTML='<video data-fixture-player></video>';return {destroy(){player.destroyed++;}};},AbortController,createCatalogCache,createIntentPreloader,createSourceLoader,bindLiveSearch,rankSearchResults,console,window,document,location,history:{replaceState(_state,_title,hash){location.hash=hash}},navigator:{language:'pt-BR',languages:['pt-BR'],connection:{}},URLSearchParams,AbortSignal,Date,Intl,Map,HTMLImageElement:window.HTMLImageElement,matchMedia:()=>({matches:true}),requestAnimationFrame:cb=>cb(),setTimeout:()=>0,clearTimeout(){},setInterval:()=>0,clearInterval(){},localStorage:{getItem:k=>memory.get(k)||null,setItem:(k,v)=>memory.set(k,v)},fetch:async(path,options={})=>{
+ const context=vm.createContext({giphyPage,mountGiphy,giphyId,createGiphyClient:options=>createGiphyClient({fetcher:(...args)=>context.fetch(...args),...options}),observeGiphyAvatars:()=>({refresh(){},destroy(){}}),releasesPage,mountReleases,releaseDay,createHeaderScroll,createAuthSession,createAccountDialog,mountDiscussion,preferredCaptionLocale,mountWatchPlayer:(host,options)=>{player.options=options;host.innerHTML='<video data-fixture-player></video>';return {destroy(){player.destroyed++;}};},AbortController,createCatalogCache,createIntentPreloader,createSourceLoader,bindLiveSearch,rankSearchResults,console,window,document,location,history:{replaceState(_state,_title,hash){location.hash=hash}},navigator:{language:'pt-BR',languages:['pt-BR'],connection:{}},URLSearchParams,AbortSignal,Date,Intl,Map,HTMLImageElement:window.HTMLImageElement,matchMedia:()=>({matches:true}),requestAnimationFrame:cb=>cb(),setTimeout:()=>0,clearTimeout(){},setInterval:()=>0,clearInterval(){},localStorage:{getItem:k=>memory.get(k)||null,setItem:(k,v)=>memory.set(k,v)},fetch:async(path,options={})=>{
   calls.push({path,options});
   const overridden=fetchOverride?.(path,options);if(overridden!==undefined)return overridden;
+  if(path==='/api/giphy/config')return Response.json({ok:true,configured:true,apiKey:'fixture-public-giphy-key'});
+  if(path.startsWith('https://api.giphy.com/'))return Response.json({data:[{id:'fixtureAnimeGIF',title:'Anime em movimento',images:{fixed_width:{url:'https://media.giphy.com/media/fixtureAnimeGIF/200.gif'},fixed_width_still:{url:'https://media.giphy.com/media/fixtureAnimeGIF/200_s.gif'},original:{url:'https://media.giphy.com/media/fixtureAnimeGIF/giphy.gif'}}}],pagination:{count:1,total_count:1},meta:{status:200}});
   if(path==='/api/auth/me')return Response.json({ok:true,user:sessionUser});
   if(path.includes('/api/community/')){
    if(options.method==='POST'){
@@ -192,11 +196,11 @@ test('saving in details updates the hero and persists its state through renderin
 
 test('Lançamentos opens its public future agenda and never requests the aired discover listing',async()=>{
  const event={key:'1:episode:2:3:2099-01-02',kind:'episode',air_date:'2099-01-02',season_number:2,episode_number:3,anime:fixture};
- const t=setup({fetchOverride:path=>path.startsWith('/api/catalog/releases')?Response.json({ok:true,items:[event],asOf:'2026-10-07',page:1,hasMore:false}):undefined});
+ const t=setup({fetchOverride:path=>path.startsWith('/api/catalog/releases')?Response.json({ok:true,items:path.includes('summary=1')?[]:[event],...(path.includes('summary=1')?{summary:true,phase:'summary'}:{}),asOf:'2026-10-07',page:1,hasMore:false}):undefined});
  await t.run("location.hash='#releases';render()");await settle();
  assert.equal(t.document.querySelector('.top-nav a[aria-current="page"]').getAttribute('href'),'#releases');
  assert.ok(t.document.querySelector('time[datetime="2099-01-02"]'));
- assert.ok(t.document.querySelector('.release-episode').textContent.includes('T2 · EP.3'));
+ assert.equal(t.document.querySelector('.release-episode').textContent,'EP.3');
  assert.ok(t.calls.some(call=>call.path==='/api/catalog/releases?page=1'));
  assert.equal(t.calls.some(call=>call.path.startsWith('/api/catalog/discover')),false);
  t.run('releasesController.destroy();authSession.destroy()');
@@ -223,4 +227,62 @@ test('leaving the release page discards its late response instead of rewriting t
  assert.equal(t.document.querySelector('.releases-view'),null);
  assert.ok(t.document.querySelector('#catalog-results .catalog-grid'));
  t.run('authSession.destroy()');
+});
+
+test('episode-only labels retain the selected season in updated cards, resume history and the personal agenda',async()=>{
+ const twoSeasons={...fixture,seasons:[{season_number:1,episode_count:2},{season_number:2,episode_count:2}]};
+ const t=setup({fetchOverride:path=>path==='/api/catalog/tv/1'?Response.json({ok:true,item:twoSeasons}):undefined});
+ t.context.recentItem={...fixture,last_episode_to_air:{season_number:2,episode_number:3,air_date:'2026-01-01'}};t.context.resumeItem={...fixture,season:2,episode:3,progress:140,duration:1200};
+ t.run('state.home.updated=[recentItem];state.history=[resumeItem]');await t.run('render()');
+ const updated=t.document.querySelector('#updated [data-id]');assert.equal(updated.dataset.season,'2');assert.equal(updated.querySelector('.release-tag').textContent,'EP.3');
+ assert.match(t.document.querySelector('.continue-card small').textContent,/^EP\.3/);assert.doesNotMatch(t.document.querySelector('.continue-card small').textContent,/\bT2\b/);assert.equal(t.document.querySelector('.continue-rail').getAttribute('tabindex'),'0');
+ await updated.onclick();await settle();assert.equal(t.run('state.season'),2);assert.ok(t.calls.some(call=>call.path==='/api/catalog/tv/1/season/2'));assert.doesNotMatch(t.document.querySelector('#detail-watch').textContent,/\bT2\b/);
+ t.context.agendaItem={...fixture,next_episode_to_air:{season_number:2,episode_number:4,air_date:'2099-01-02'}};t.run('closeModal();document.querySelector("#page-content").innerHTML=calendarItems([agendaItem]);');
+ const agenda=t.document.querySelector('.schedule-card');assert.equal(agenda.dataset.season,'2');assert.match(agenda.textContent,/EP\.4/);assert.doesNotMatch(agenda.textContent,/\bT2\b/);t.run('authSession.destroy()');
+});
+
+test('opening and collapsing header search keeps the anime and measures its entire occupied height',async()=>{
+ const t=setup();await t.run('render()');const header=t.document.querySelector('.site-header'),search=t.document.querySelector('#header-search-toggle');
+ header.getBoundingClientRect=()=>({height:header.classList.contains('header-compact')?56:68,bottom:header.classList.contains('header-compact')?56:68});
+ t.document.querySelector('.masthead').getBoundingClientRect=header.getBoundingClientRect;
+ t.document.querySelector('#header-search').getBoundingClientRect=()=>({bottom:header.classList.contains('search-open')?(header.classList.contains('header-compact')?132:144):0});
+ await t.run('openDetails(1)');await settle();const modal=t.document.querySelector('.detail-modal');assert.equal(t.document.documentElement.style.getPropertyValue('--header-actual-offset'),'68px');
+ search.onclick();assert.equal(t.document.querySelector('.detail-modal'),modal);assert.equal(t.document.documentElement.style.getPropertyValue('--header-actual-offset'),'144px');assert.equal(typeof t.document.querySelector('#modal-back').onclick,'function');
+ header.classList.add('header-compact');t.run('syncHeaderOffset()');assert.equal(t.document.documentElement.style.getPropertyValue('--header-actual-offset'),'132px');
+ const event=new t.document.defaultView.Event('keydown',{bubbles:true,cancelable:true});event.key='Escape';header.onkeydown(event);t.document.dispatchEvent(event);
+ assert.equal(event.defaultPrevented,true);assert.equal(t.document.querySelector('.detail-modal'),modal);assert.equal(t.document.documentElement.style.getPropertyValue('--header-actual-offset'),'56px');
+ t.document.querySelector('#modal-back').onclick();assert.equal(t.document.querySelector('.detail-modal'),null);t.run('authSession.destroy()');
+});
+
+test('the caption update turns legacy auto-on off once while preserving a later explicit opt-in',async()=>{
+ const t=setup({preferences:{motion:true,economy:true,autoCaptions:true}});assert.equal(t.run('state.prefs.autoCaptions'),false);assert.equal(t.run('state.prefs.economy'),true);assert.equal(t.run('state.prefs.captionPreferenceVersion'),1);
+ await t.run('openDetails(1)');await t.run('openPlayer(1)');assert.equal(t.player.options.autoCaptions,false);
+ await t.run("location.hash='#settings';render()");const setting=t.document.querySelector('[data-pref="autoCaptions"]');assert.equal(setting.getAttribute('aria-checked'),'false');setting.onclick();assert.equal(setting.getAttribute('aria-checked'),'true');
+ const saved=t.run("JSON.parse(localStorage.getItem('ad_preferences'))");const next=setup({preferences:saved});assert.equal(next.run('state.prefs.autoCaptions'),true);assert.equal(next.run('state.prefs.captionPreferenceVersion'),1);t.run('authSession.destroy();closeModal()');next.run('authSession.destroy()');
+});
+
+test('caller cancellation reaches fetch without cancelling or removing another shared playback request',async()=>{
+ const requests=[];const t=setup({fetchOverride:(path,options)=>path==='/api/playback?abort-test'?new Promise((resolve,reject)=>{requests.push({resolve,signal:options.signal});options.signal.addEventListener('abort',()=>reject(options.signal.reason),{once:true});}):undefined});
+ t.context.caller=new AbortController();const shared=t.run("api('/api/playback?abort-test')"),cancelled=t.run("api('/api/playback?abort-test',{signal:caller.signal})");assert.equal(requests.length,2);
+ const rejection=assert.rejects(cancelled,error=>error.name==='AbortError');t.context.caller.abort();await rejection;assert.equal(requests[0].signal.aborted,false);
+ const again=t.run("api('/api/playback?abort-test')");assert.equal(requests.length,2);requests[0].resolve(Response.json({ok:true,available:false}));await Promise.all([shared,again]);
+ assert.equal(t.run('pending.size'),0);t.run('authSession.destroy()');
+});
+
+test('the public GIF route uses the real gallery and reads provider results without opening the anime catalog',async testContext=>{
+ const t=setup();testContext.after(()=>t.run('giphyController?.destroy();authSession.destroy()'));
+ await t.run("location.hash='#gifs';render()");await settle();
+ assert.ok(t.document.querySelector('.giphy-page'));assert.equal(t.document.querySelectorAll('[data-gif-select]').length,1);assert.ok(t.document.querySelector('.giphy-attribution img'));assert.equal(t.document.querySelector('.account-dialog'),null);
+ assert.ok(t.document.querySelector('.header-more a[href="#gifs"]'));assert.ok(t.calls.some(call=>call.path==='/api/giphy/config'));
+ const provider=t.calls.find(call=>call.path.startsWith('https://api.giphy.com/'));assert.equal(new URL(provider.path).searchParams.get('q'),'anime');assert.equal(provider.options.credentials,'omit');assert.equal(provider.options.cache,'no-store');
+ assert.equal(t.calls.some(call=>call.path.startsWith('/api/catalog/discover')),false);
+});
+
+test('leaving the GIF gallery aborts its request and a late provider response cannot replace the anime page',async testContext=>{
+ let finish,providerSignal;const pending=new Promise(resolve=>finish=resolve);
+ const t=setup({fetchOverride:(path,options)=>{if(path.startsWith('https://api.giphy.com/')){providerSignal=options.signal;return pending;}if(path.startsWith('/api/catalog/discover'))return Response.json({ok:true,results:[fixture],page:1,totalPages:1});}});testContext.after(()=>t.run('giphyController?.destroy();authSession.destroy()'));
+ await t.run("location.hash='#gifs';render()");await settle();assert.ok(providerSignal);assert.equal(providerSignal.aborted,false);
+ await t.run("location.hash='#anime';render()");await settle();assert.equal(providerSignal.aborted,true);assert.equal(t.run('giphyController'),null);const animePage=t.document.querySelector('#page-content').innerHTML;
+ finish(Response.json({data:[{id:'lateGIF',title:'Resposta antiga',images:{fixed_width:{url:'https://media.giphy.com/media/lateGIF/200.gif'}}}],pagination:{count:1,total_count:1},meta:{status:200}}));await settle();
+ assert.equal(t.document.querySelector('.giphy-page'),null);assert.equal(t.document.querySelector('#page-content').innerHTML,animePage);assert.ok(t.document.querySelector('#catalog-results .catalog-grid'));
 });

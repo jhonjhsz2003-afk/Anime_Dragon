@@ -12,7 +12,7 @@ function setup(t,{api=async()=>({items:[event(1,'series'),event(2,'season'),even
 const settle=async()=>{for(let i=0;i<4;i++)await new Promise(resolve=>setImmediate(resolve));};
 test('public releases show only valid future dates and never invent T/EP for unknown premieres',async t=>{
  const ui=setup(t,{api:async()=>({items:[event(1,'series'),event(2),event(3,'episode','2026-10-07'),event(4,'episode','2026-10-06'),event(5,'episode','2026-02-30')],asOf:'2026-10-07',page:1,hasMore:false})});await ui.controller.ready;
- assert.equal(ui.document.querySelectorAll('[data-release-key]').length,2);assert.equal(ui.document.querySelector('input[type=password]'),null);assert.equal(ui.calls[0],'/api/catalog/releases?page=1');
+ assert.equal(ui.document.querySelectorAll('[data-release-key]').length,2);assert.equal(ui.document.querySelector('input[type=password]'),null);assert.equal(ui.calls[0],'/api/catalog/releases?page=1&summary=1');
  const premiere=ui.document.querySelector('[data-release-key="1:series:2026-10-08"]');assert.match(premiere.textContent,/Primeira estreia/);assert.doesNotMatch(premiere.textContent,/T1|EP\.1|Assistir/);assert.match(premiere.textContent,/Ver anime/);
  assert.equal(ui.document.querySelector('.release-day-heading h2').textContent,'8 de outubro de 2026');assert.equal(ui.document.querySelector('.release-art img').getAttribute('loading'),'lazy');assert.match(ui.document.querySelector('.release-art img').src,/\/w500\//);
 });
@@ -28,7 +28,7 @@ test('more dates merge pages without duplicate cards and large lists render in b
  const large=setup(t,{api:async()=>({items:Array.from({length:60},(_,i)=>event(i+1)),page:1,hasMore:false})});await large.controller.ready;assert.equal(large.document.querySelectorAll('[data-release-key]').length,48);large.document.querySelector('[data-releases-more]').onclick();assert.equal(large.document.querySelectorAll('[data-release-key]').length,60);assert.equal(large.calls.length,1);
 });
 test('failed updates allow retry without substituting already aired catalog titles',async t=>{
- let attempts=0;const ui=setup(t,{api:async()=>{if(++attempts===1)throw Error('Sem conexão agora.');return {items:[event(1)],page:1,hasMore:false};}});await ui.controller.ready;
+ let attempts=0;const ui=setup(t,{api:async()=>{if(++attempts<=2)throw Error('Sem conexão agora.');return {items:[event(1)],page:1,hasMore:false};}});await ui.controller.ready;
  assert.equal(ui.document.querySelectorAll('[data-release-key]').length,0);assert.match(ui.document.querySelector('[data-releases-status]').textContent,/Sem conexão/);assert.equal(ui.document.querySelector('[data-releases-retry]').hidden,false);
  ui.document.querySelector('[data-releases-retry]').onclick();await settle();assert.equal(ui.document.querySelectorAll('[data-release-key]').length,1);assert.equal(ui.document.querySelector('[data-releases-retry]').hidden,true);
 });
@@ -39,4 +39,18 @@ test('destroyed views ignore late responses and midnight removes stale future en
 test('titles and episode names are escaped and unsupported image URLs are not embedded',async t=>{
  const ui=setup(t,{api:async()=>({items:[event(1,'episode','2026-10-08',{episode_name:'<script>bad()</script>',anime:{id:1,title:'<img src=x onerror=bad()>',poster_path:'javascript:bad()'}})],hasMore:false})});await ui.controller.ready;
  assert.equal(ui.document.querySelector('script'),null);assert.equal(ui.document.querySelector('[onerror]'),null);assert.equal(ui.document.querySelector('.release-art img').src,'/assets/poster-placeholder.svg');assert.match(ui.document.querySelector('.release-title').textContent,/<img/);
+});
+test('summary cards appear while details load and stay interactive without duplicate premieres',async t=>{
+ let finish;const seed=event(41,'series'),ui=setup(t,{api:path=>path.includes('summary=1')?Promise.resolve({items:[seed],summary:true,phase:'summary',page:1,hasMore:false}):new Promise(resolve=>finish=resolve)});await settle();
+ assert.equal(ui.document.querySelectorAll('[data-release-key]').length,1);assert.match(ui.document.querySelector('[data-releases-status]').textContent,/Consultando detalhes/);ui.document.querySelector('[data-release-key]').onclick();assert.equal(ui.opened[0].anime.id,41);
+ ui.document.querySelector('[data-release-kind="season"]').onclick();assert.equal(ui.document.querySelectorAll('[data-release-key]').length,0);
+ finish({items:[{...seed,key:'41:series:1:1:2026-10-08',season_number:1,episode_number:1},event(42,'season')],partial:true,resolvedIds:[41,42],page:1,hasMore:false});await ui.controller.ready;
+ assert.equal(ui.document.querySelector('[data-release-kind="season"]').getAttribute('aria-pressed'),'true');assert.equal(ui.document.querySelectorAll('[data-release-key]').length,1);ui.document.querySelector('[data-release-kind="all"]').onclick();assert.equal(ui.document.querySelectorAll('[data-release-key]').length,2);
+ assert.deepEqual(ui.calls,['/api/catalog/releases?page=1&summary=1','/api/catalog/releases?page=1']);
+});
+test('failed enrichment retains summary cards and retry keeps them visible until authoritative replacement',async t=>{
+ let attempts=0,finish;const seed=event(51,'series'),ui=setup(t,{api:async path=>{if(path.includes('summary=1'))return {items:[seed],summary:true,page:1,hasMore:false};if(++attempts===1)throw Error('Os episódios não responderam.');return new Promise(resolve=>finish=resolve);}});await ui.controller.ready;
+ const first=ui.document.querySelector('[data-release-key]');assert.ok(first);assert.match(ui.document.querySelector('[data-releases-status]').textContent,/não responderam/);assert.equal(ui.document.querySelector('[data-releases-retry]').hidden,false);
+ ui.document.querySelector('[data-releases-retry]').onclick();await settle();assert.equal(ui.document.querySelector('[data-release-key]'),first,'unchanged preview cards keep their image nodes and focus');
+ finish({items:[event(52)],partial:true,resolvedIds:[51,52],page:1,hasMore:false});await settle();assert.equal(ui.document.querySelectorAll('[data-release-key]').length,1);assert.equal(ui.document.querySelector('[data-release-key]').dataset.releaseKey,'52:episode:2026-10-08');
 });

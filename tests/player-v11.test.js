@@ -6,7 +6,7 @@ import {parseHTML} from 'linkedom';
 import {chooseCaption} from '../web/js/caption-language.js';
 import {mergeCaptions} from '../web/js/captions.js';
 import {disposeMedia} from '../web/js/media-lifecycle.js';
-import {preferredAlternative} from '../web/js/playback-watchdog.js';
+import {preferredAlternative,createPlaybackRecovery} from '../web/js/playback-watchdog.js';
 import {playbackSourceLabel} from '../web/js/player.js';
 
 const settle=async()=>{for(let i=0;i<6;i++)await new Promise(resolve=>setImmediate(resolve));};
@@ -18,6 +18,7 @@ function fixture(overrides={},externalDiscussion=false){
     paused:{configurable:true,get(){return this._paused!==false;}},
     currentTime:{configurable:true,get(){return this._currentTime||0;},set(value){this._currentTime=value;}},
     duration:{configurable:true,get(){return 120;}},
+    textTracks:{configurable:true,get(){return this._tracks||[];}},
   });
   media.load=function(){this.currentTime=0;this.error=null;};
   media.pause=function(){this._paused=true;this.dispatchEvent(new window.Event('pause'));};
@@ -26,7 +27,7 @@ function fixture(overrides={},externalDiscussion=false){
   const createElement=document.createElement.bind(document);
   document.createElement=name=>{const el=createElement(name);if(name==='track')el.track={mode:'disabled'};return el;};
   let seq=0;const timers=new Map();
-  const context=vm.createContext({window,document,MutationObserver:window.MutationObserver,AbortController,Blob,chooseCaption,mergeCaptions,disposeMedia,preferredAlternative,console,Date,
+  const context=vm.createContext({window,document,MutationObserver:window.MutationObserver,AbortController,Blob,chooseCaption,mergeCaptions,disposeMedia,preferredAlternative,createPlaybackRecovery,console,Date,
     URL:{createObjectURL:()=>`blob:caption-${++seq}`,revokeObjectURL:value=>calls.revoked.push(value)},
     setTimeout:(fn,delay)=>{const id=++seq;timers.set(id,{fn,delay});return id;},clearTimeout:id=>timers.delete(id),
     createPlaybackWatchdog:()=>({start(){},stop(){},progress(){}}),
@@ -62,7 +63,7 @@ test('player exposes real comments count, close callback and a collapsed episode
   const f=fixture();try{
     await settle();
     assert.equal(f.q('.watch-heading h2').textContent,'Anime & teste');
-    assert.match(f.q('.watch-heading p').textContent,/T1 EP\.1 — Primeira história/);
+    assert.match(f.q('.watch-heading p').textContent,/^EP\.1 — Primeira história/);
     assert.equal(f.q('#watch-episode-panel').hidden,true);
     f.fire('[data-episodes-toggle]');
     assert.equal(f.q('#watch-episode-panel').hidden,false);
@@ -152,7 +153,7 @@ test('destroy silences the video, releases captions and ignores delayed provider
 function hlsFixture(overrides={}){
  let current;
  class Hls {
-  static Events={ERROR:'error',MANIFEST_PARSED:'manifest',LEVEL_LOADED:'level',FRAG_LOADED:'fragment'};
+  static Events={ERROR:'error',MANIFEST_PARSED:'manifest',LEVEL_LOADED:'level',FRAG_LOADED:'fragment',SUBTITLE_TRACKS_UPDATED:'subtitles'};
   static isSupported(){return true;}
   constructor(){this.handlers=new Map();current=this;}
   on(event,callback){const list=this.handlers.get(event)||[];list.push(callback);this.handlers.set(event,list);}
@@ -184,5 +185,49 @@ test('HLS engine fallback ignores late native errors while the alternative engin
   f.q('video').error={code:4};f.fire('video','error');await settle();assert.equal(f.calls.plays,0);assert.notEqual(f.q('video').src,'https://video.test/alternate.mp4');
   class Player{static isBrowserSupported(){return true;}async attach(){}addEventListener(){}async load(url){loaded.push(url);}async destroy(){}}
   f.window.shaka={Player};finish();await settle();assert.deepEqual(loaded,['https://video.test/episode.m3u8']);assert.equal(f.calls.plays,1);
+ }finally{f.controller.destroy();}
+});
+
+async function runRetry(f,delay){const job=[...f.timers].find(([,row])=>row.delay===delay);assert.ok(job,`retry ${delay} scheduled`);f.timers.delete(job[0]);job[1].fn();await settle();}
+
+test('an empty initial provider response renews automatically and starts the next available video',async()=>{
+ const requests=[];const f=fixture({loadSource:async options=>{requests.push(options);return requests.length===1?{streams:[],complete:true}:{streams:[{url:'https://video.test/renewed.mp4',type:'video/mp4'}],complete:true};}});try{
+  await settle();assert.equal(requests.length,1);assert.equal(f.q('[data-overlay-retry]').hidden,true);assert.match(f.q('[data-message-title]').textContent,/automaticamente/);
+  await runRetry(f,900);assert.equal(requests.length,2);assert.equal(requests[1].fresh,true);assert.equal(f.q('video').src,'https://video.test/renewed.mp4');assert.equal(f.q('video').paused,false);
+ }finally{f.controller.destroy();}
+});
+
+test('a failed metadata request recovers without a manual press and cancels obsolete attempts',async()=>{
+ const requests=[];const f=fixture({loadSource:async options=>{requests.push(options);if(requests.length===1)throw Error('temporary outage');return {streams:[{url:'https://video.test/recovered.mp4',type:'video/mp4'}],complete:true};}});try{
+  await settle();assert.equal(f.q('[data-overlay-retry]').hidden,true);assert.equal(requests[0].signal.aborted,true);await runRetry(f,900);assert.equal(f.q('video').src,'https://video.test/recovered.mp4');assert.equal(f.calls.plays,1);
+ }finally{f.controller.destroy();}
+});
+
+test('three empty attempts exhaust one recovery and then expose the manual retry button',async()=>{
+ let attempts=0;const f=fixture({loadSource:async()=>{attempts++;return {streams:[],complete:true};}});try{
+  await settle();await runRetry(f,900);assert.equal(f.q('[data-overlay-retry]').hidden,true);await runRetry(f,2400);assert.equal(attempts,3);assert.equal(f.q('[data-overlay-retry]').hidden,false);assert.match(f.q('[data-message]').textContent,/3 tentativa/);assert.equal(f.timers.size,0);
+ }finally{f.controller.destroy();}
+});
+
+test('closing while an automatic retry waits cancels the episode request and scheduled retry',async()=>{
+ const requests=[];const f=fixture({loadSource:async options=>{requests.push(options);return {streams:[],complete:true};}});await settle();f.controller.destroy();await settle();assert.equal(requests.length,1);assert.equal(requests[0].signal.aborted,true);assert.equal(f.timers.size,0);
+});
+
+test('native embedded captions and HLS automatic captions remain disabled by default',async()=>{
+ const f=hlsFixture();try{
+  await settle();assert.equal(f.hls.subtitleDisplay,false);assert.equal(f.hls.subtitleTrack,-1);f.hls.subtitleDisplay=true;f.hls.subtitleTrack=0;f.hls.emit('subtitles');assert.equal(f.hls.subtitleDisplay,false);assert.equal(f.hls.subtitleTrack,-1);
+  const native={kind:'subtitles',mode:'showing'},captions={kind:'captions',mode:'showing'},metadata={kind:'metadata',mode:'hidden'};f.q('video')._tracks=[native,captions,metadata];f.fire('video','loadedmetadata');assert.equal(native.mode,'disabled');assert.equal(captions.mode,'disabled');assert.equal(metadata.mode,'hidden');
+ }finally{f.controller.destroy();}
+});
+
+test('a browser autoplay policy leaves the ready video waiting for a click beyond the recovery deadline',async()=>{
+ const f=fixture();try{
+  f.q('video').play=async()=>{throw Object.assign(Error('gesture needed'),{name:'NotAllowedError'});};await settle();assert.equal(f.q('.watch-center').hidden,false);assert.match(f.q('.watch-status').textContent,/toque em reproduzir/);assert.equal([...f.timers.values()].some(job=>job.delay===45000),false);assert.equal(f.q('[data-overlay-retry]').hidden,true);
+ }finally{f.controller.destroy();}
+});
+
+test('a slow provider metadata deadline does not discard an already loading valid HLS source',async()=>{
+ const f=hlsFixture({loadSource:async({onUpdate})=>{onUpdate({streams:[{url:'https://video.test/episode.m3u8',type:'application/vnd.apple.mpegurl'}],complete:false});throw Error('another provider timed out');}});try{
+  await settle();assert.ok(f.hls);assert.equal([...f.timers.values()].some(job=>job.delay===900),false);f.hls.emit('manifest');await settle();assert.equal(f.calls.plays,1);assert.equal(f.q('video').paused,false);
  }finally{f.controller.destroy();}
 });
