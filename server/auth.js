@@ -1,5 +1,5 @@
 import { database } from './database.js';
-import {identityColumns,identityJoin,profileIdentity,validateIdentity} from './profile-identity.js';
+import {identityColumns,identityJoin,profileIdentity,validateIdentity,validateDisplayName} from './profile-identity.js';
 import {giphyAvatar,storedAvatarFrame} from './giphy-avatar.js';
 
 // Passwords and session tokens never leave the server or enter localStorage.
@@ -149,9 +149,9 @@ export async function auth(request,env) {
 
     const u=await getUser(request,env);if(!u)throw error(401,'Entre na sua conta para continuar.');
 
-    const name=String(data.name || '').trim(), bio=String(data.bio || '').trim();
+    const name=validateDisplayName(data.name), bio=String(data.bio || '').trim();
 
-    if(!/^[\p{L}\p{N}_ -]{3,30}$/u.test(name) || bio.length>300)throw error(400,'Use um nome de 3 a 30 caracteres e uma bio de até 300.');
+    if(bio.length>300)throw error(400,'Sua bio pode ter até 300 caracteres.');
 
     const nameColor=data.nameColor??u.name_color??'ice';
     const identity=validateIdentity(data.identity,u);
@@ -191,9 +191,7 @@ export async function auth(request,env) {
 
   }
 
-  const name=String(data.name || '').trim();
-
-  if(!/^[\p{L}\p{N}_ -]{3,30}$/u.test(name))throw error(400,'Use um nome de 3 a 30 letras, números, espaços ou traços.');
+  const name=validateDisplayName(data.name);
 
   if(password.length<12)throw error(400,'Sua senha precisa ter pelo menos 12 caracteres.');
 
