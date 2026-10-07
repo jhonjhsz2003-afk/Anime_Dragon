@@ -1,4 +1,4 @@
-# AnimeDragon v14.0.1
+# AnimeDragon v14.0.2
 
 Projeto para Cloudflare Workers + Static Assets + D1.
 
