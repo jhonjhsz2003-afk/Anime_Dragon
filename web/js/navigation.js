@@ -2,7 +2,7 @@
 // comments, private lists, signed playback URLs or personal manifests here.
 const publicPath=path=>/^\/api\/catalog\/(?:home|discover|search|releases|tv\/\d+(?:\/season\/\d+|\/recommendations)?)(?:\?|$)/.test(path);
 export function createCatalogCache(storage,now=Date.now){
- const key='ad_public_catalog_v13_current',entries=new Map();
+ const key='ad_public_catalog_v14_current',entries=new Map();
  try{const data=JSON.parse(storage?.getItem(key)||'[]');for(const [path,entry] of Array.isArray(data)?data:[]){if(publicPath(path)&&entry?.expires>now()&&entry.data?.ok===true)entries.set(path,entry);if(entries.size>=24)break;}}catch{}
  return {
   get(path){const item=entries.get(path);if(!publicPath(path)||!item||item.expires<=now())return null;return item;},
