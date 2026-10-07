@@ -1,12 +1,14 @@
 import { streamMime } from './server/addon.js';
 import {createCache} from './server/cache.js';
 import {withinCatalogBudget} from './server/catalog-budget.js';
+import {daysSince,currentCatalogItem,mergeCatalogItems,rankDiverseCatalog} from './server/catalog-policy.js';
+import {getReleases,releaseToday} from './server/releases.js';
 import {providers} from './server/providers.js';
 import {addonMetadata,addonSubtitles} from './server/services.js';
 import {compatibleSources,videoRelay} from './server/hls.js';
 import {media} from './server/media.js';
 import { community } from './server/community.js';
-import { addonPlayback } from './server/addon.js';
+import { addonPlayback,providerFailureReason } from './server/addon.js';
 import { auth, cleanupSessions } from './server/auth.js';
 
 const BASE = 'https://api.themoviedb.org/3';
@@ -20,7 +22,7 @@ const THEMES = {
 const keywordCache=new Map();
 const catalogCache=createCache(240);
 const anilistCache=createCache(12);
-const CATALOG_VERSION='12.4-fresh-season';
+const CATALOG_VERSION='13.0-current-diverse';
 const SORTS = new Set(['popularity.desc', 'vote_average.desc', 'first_air_date.desc']);
 export const json = (data, status = 200, headers = {}) => new Response(JSON.stringify(data), {
   status, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', ...headers }
@@ -45,47 +47,28 @@ const seasonalStart=base=>{
   const month=base.getUTCMonth(),startMonth=Math.floor(month/3)*3;
   return new Date(Date.UTC(base.getUTCFullYear(),startMonth,1)).toISOString().slice(0,10);
 };
-const recentEpisodeDays=(item,base)=>item?.last_episode_to_air?.air_date?Math.max(0,(base-new Date(item.last_episode_to_air.air_date+'T12:00:00Z'))/86400000):99999;
-const currentEnough=(item,base,maxAge=365)=>ageDays(item,base)<=maxAge;
-const uniqueById=items=>{
-  const map=new Map();
-  for(const item of items.filter(Boolean)){
-    const id=Number(item.id),previous=map.get(id);
-    if(!previous){map.set(id,item);continue;}
-    map.set(id,{...previous,...item,external_trending:Math.max(Number(previous.external_trending||0),Number(item.external_trending||0)),site_viewers:Math.max(Number(previous.site_viewers||0),Number(item.site_viewers||0))});
-  }
-  return [...map.values()];
-};
-const ageDays=(item,base)=>item?.first_air_date?Math.max(0,(base-new Date(item.first_air_date+'T12:00:00Z'))/86400000):99999;
-function freshScore(item,base){
-  const age=ageDays(item,base),rating=Number(item.vote_average||0),recentEpisode=recentEpisodeDays(item,base),viewers=Number(item.site_viewers||0);
-  // Freshness is intentionally dominant so an older high-rated title cannot
-  // keep occupying the home page while current-season shows are available.
-  const freshness=Math.max(0,180-Math.min(180,age))/180;
-  const episodeFreshness=Math.max(0,21-Math.min(21,recentEpisode))/21;
-  const siteSignal=Math.min(12,Math.log2(1+viewers)*2.4),externalSignal=Math.max(0,Math.min(1,Number(item.external_trending||0)));
-  return freshness*78+episodeFreshness*18+rating*1.8+siteSignal+externalSignal*24;
-}
-function rankFresh(items,base,limit=20){
-  return uniqueById(items).sort((a,b)=>freshScore(b,base)-freshScore(a,base)).slice(0,limit);
-}
+const currentEnough=currentCatalogItem;
+const uniqueById=mergeCatalogItems;
+const ageDays=(item,base)=>daysSince(item?.first_air_date,base);
+const rankFresh=rankDiverseCatalog;
+const catalogItem=x=>({...normalize(x),genre_ids:x.genre_ids||x.genres?.map(g=>g.id)||[],popularity:Number(x.popularity)||0,vote_count:Number(x.vote_count)||0});
 
-const titleKey=value=>String(value||'').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
+const titleKey=value=>String(value||'').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^\p{L}\p{N}]+/gu,' ').trim();
 const seasonName=base=>['WINTER','SPRING','SUMMER','FALL'][Math.floor(base.getUTCMonth()/3)];
 async function anilistPulse(base){
   const season=seasonName(base),seasonYear=base.getUTCFullYear(),key=`${season}:${seasonYear}`;
   return anilistCache.get(key,900000,async()=>{
-    const query=`query($season:MediaSeason,$seasonYear:Int){Page(page:1,perPage:50){media(type:ANIME,season:$season,seasonYear:$seasonYear,isAdult:false,sort:[TRENDING_DESC,POPULARITY_DESC]){title{romaji english native}trending popularity averageScore}}}`;
+    const query=`query($season:MediaSeason,$seasonYear:Int){Page(page:1,perPage:50){media(type:ANIME,season:$season,seasonYear:$seasonYear,isAdult:false,sort:[TRENDING_DESC,POPULARITY_DESC]){title{romaji english native}trending popularity averageScore genres}}}`;
     const response=await fetch('https://graphql.anilist.co',{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify({query,variables:{season,seasonYear}}),signal:AbortSignal.timeout(2500)});
     if(!response.ok)throw fail(502,'Não foi possível consultar as tendências atuais.');
     const payload=await response.json(),rows=payload?.data?.Page?.media||[],map=new Map();
-    rows.forEach((row,index)=>{const signal=Math.max(.15,1-index/Math.max(1,rows.length));for(const name of [row.title?.romaji,row.title?.english,row.title?.native]){const key=titleKey(name);if(key&&!map.has(key))map.set(key,signal);}});
+    rows.forEach((row,index)=>{const signal=Math.max(.15,1-index/Math.max(1,rows.length)),genres=(Array.isArray(row.genres)?row.genres:[]).filter(g=>typeof g==='string');for(const name of [row.title?.romaji,row.title?.english,row.title?.native]){const key=titleKey(name);if(key&&!map.has(key))map.set(key,{signal,genres});}});
     return map;
   });
 }
 function withExternalTrend(items,pulse){
   if(!(pulse instanceof Map)||!pulse.size)return items;
-  return items.map(item=>{const keys=[titleKey(item.title),titleKey(item.original_title)].filter(Boolean);const signal=Math.max(0,...keys.map(key=>pulse.get(key)||0));return signal?{...item,external_trending:signal}:item;});
+  return items.map(item=>{if(!item)return item;const matches=[titleKey(item.title),titleKey(item.original_title)].filter(Boolean).map(key=>pulse.get(key)).filter(Boolean);const signal=Math.max(0,...matches.map(row=>row.signal||0)),genres=[...new Set(matches.flatMap(row=>row.genres||[]))];return signal?{...item,external_trending:signal,curation_genres:genres}:item;});
 }
 
 async function siteTrending(env,base){
@@ -95,7 +78,7 @@ async function siteTrending(env,base){
     const data=await env.DB.prepare(`SELECT anime_id,COUNT(*) viewers,MAX(updated_at) last_seen
       FROM playback_activity WHERE updated_at>=? GROUP BY anime_id
       ORDER BY viewers DESC,last_seen DESC LIMIT 12`).bind(since).all();
-    const rows=data?.results||[],details=await Promise.all(rows.map(row=>animeDetail(row.anime_id,env).then(normalize).catch(()=>null)));
+    const rows=data?.results||[],details=await Promise.all(rows.map(row=>animeDetail(row.anime_id,env).then(catalogItem).catch(()=>null)));
     return details.filter(Boolean).map(item=>{
       const row=rows.find(x=>Number(x.anime_id)===Number(item.id));
       return {...item,site_viewers:Number(row?.viewers||0),highlight_reason:'Mais assistido no AnimeDragon'};
@@ -118,7 +101,12 @@ async function tmdb(path, params, env) {
 }
 async function discover(env, params = {}) {
   const d = await tmdb('/discover/tv', {...params, include_adult: 'false', with_origin_country: 'JP', with_genres: params.with_genres ? `16,${params.with_genres}` : '16'}, env);
-  return {results: (d.results || []).filter(isAnime).map(normalize), page: d.page, totalPages: Math.min(d.total_pages || 0, 500)};
+  const now=new Date(),since=daysSince(params['air_date.gte'],now),until=daysSince(params['air_date.lte'],now),broadcast=since>=0&&since<=35&&until>=0&&until<=since;
+  return {results: (d.results || []).filter(isAnime).map(item=>({...catalogItem(item),...(broadcast?{current_airing:true,current_airing_since:params['air_date.gte'],current_airing_until:params['air_date.lte']}:{})})), page: d.page, totalPages: Math.min(d.total_pages || 0, 500)};
+}
+async function weeklyTrending(env){
+  const data=await tmdb('/trending/tv/week',{},env);
+  return {results:(data.results||[]).map((item,index)=>({item,index})).filter(({item})=>isAnime(item)).map(({item,index})=>({...catalogItem(item),weekly_trending:Math.max(.1,1-index/Math.max(1,(data.results||[]).length)),weekly_trending_rank:index+1,highlight_reason:'Em alta nesta semana'}))};
 }
 async function themeKeyword(theme,env) {
   const cached=keywordCache.get(theme);if(cached&&cached.until>Date.now())return cached.id;
@@ -137,45 +125,51 @@ async function animeDetail(id, env) {
 }
 async function catalog(request, env, ctx) {
   const url = new URL(request.url), p = url.pathname.replace('/api/tmdb/', '/api/catalog/');
+  if(p==='/api/catalog/releases')return getReleases({discover:params=>discover(env,params),detail:id=>animeDetail(id,env),normalize,page:pageNumber(url.searchParams.get('page')),waitUntil:ctx?.waitUntil?task=>ctx.waitUntil(task):undefined});
   if (p === '/api/catalog/home') {
     const today=new Date(),todayDate=dayAt(today,0),weekDate=dayAt(today,-7),tomorrowDate=dayAt(today,1),upcomingEnd=dayAt(today,180);
-    const seasonDate=seasonalStart(today),recentDate=dayAt(today,-180),popularDate=dayAt(today,-270);
-    // Home is current-first: brand-new seasonal shows, recent premieres and
-    // currently active titles. Old catalog remains searchable but does not
-    // dominate the home rails.
-    const currentTask=discover(env,{sort_by:'first_air_date.desc','first_air_date.gte':seasonDate,'first_air_date.lte':todayDate});
-    const recentTask=discover(env,{sort_by:'first_air_date.desc','first_air_date.gte':recentDate,'first_air_date.lte':todayDate});
-    const airingTask=discover(env,{sort_by:'popularity.desc','air_date.gte':weekDate,'air_date.lte':todayDate,'first_air_date.gte':popularDate}).catch(()=>({results:[]}));
+    const recentDate=dayAt(today,-180),popularDate=dayAt(today,-365),activeDate=dayAt(today,-35);
+    // An old first premiere does not mean an old episode. Weekly interest and
+    // current broadcasts can surface returning shows without a fixed title list.
+    const currentTask=discover(env,{sort_by:'popularity.desc','air_date.gte':activeDate,'air_date.lte':todayDate,'first_air_date.lte':todayDate});
+    const recentTask=discover(env,{sort_by:'popularity.desc','first_air_date.gte':recentDate,'first_air_date.lte':todayDate});
+    const airingTask=discover(env,{sort_by:'popularity.desc','air_date.gte':weekDate,'air_date.lte':todayDate}).catch(()=>({results:[]}));
+    const weeklyTask=weeklyTrending(env);
+    const varietyTask=Promise.all(['10759','10765','9648'].map(genre=>discover(env,{sort_by:'popularity.desc',with_genres:genre,'air_date.gte':activeDate,'air_date.lte':todayDate,'first_air_date.lte':todayDate}).catch(()=>({results:[]})))).then(rails=>rails.flatMap(rail=>rail.results));
     const siteTask=siteTrending(env,today),pulseTask=anilistPulse(today).catch(()=>new Map());
-    const detailsTask=airingTask.then(airing=>Promise.all(airing.results.slice(0,12).map(item=>animeDetail(item.id,env).then(normalize).catch(()=>null))));
+    const detailsTask=airingTask.then(airing=>Promise.all(uniqueById(airing.results).slice(0,12).map(item=>animeDetail(item.id,env).then(catalogItem).catch(()=>null))));
     const background=ctx?.waitUntil?task=>ctx.waitUntil(task):null;
     const optional=(task,fallback)=>withinCatalogBudget(task,2500,fallback,background);
-    const emptyRail={results:[]},emptyDetails=[],emptySite=[];
-    const [current,recent,ranked,popular,next,details,site,pulse]=await Promise.all([
+    const emptyRail={results:[]},emptyDetails=[],emptySite=[],emptyVariety=[];
+    const [current,recent,ranked,popular,next,details,site,pulse,weekly,variety]=await Promise.all([
       currentTask,recentTask,
       optional(discover(env,{sort_by:'vote_average.desc','vote_count.gte':'100','first_air_date.gte':popularDate,'first_air_date.lte':todayDate}),emptyRail),
-      optional(discover(env,{sort_by:'popularity.desc','first_air_date.gte':popularDate,'first_air_date.lte':todayDate}),emptyRail),
+      optional(discover(env,{sort_by:'popularity.desc','air_date.gte':recentDate,'air_date.lte':todayDate,'first_air_date.lte':todayDate}),emptyRail),
       optional(discover(env,{sort_by:'first_air_date.asc','first_air_date.gte':tomorrowDate,'first_air_date.lte':upcomingEnd}),emptyRail),
       optional(detailsTask,emptyDetails),
       optional(siteTask,emptySite),
-      optional(pulseTask,new Map())
+      optional(pulseTask,new Map()),
+      optional(weeklyTask,emptyRail),
+      optional(varietyTask,emptyVariety)
     ]);
-    const currentMarked=withExternalTrend(current.results.filter(item=>item.first_air_date>=seasonDate&&item.first_air_date<=todayDate),pulse).map(item=>({...item,highlight_reason:item.external_trending?'Em alta nesta temporada':'Lançamento da temporada'}));
-    const recentMarked=withExternalTrend(recent.results.filter(item=>currentEnough(item,today,180)),pulse).map(item=>({...item,highlight_reason:item.external_trending?'Em alta agora':'Lançamento recente'}));
-    const updated=withExternalTrend(details,pulse).filter(item=>ageDays(item,today)<=365&&item?.last_episode_to_air?.air_date>=weekDate&&item.last_episode_to_air.air_date<=todayDate)
+    const currentMarked=withExternalTrend(current.results.filter(item=>currentEnough(item,today)),pulse).map(item=>({...item,highlight_reason:item.external_trending?'Em alta na temporada':'Popular agora'}));
+    const recentMarked=withExternalTrend(recent.results.filter(item=>ageDays(item,today)>=0&&ageDays(item,today)<=180),pulse).map(item=>({...item,highlight_reason:item.external_trending?'Em alta na temporada':'Lançamento recente'}));
+    const updated=withExternalTrend(details,pulse).filter(item=>item?.last_episode_to_air?.air_date>=weekDate&&item.last_episode_to_air.air_date<=todayDate)
       .sort((a,b)=>b.last_episode_to_air.air_date.localeCompare(a.last_episode_to_air.air_date))
       .map(item=>({...item,highlight_reason:'Novo episódio'}));
-    const siteFresh=withExternalTrend(site,pulse).filter(item=>currentEnough(item,today,365));
-    const popularMarked=withExternalTrend(popular.results,pulse).filter(item=>currentEnough(item,today,270)).map(item=>({...item,highlight_reason:item.external_trending?'Em alta agora':'Popular agora'}));
+    const siteFresh=withExternalTrend(site,pulse).filter(item=>currentEnough(item,today));
+    const popularMarked=withExternalTrend([...popular.results,...variety],pulse).filter(item=>currentEnough(item,today)).map(item=>({...item,highlight_reason:item.external_trending?'Em alta na temporada':'Popular agora'}));
+    const weeklyMarked=withExternalTrend(weekly.results,pulse).filter(item=>currentEnough(item,today));
     const rankedFresh=withExternalTrend(ranked.results,pulse).filter(item=>currentEnough(item,today,365));
-    const featured=rankFresh([...currentMarked,...recentMarked.filter(item=>ageDays(item,today)<=180),...popularMarked,...siteFresh,...updated],today,6);
-    const trending=rankFresh([...currentMarked,...recentMarked,...popularMarked,...siteFresh,...updated],today,20);
-    const top=rankFresh(rankedFresh,today,20);
-    const popularFresh=rankFresh([...siteFresh,...popularMarked],today,20);
+    const candidates=uniqueById([...currentMarked,...recentMarked,...popularMarked,...siteFresh,...updated,...weeklyMarked]);
+    const featured=rankFresh(candidates,today,6);
+    const trending=rankFresh(candidates,today,20);
+    const top=rankFresh([...rankedFresh,...updated.filter(item=>item.vote_count>=100)],today,20,{quality:true});
+    const popularFresh=rankFresh([...siteFresh,...popularMarked,...updated,...weeklyMarked],today,20);
     const recentSorted=uniqueById(recentMarked).sort((a,b)=>(b.first_air_date||'').localeCompare(a.first_air_date||'')).slice(0,20);
     const upcoming=uniqueById(next.results.filter(item=>item.first_air_date>=tomorrowDate&&item.first_air_date<=upcomingEnd)).sort((a,b)=>a.first_air_date.localeCompare(b.first_air_date)).slice(0,20);
-    const partial=[ranked,popular,next].includes(emptyRail)||details===emptyDetails||site===emptySite;
-    return {ok:true,catalogVersion:CATALOG_VERSION,trending,anime:trending,featured,updated,top,popular:popularFresh,upcoming,recent:recentSorted,updatedAt:new Date().toISOString(),...(partial?{partial:true}:{})};
+    const partial=[ranked,popular,next,weekly].includes(emptyRail)||details===emptyDetails||site===emptySite||variety===emptyVariety;
+    return {ok:true,catalogVersion:CATALOG_VERSION,trending,anime:trending,featured,updated,top,popular:popularFresh,upcoming,recent:recentSorted,trendingSource:weeklyMarked.length?'tmdb_week':'current_catalog',updatedAt:new Date().toISOString(),...(partial?{partial:true}:{})};
   }
   if (p === '/api/catalog/discover') {
     if (url.searchParams.get('type') === 'movie') throw fail(404, 'O catálogo contém somente animes em série.');
@@ -189,9 +183,10 @@ async function catalog(request, env, ctx) {
     return {ok:true, ...await discover(env, {sort_by:selectedSort, page:pageNumber(url.searchParams.get('page')),
       ...(keyword?{with_keywords:String(keyword)}:{}),
       ...(GENRES.has(genre)?{with_genres:genre}:{}),
-      // The browse catalog is intentionally current-first. Search remains
-      // unrestricted so an older title can still be found by name.
-      'first_air_date.gte':freshDate,'first_air_date.lte':todayDate,
+      // Current broadcasts include new seasons of titles whose first premiere
+      // was years ago. Only the explicit "new premieres" sort uses that date.
+      'first_air_date.lte':todayDate,
+      ...(selectedSort==='first_air_date.desc'?{'first_air_date.gte':freshDate}:{'air_date.gte':freshDate,'air_date.lte':todayDate}),
       ...(selectedSort==='vote_average.desc'?{'vote_count.gte':'100'}:{}),
       ...(selectedSort==='first_air_date.desc'?{'vote_count.gte':'5'}:{})})};
   }
@@ -228,7 +223,7 @@ export default {
       if (url.pathname.startsWith('/api/community/')) return await community(request,env,animeDetail);
       if (url.pathname.startsWith('/api/auth/')) return await auth(request,env);
       if (request.method !== 'GET') return json({ok:false,error:'Método não permitido.'},405,{Allow:'GET'});
-      if (url.pathname === '/api/health') return json({ok:true,service:'AnimeDragon',version:'12.4.4',catalogVersion:CATALOG_VERSION});
+      if (url.pathname === '/api/health') return json({ok:true,service:'AnimeDragon',version:'13.0.0',catalogVersion:CATALOG_VERSION});
       if (url.pathname === '/api/addons/metadata') {
         const id=url.searchParams.get('id');if(!/^\d{1,10}$/.test(id||''))throw fail(400,'Anime inválido.');
         return json(await addonMetadata(await animeDetail(id,env),env));
@@ -250,13 +245,14 @@ export default {
           const provider=providers(env).find(p=>p.id===(url.searchParams.get('provider')||'primary'));
           if(!provider)throw fail(400,'Provedor não encontrado.');
           try{return json({...await compatibleSources(await addonPlayback(anime,Number(s),Number(ep),{...env,STREMIO_MANIFEST_URL:provider.url,PROVIDER_ID:provider.id},url.origin,url.searchParams.get('fresh')==='1'),env),provider:provider.name});}
-          catch{return json({ok:true,available:false,provider:provider.name,reason:'Este provedor não respondeu a tempo ou está indisponível. As outras fontes continuam sendo consultadas.'});}
+          catch(error){return json({ok:true,available:false,provider:provider.name,reason:providerFailureReason(error)});}
         }
         return json({ok:true,available:true,url:source.url,type:source.type || streamMime(source.url),subtitles:(source.subtitles || []).filter(t=>/^https:\/\//.test(t.src || ''))});
       }
       if (!/^\/api\/(catalog|tmdb)\//.test(url.pathname)) throw fail(404,'Página não encontrada.');
       const cache=globalThis.caches?.default;
       const cacheUrl=new URL(url);cacheUrl.searchParams.set('_catalogVersion',CATALOG_VERSION);
+      if(/\/api\/(catalog|tmdb)\/releases$/.test(url.pathname))cacheUrl.searchParams.set('_releaseDay',releaseToday());
       const key=new Request(cacheUrl.toString(),{method:'GET'});
       const hit=cache?await cache.match(key):null;
       if (hit) return hit;

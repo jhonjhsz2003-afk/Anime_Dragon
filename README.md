@@ -1,71 +1,46 @@
-# AnimeDragon v12.4.4
+# AnimeDragon v13.0.0
 
-Projeto AnimeDragon para Cloudflare Workers + Static Assets + D1.
+Projeto para Cloudflare Workers + Static Assets + D1.
 
-## O que esta versão inclui
+## Mudanças desta versão
 
-- catálogo/Home com foco em títulos recentes e temporada atual;
-- proteção para impedir animes antigos de dominarem os blocos principais;
-- player com autoplay, failover de fontes e renovação de URLs assinadas expiradas;
-- suporte a recursos Stremio `series` e `anime`;
-- integração com FenixFlix via `STREMIO_MANIFEST_URL`;
-- histórico real do navegador para Voltar/Avançar;
-- retorno à aba sem reconstruir a página automaticamente;
-- contas, biblioteca, progresso e comentários no D1;
-- suíte de testes e workflow de validação no GitHub Actions.
-
-## Requisitos
-
-- Node.js 22.13+ (Node 24 recomendado)
-- npm
-- Cloudflare Workers
-- D1 configurado no `wrangler.toml`
+- Home combina tendências semanais do TMDB, popularidade, avaliações com quantidade de votos e episódios recentes. Séries que voltaram com uma temporada nova podem aparecer mesmo quando a primeira estreia é antiga.
+- Seleções principais misturam gêneros. Romance continua disponível, junto de ação, fantasia, comédia, mistério e outros temas.
+- Lançamentos ganhou uma página pública própria: novas séries, temporadas e próximos episódios, separados por data e tipo. Só aparecem eventos futuros com data anunciada; temporada e episódio não são inventados quando faltam informações.
+- Player compartilhado aguarda a inicialização HLS, protege a transição para o player alternativo e trata erros antigos sem descartar a fonte atual. A correção vale para todos os títulos.
+- Fontes MP4 sem extensão podem ser identificadas por GET com poucos bytes. HLS/MP4/WebM têm prioridade; MKV permanece como última alternativa a ser testada pelo navegador.
+- Links expirados são renovados; fontes adicionais são consultadas em paralelo. Os erros agora distinguem a indisponibilidade do provedor de problemas de reprodução.
+- Mantidos login persistente, perfil personalizável, comentários, biblioteca, progresso, ícone azul e cabeçalho compacto ao rolar.
 
 ## Instalar e validar
+
+Node.js 22.13 ou mais recente; Node 24 recomendado.
 
 ```bash
 npm ci
 npm run check
 npm test
+npm run build
 ```
 
-## Desenvolvimento local
+## Prévia e desenvolvimento
 
 ```bash
-npm run dev
+npm run preview
 ```
 
-## Deploy manual
+Sem TMDB_API_KEY, a prévia usa histórias ilustrativas originais, identificadas como demonstração. Os vídeos de animes reais não são incluídos no ZIP. Para desenvolvimento com bindings e variáveis Cloudflare, use `npm run dev` e `.dev.vars.example` como referência local.
+
+## Atualizar o site existente
+
+Substitua o código do repositório por esta versão e publique no mesmo Worker `anime-dragon`. O `wrangler.toml` mantém o binding DB e o banco D1 existentes. Preserve as variáveis/segredos configurados no Cloudflare, inclusive a chave TMDB e o segredo de autenticação quando já utilizado.
 
 ```bash
 npx wrangler deploy
 ```
 
-## Cloudflare Builds
+No Cloudflare Builds: build `npm run build && npm test`, deploy `npx wrangler deploy`, branch `main`, diretório raiz `/`. A mudança de versão nos assets e no cache do catálogo atualiza a interface quando o visitante recarrega a página. As contas continuam armazenadas no D1 do projeto existente.
 
-Use na raiz do repositório:
+## Validação e limites
 
-- Build command: `npm run build && npm test`
-- Deploy command: `npx wrangler deploy`
-- Branch de produção: `main`
-- Diretório raiz: `/`
-
-O Worker precisa manter o binding `DB` para o D1 e a variável `STREMIO_MANIFEST_URL` configurada para o manifesto do provedor usado pelo projeto.
-
-## Estrutura principal
-
-- `worker.js` — entrada do Worker
-- `server/` — API, catálogo, autenticação, D1, provedores e relay HLS
-- `web/` — interface do AnimeDragon
-- `tests/` — testes automatizados
-- `db/` — schema do D1
-- `.github/workflows/` — validação no GitHub Actions
-
-## Versão
-
-`12.4.4`
-
-
-## Player alternativo v12.4.4
-
-O player tenta reprodução nativa, Hls.js e, quando necessário, Shaka Player 5.2.12 como fallback para HLS e DASH. Fontes bloqueadas por HTTP/CORS continuam sendo rejeitadas; o fallback serve para ampliar compatibilidade de formato e engine.
+Veja `VALIDACAO-v13.md` para os resultados dos testes. A disponibilidade dos vídeos depende das fontes externas e pode mudar. O player tenta as versões disponíveis; uma fonte que não oferece um episódio ou está indisponível não pode ser fabricada pelo site.
