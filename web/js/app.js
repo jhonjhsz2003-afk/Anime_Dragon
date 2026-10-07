@@ -1,12 +1,13 @@
-import {createHeaderScroll} from './header-scroll.js?v=12.0.2';
-import {createAuthSession} from './auth-session.js?v=12.4.4';
+import {releasesPage,mountReleases,releaseDay} from './releases.js?v=13.0.0';
+import {createHeaderScroll} from './header-scroll.js?v=13.0.0';
+import {createAuthSession} from './auth-session.js?v=13.0.0';
 import {mountDiscussion} from './discussion.js?v=11.0.0';
 import {bindLiveSearch,rankSearchResults} from './live-search.js?v=11.0.0';
 import {preferredCaptionLocale} from './caption-language.js?v=9.6.1';
-import {createCatalogCache,createIntentPreloader} from './navigation.js?v=12.4.4';
-import { mountWatchPlayer } from './player.js?v=12.4.4';
-import {createSourceLoader} from './sources.js?v=12.4.4';
-import {createAccountDialog} from './account-dialog.js?v=12.0.0';
+import {createCatalogCache,createIntentPreloader} from './navigation.js?v=13.0.0';
+import { mountWatchPlayer } from './player.js?v=13.0.0';
+import {createSourceLoader} from './sources.js?v=13.0.0';
+import {createAccountDialog} from './account-dialog.js?v=13.0.0';
 const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
 const esc=(s='')=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const store={get(k,d){try{return JSON.parse(localStorage.getItem(k))??d}catch{return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch{}}};
@@ -32,7 +33,7 @@ const year=p=>p.first_air_date?.slice(0,4)||'—';
 const rating=p=>Number(p.vote_average||0)>0?Number(p.vote_average).toFixed(1):'—';
 const state={authStatus:'loading',user:null,avatar:defaultAvatar,home:null,items:new Map(),list:[],history:[],prefs:store.get('ad_preferences',{motion:true,economy:false}),details:null,episodes:[],season:1};
 let lastPage=location.hash||'#home',handlingHistory=false;
-let renderVersion=0,modalVersion=0,seasonVersion=0,focusBeforeModal=null,heroTimer=null,watchController=null,searchController=null,discussionController=null;
+let renderVersion=0,modalVersion=0,seasonVersion=0,focusBeforeModal=null,heroTimer=null,watchController=null,searchController=null,discussionController=null,releasesController=null;
 if(state.prefs.autoCaptions===undefined)state.prefs.autoCaptions=false;
 state.heroIndex=0;state.favorites=[];state.library=[];state.watched=[];state.commentSort='recent';
 const pending=new Map(),cache=new Map();let catalogStorage;try{catalogStorage=sessionStorage;}catch{}const catalogMemory=createCatalogCache(catalogStorage);
@@ -84,28 +85,33 @@ function episodeRailCard(p){
  const date=episode?.air_date?new Intl.DateTimeFormat('pt-BR',{day:'2-digit',month:'short',timeZone:'UTC'}).format(new Date(episode.air_date+'T12:00:00Z')):'';
  return `<button type="button" class="card episode-rail-card" data-id="${p.id}" data-season="${episode?.season_number??1}" aria-label="Ver ${esc(p.title)}, episódio ${episode?.episode_number??1}"><div class="poster-wrap">${imageTag(p)}<span class="card-play">▶</span><span class="release-tag">T${episode?.season_number??1} · EP.${episode?.episode_number??1}</span></div><div class="card-body"><div class="card-title">${esc(p.title)}</div><div class="card-sub">${date?`Exibido em ${esc(date)}`:'Episódio recente'}</div></div></button>`;
 }
+function upcomingRailCard(p){
+ const valid=/^\d{4}-\d{2}-\d{2}$/.test(p.first_air_date||'')&&Number.isFinite(Date.parse(p.first_air_date));
+ const date=valid?new Intl.DateTimeFormat('pt-BR',{day:'2-digit',month:'short',year:'numeric',timeZone:'UTC'}).format(new Date(p.first_air_date+'T12:00:00Z')):'Data a confirmar';
+ return `<button type="button" class="card" data-id="${p.id}" aria-label="Ver ${esc(p.title)}"><div class="poster-wrap">${imageTag(p)}<span class="release-tag">Nova série</span></div><div class="card-body"><div class="card-title">${esc(p.title)}</div><div class="card-sub">Estreia · ${esc(date)}</div></div></button>`;
+}
 function rankedCard(p,index){
  return `<button type="button" class="card ranked-card" data-id="${p.id}" aria-label="${index+1}. Ver ${esc(p.title)}"><span class="rank-number" aria-hidden="true">${index+1}</span><div class="poster-wrap">${imageTag(p)}<span class="card-play">▶</span></div><div class="card-body"><div class="card-title">${esc(p.title)}</div><div class="card-sub">★ ${rating(p)} · ${year(p)}</div></div></button>`;
 }
-function brand(){return `<a class="brand" href="#home" aria-label="AnimeDragon, início"><img src="/assets/dragon-mark.webp?v=12.0.1" alt="" width="45" height="45"><strong>Anime<span>Dragon</span></strong></a>`}
+function brand(){return `<a class="brand" href="#home" aria-label="AnimeDragon, início"><img src="/assets/dragon-mark.webp?v=13.0.0" alt="" width="45" height="45"><strong>Anime<span>Dragon</span></strong></a>`}
 function accountMarkup(){if(state.user)return `<a class="profile-chip identity-ring-${identityOf().frame}" href="#profile" aria-label="Meu perfil">${avatarView(state.avatar,state.user?.avatarFrame,'avatar','','Meu perfil')}<b class="${nameClass(state.user.nameColor)}">${esc(state.user.name)}</b></a><button class="icon-btn" data-logout aria-label="Sair da conta">${icon('logout')}</button>`;if(state.authStatus!=='ready')return '<span class="account-restoring" role="status">Conectando sua conta…</span>';return `<a href="#entrar" class="login-link">Entrar ${icon('profile')}</a>`;}
 function updateAccount(){const account=$('.header-account');if(account){account.innerHTML=accountMarkup();bindLogout(account);}}
 function bindLogout(root=document){$$('[data-logout]',root).forEach(b=>b.onclick=async()=>{b.disabled=true;try{await post('/api/auth/logout',{});authSession.clear();nav('home');toast('Você saiu da conta.')}catch(e){toast(e.message,'err');b.disabled=false}});}
 function layout(inner){
- const {page:current,params}=route(),releases=current==='anime'&&params.get('sort')==='first_air_date.desc';
- const navs=[['home','Início','#home'],['anime','Animes','#anime'],['calendar','Lançamentos','#anime?sort=first_air_date.desc'],['library','Minha lista','#library']];
+ const {page:current,params}=route(),releases=current==='releases';
+ const navs=[['home','Início','#home'],['anime','Animes','#anime'],['calendar','Lançamentos','#releases'],['library','Minha lista','#library']];
  const active=index=>index===2?releases:index===1?current==='anime'&&!releases:current===navs[index][0];
  const searchOpen=current==='search';
- return `<div class="shell ${current==='home'?'home-view':''}"><header class="site-header ${searchOpen?'search-open':''}"><div class="masthead"><button class="icon-btn menu-toggle" id="mobile-menu-toggle" type="button" aria-label="Abrir menu" aria-expanded="false" aria-controls="main-navigation">${icon('menu')}</button>${brand()}<nav class="top-nav" id="main-navigation" aria-label="Navegação principal">${navs.map(([id,name,href],index)=>`<a href="${href}" class="${active(index)?'active':''}" ${active(index)?'aria-current="page"':''}>${icon(id)}<span>${name}</span></a>`).join('')}<details class="header-more"><summary aria-label="Mais opções">${icon('menu')}<span>Explorar</span></summary><div><a href="#genres">${icon('genres')} Gêneros e temas</a><a href="#calendar">${icon('calendar')} Minha agenda</a><a href="#history">${icon('history')} Histórico</a><a href="#settings">${icon('settings')} Preferências</a></div></details></nav><div class="header-tools"><button class="icon-btn" id="header-surprise" data-surprise type="button" aria-label="Escolher um anime aleatório">${icon('shuffle')}</button><button class="icon-btn" id="header-search-toggle" type="button" aria-label="Buscar anime" aria-expanded="${searchOpen}" aria-controls="header-search">${icon('search')}</button></div><div class="header-account">${accountMarkup()}</div></div><div class="topbar" id="header-search"><form class="search" id="search-form" role="search"><label class="sr-only" for="global-search">Buscar anime</label>${icon('search')}<input id="global-search" type="search" aria-controls="page-content" autocomplete="off" name="q" placeholder="Buscar por nome do anime…" maxlength="120" value="${esc(params.get('q')||'')}"></form><button class="icon-btn" id="header-search-close" type="button" aria-label="Fechar busca">${icon('close')}</button></div></header><main class="main"><div class="content">${current!=='home'?'<button class="page-back" id="page-back">← Voltar</button>':''}<div id="page-content">${inner}</div><footer class="site-footer"><div><a class="footer-brand" href="#home">Anime<span>Dragon</span></a><p>Uma nova história a cada capítulo.</p><small>© ${new Date().getFullYear()} AnimeDragon</small></div><div class="footer-credit"><span>Catálogo atualizado automaticamente</span><small>AnimeDragon v12.4.4</small></div></footer></div></main></div>`;
+ return `<div class="shell ${current==='home'?'home-view':''}"><header class="site-header ${searchOpen?'search-open':''}"><div class="masthead"><button class="icon-btn menu-toggle" id="mobile-menu-toggle" type="button" aria-label="Abrir menu" aria-expanded="false" aria-controls="main-navigation">${icon('menu')}</button>${brand()}<nav class="top-nav" id="main-navigation" aria-label="Navegação principal">${navs.map(([id,name,href],index)=>`<a href="${href}" class="${active(index)?'active':''}" ${active(index)?'aria-current="page"':''}>${icon(id)}<span>${name}</span></a>`).join('')}<details class="header-more"><summary aria-label="Mais opções">${icon('menu')}<span>Explorar</span></summary><div><a href="#genres">${icon('genres')} Gêneros e temas</a><a href="#calendar">${icon('calendar')} Minha agenda</a><a href="#history">${icon('history')} Histórico</a><a href="#settings">${icon('settings')} Preferências</a></div></details></nav><div class="header-tools"><button class="icon-btn" id="header-surprise" data-surprise type="button" aria-label="Escolher um anime aleatório">${icon('shuffle')}</button><button class="icon-btn" id="header-search-toggle" type="button" aria-label="Buscar anime" aria-expanded="${searchOpen}" aria-controls="header-search">${icon('search')}</button></div><div class="header-account">${accountMarkup()}</div></div><div class="topbar" id="header-search"><form class="search" id="search-form" role="search"><label class="sr-only" for="global-search">Buscar anime</label>${icon('search')}<input id="global-search" type="search" aria-controls="page-content" autocomplete="off" name="q" placeholder="Buscar por nome do anime…" maxlength="120" value="${esc(params.get('q')||'')}"></form><button class="icon-btn" id="header-search-close" type="button" aria-label="Fechar busca">${icon('close')}</button></div></header><main class="main"><div class="content">${current!=='home'?'<button class="page-back" id="page-back">← Voltar</button>':''}<div id="page-content">${inner}</div><footer class="site-footer"><div><a class="footer-brand" href="#home">Anime<span>Dragon</span></a><p>Uma nova história a cada capítulo.</p><small>© ${new Date().getFullYear()} AnimeDragon</small></div><div class="footer-credit"><span>Catálogo atualizado automaticamente</span><small>AnimeDragon v13.0.0</small></div></footer></div></main></div>`;
 }
 function home(){
  const d=state.home,hero=(d.featured||d.trending)[0];
  if(!hero)return empty('Ainda não há animes por aqui.','Tente novamente em instantes.');
- return `<div class="layout"><div class="home-main">${heroMarkup()}${d.updated?.length?section('updated','Novos episódios','Animes atuais que acabaram de receber episódio novo',d.updated,{renderer:episodeRailCard,link:'#anime?sort=first_air_date.desc'}):''}${continueWatching()}${section('popular','Em destaque ★','Lançamentos da temporada, animes em alta e os mais assistidos no AnimeDragon',d.trending,{link:'#anime'})}${d.upcoming?.length?section('upcoming','Próximos lançamentos','Estreias anunciadas para os próximos meses',d.upcoming):''}${section('top','Melhores do momento','Os melhores entre os títulos lançados recentemente',d.top,{link:'#anime?sort=vote_average.desc'})}${d.popular?.length?section('ranking','Mais assistidos e populares','O que está dominando agora, sem deixar títulos antigos ocuparem o topo',d.popular.slice(0,10),{renderer:rankedCard}):''}${section('recent','Lançamentos agora','As estreias mais novas, em ordem de lançamento',d.recent,{link:'#anime?sort=first_air_date.desc'})}<section class="section home-discovery"><div class="discovery-bar"><div><span class="eyebrow">CATÁLOGO ATUALIZADO AUTOMATICAMENTE</span><h2>Qual universo combina com você?</h2></div><button class="secondary" id="surprise-me" data-surprise>${icon('shuffle')} Surpreenda-me</button></div><div class="mood-chips">${genres.map(([id,name,symbol])=>`<a href="#anime?genre=${id}">${symbol} ${name}</a>`).join('')}</div></section></div></div>`;
+ return `<div class="layout"><div class="home-main">${heroMarkup()}${d.updated?.length?section('updated','Novos episódios','Animes atuais que acabaram de receber episódio novo',d.updated,{renderer:episodeRailCard,link:'#anime?sort=first_air_date.desc'}):''}${continueWatching()}${section('popular',d.trendingSource==='tmdb_week'?'Em alta nesta semana':'Em alta agora','Tendências e histórias que estão movimentando a temporada',d.trending,{link:'#anime'})}${d.upcoming?.length?section('upcoming','Próximas estreias','Novas séries com data anunciada · Veja também temporadas e episódios na agenda',d.upcoming,{renderer:upcomingRailCard,link:'#releases'}):''}${section('top','Melhores do momento','Boas avaliações, popularidade e variedade entre os animes atuais',d.top,{link:'#anime?sort=vote_average.desc'})}${d.popular?.length?section('ranking','Populares agora','Uma seleção de animes atuais que vale conhecer',d.popular.slice(0,10),{renderer:rankedCard}):''}${section('recent','Estreias recentes','Histórias que chegaram recentemente ao catálogo',d.recent,{link:'#anime?sort=first_air_date.desc'})}<section class="section home-discovery"><div class="discovery-bar"><div><span class="eyebrow">CATÁLOGO ATUALIZADO AUTOMATICAMENTE</span><h2>Qual universo combina com você?</h2></div><button class="secondary" id="surprise-me" data-surprise>${icon('shuffle')} Surpreenda-me</button></div><div class="mood-chips">${genres.map(([id,name,symbol])=>`<a href="#anime?genre=${id}">${symbol} ${name}</a>`).join('')}</div></section></div></div>`;
 }
 function genreTiles(){return `<div class="genre-grid">${genres.map(([id,name,symbol],i)=>`<a class="genre genre-${i}" href="#anime?genre=${id}"><span>${symbol}</span><b>${name}</b>${icon('right')}</a>`).join('')}</div>`}
 function heading(title,subtitle){return `<div class="page-heading"><span class="eyebrow">ANIMEDRAGON</span><h1>${title}</h1><p>${subtitle}</p></div>`}
-function listing(page,params){const search=page==='search',selected=params.get('genre')||'';return `${heading(search?'Encontre sua próxima história':(genres.find(g=>g[0]===selected)?.[1]||'Catálogo atual de animes'),search?`Buscando por “${esc(params.get('q')||'')}”`:'Prioridade para lançamentos, temporada atual e os melhores títulos recentes.')}<div class="catalog-toolbar">${!search?`<div class="filters">${[['popularity.desc','Em alta'],['vote_average.desc','Melhores recentes'],['first_air_date.desc','Lançamentos']].map(([v,l])=>`<button class="filter ${(params.get('sort')||'popularity.desc')===v?'active':''}" data-sort="${v}">${l}</button>`).join('')}</div><label class="select-label">Gênero ou tema<select id="genre-select"><option value="">Todos os universos</option>${genres.map(([id,name])=>`<option value="${id}" ${id===selected?'selected':''}>${name}</option>`).join('')}</select></label>`:''}</div><div id="catalog-results">${skeletons()}</div>`}
+function listing(page,params){const search=page==='search',selected=params.get('genre')||'';return `${heading(search?'Encontre sua próxima história':(genres.find(g=>g[0]===selected)?.[1]||'Catálogo atual de animes'),search?`Buscando por “${esc(params.get('q')||'')}”`:'Animes em alta, novas estreias e séries populares que continuam recebendo episódios.')}<div class="catalog-toolbar">${!search?`<div class="filters">${[['popularity.desc','Em alta'],['vote_average.desc','Melhores recentes'],['first_air_date.desc','Estreias recentes']].map(([v,l])=>`<button class="filter ${(params.get('sort')||'popularity.desc')===v?'active':''}" data-sort="${v}">${l}</button>`).join('')}</div><label class="select-label">Gênero ou tema<select id="genre-select"><option value="">Todos os universos</option>${genres.map(([id,name])=>`<option value="${id}" ${id===selected?'selected':''}>${name}</option>`).join('')}</select></label>`:''}</div><div id="catalog-results">${skeletons()}</div>`}
 function collection(kind){const history=kind==='history';return `${heading(history?'Meu histórico':kind==='favorites'?'Meus favoritos':'Assistir depois',history?'Continue de onde parou neste navegador.':'Sua coleção salva na conta, em qualquer dispositivo.')}<div id="collection-results">${history?(state.history.length?`<div class="catalog-grid">${state.history.map(card).join('')}</div>`:empty('Nenhum episódio iniciado ainda.')):state.user?skeletons():empty('Entre para salvar sua coleção.','Seus favoritos e sua lista ficam vinculados à sua conta.','<a class="primary" href="#entrar">Entrar</a>')}</div>`}
 
 const nameColors={ice:'Azul gelo',blue:'Azul',cyan:'Ciano',green:'Verde',gold:'Dourado',orange:'Laranja',pink:'Rosa',violet:'Violeta'};
@@ -126,15 +132,16 @@ function openAccount(login=true){
 function closeAccount(){accountDialog?.close();}
 
 
-async function render(){const authPage=route().page;if(['entrar','cadastro'].includes(authPage)){const destination=/^#(entrar|cadastro)(?:\?|$)/.test(lastPage)?'#home':lastPage;replaceHistoryState(null,destination);lastPage=destination;if(!$('.shell'))void render();openAccount(authPage==='entrar');return}searchController?.destroy();searchController=null;if(avatarObjectUrl){URL.revokeObjectURL(avatarObjectUrl);avatarObjectUrl=null}clearInterval(heroTimer);const version=++renderVersion,{page,params}=route();closeModal();document.title=page==='cadastro'?'Criar conta · AnimeDragon':page==='entrar'?'Entrar · AnimeDragon':'AnimeDragon';let inner;
+async function render(){const authPage=route().page;if(['entrar','cadastro'].includes(authPage)){const destination=/^#(entrar|cadastro)(?:\?|$)/.test(lastPage)?'#home':lastPage;replaceHistoryState(null,destination);lastPage=destination;if(!$('.shell'))void render();openAccount(authPage==='entrar');return}searchController?.destroy();searchController=null;releasesController?.destroy();releasesController=null;if(avatarObjectUrl){URL.revokeObjectURL(avatarObjectUrl);avatarObjectUrl=null}clearInterval(heroTimer);const version=++renderVersion,{page,params}=route();closeModal();document.title=page==='cadastro'?'Criar conta · AnimeDragon':page==='entrar'?'Entrar · AnimeDragon':'AnimeDragon';let inner;
  if(page==='home')inner=state.home?home():skeletons();
  else if(page==='anime'||page==='search')inner=listing(page,params);
  else if(page==='genres')inner=heading('Escolha seu próximo universo.','Isekai, magia, light novels e muito mais. Encontre sua próxima maratona.')+genreTiles();
  else if(page==='list'||page==='history'||page==='favorites')inner=collection(page);
- else if(page==='library')inner=libraryPage(params);else if(page==='calendar')inner=calendarPage();
+ else if(page==='library')inner=libraryPage(params);else if(page==='calendar')inner=calendarPage();else if(page==='releases')inner=releasesPage();
  else if(page==='profile')inner=profile();else if(page==='settings')inner=settings();
  else{nav('home');return}
  $('#app').innerHTML=layout(inner);bind();window.scrollTo(0,0);
+ if(page==='releases')releasesController=mountReleases($('#page-content'),{api,remember,onOpen:event=>openDetails(event.anime.id,event.kind==='episode'?event.season_number:undefined)});
  if(page==='home'&&params.get('anime')){
   const id=Number(params.get('anime'));if(Number.isInteger(id)&&id>0){writeOverlay({type:'detail',id,season:null},{replace:true});void openDetails(id,undefined,null,true);}
  }
@@ -170,6 +177,7 @@ function updateSavedState(id,enabled){
 }
 function bindCards(){$$('[data-id]').forEach(b=>b.onclick=()=>openDetails(b.dataset.id,b.dataset.season?Number(b.dataset.season):undefined));$$('[data-list]').forEach(b=>b.onclick=()=>toggleList(b.dataset.list))}
 function beginCatalogSearch(q){
+ releasesController?.destroy();releasesController=null;
  closeModal();
  ++renderVersion;clearInterval(heroTimer);
  $('.shell')?.classList.remove('home-view');
@@ -263,7 +271,12 @@ async function openDetails(id,preferredSeason,discussionEpisode=null,fromBack=fa
   $$('[data-season-choice]').forEach(button=>button.onclick=()=>loadSeason(p.id,Number(button.dataset.seasonChoice)));
   let searchTimer;$('#episode-search').oninput=()=>{clearTimeout(searchTimer);searchTimer=setTimeout(()=>{if(version===modalVersion)renderEpisodes()},100)};
   $('#episode-order').onclick=e=>{const button=e.currentTarget;button.value=button.value==='desc'?'asc':'desc';renderEpisodes()};
-  if(seasons.length)await loadSeason(p.id,state.season);else $('#episodes').innerHTML=empty('Episódios ainda não cadastrados.');
+  if(seasons.length)await loadSeason(p.id,state.season);else{
+   const announced=/^\d{4}-\d{2}-\d{2}$/.test(p.first_air_date||'')&&p.first_air_date>releaseDay();
+   $('#detail-watch').textContent=announced?'Estreia em breve':'Episódios indisponíveis';
+   $('#episode-search').disabled=true;$('#episode-order').disabled=true;
+   $('#episodes').innerHTML=empty(announced?'Esta história ainda vai estrear.':'Episódios ainda não cadastrados.',announced?'Confira a data anunciada em Lançamentos. Os episódios aparecem quando forem cadastrados.':'O catálogo ainda não tem episódios disponíveis para este anime.');
+  }
  }catch(e){if(version!==modalVersion)return;setModal(`<div class="modal-head"><h2 id="detail-title">Não foi possível abrir</h2></div>${empty('Tente novamente em instantes.',esc(e.message),'<button class="primary" id="retry-details">Tentar novamente</button>')}`);const retry=$('#retry-details');if(retry)retry.onclick=()=>openDetails(id)}
 }
 async function loadSeason(id,season){
@@ -278,10 +291,15 @@ async function loadSeason(id,season){
  catch(e){if(version===seasonVersion&&modal===modalVersion){host.innerHTML=empty('Não foi possível carregar os episódios.',esc(e.message),'<button class="primary" id="retry-season">Tentar novamente</button>');$('#retry-season').onclick=()=>loadSeason(id,season)}}
 }
 let episodePreparation=null;
-function prepareEpisode(episode){if(episodePreparation||state.prefs.economy||navigator.connection?.saveData||!state.details)return;const item=state.episodes.find(x=>x.episode_number===episode);if(!item||(item.air_date&&item.air_date>new Date().toISOString().slice(0,10)))return;episodePreparation=loadPlayback(state.details.id,state.season,episode).catch(()=>{}).finally(()=>{episodePreparation=null;});}
+function prepareEpisode(episode){if(episodePreparation||state.prefs.economy||navigator.connection?.saveData||!state.details)return;const item=state.episodes.find(x=>x.episode_number===episode);if(!item||(item.air_date&&item.air_date>releaseDay()))return;episodePreparation=loadPlayback(state.details.id,state.season,episode).catch(()=>{}).finally(()=>{episodePreparation=null;});}
 function renderEpisodes(options={}){
  const host=$('#episodes');if(!host)return;const focusedWatched=document.activeElement?.dataset?.watched;
- const today=new Date().toISOString().slice(0,10),watchedNumbers=new Set(state.watched.filter(x=>x.season===state.season).map(x=>x.episode));
+ if(!state.episodes.length&&!state.details?.seasons?.length){
+  const announced=/^\d{4}-\d{2}-\d{2}$/.test(state.details?.first_air_date||'')&&state.details.first_air_date>releaseDay(),watch=$('#detail-watch');
+  if(watch){watch.disabled=true;watch.textContent=announced?'Estreia em breve':'Episódios indisponíveis';watch.onclick=null;}
+  host.innerHTML=empty(announced?'Esta história ainda vai estrear.':'Episódios ainda não cadastrados.',announced?'Confira a data anunciada em Lançamentos. Os episódios aparecem quando forem cadastrados.':'O catálogo ainda não tem episódios disponíveis para este anime.');return;
+ }
+ const today=releaseDay(),watchedNumbers=new Set(state.watched.filter(x=>x.season===state.season).map(x=>x.episode));
  const available=state.episodes.filter(e=>!e.air_date||e.air_date<=today).sort((a,b)=>a.episode_number-b.episode_number),resume=state.history.find(p=>Number(p.id)===Number(state.details?.id)&&p.season===state.season),first=available.find(e=>e.episode_number===resume?.episode&&!watchedNumbers.has(e.episode_number))||available.find(e=>!watchedNumbers.has(e.episode_number))||available[0],watch=$('#detail-watch');
  if(watch){watch.disabled=!first;watch.textContent=first?`▶ ${resume?.episode===first.episode_number?'Continuar':'Assistir'} ${state.season?`T${state.season} `:''}EP.${first.episode_number}`:'Nenhum episódio disponível';watch.onclick=()=>first&&openPlayer(first.episode_number);}
  const normalize=value=>String(value||'').toLocaleLowerCase('pt-BR').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim(),q=normalize($('#episode-search')?.value),order=$('#episode-order'),desc=order?.value==='desc',filterKey=`${state.season}|${desc}|${q}`;

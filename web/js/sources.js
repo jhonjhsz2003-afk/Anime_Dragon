@@ -1,4 +1,4 @@
-import {sourcePriority} from './playback-watchdog.js?v=12.4.0';
+import {sourcePriority} from './playback-watchdog.js?v=13.0.0';
 // Cache only short-lived source metadata. Video bytes are never prefetched.
 function expiresAtMs(source){
   const direct=Number(source?.expiresAt);if(Number.isFinite(direct)&&direct>0)return direct;
