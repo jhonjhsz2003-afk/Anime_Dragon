@@ -2,6 +2,8 @@
 
 A rota `#gifs` usa a API oficial GIPHY: pesquisa literal, anime como consulta inicial, tendências, paginação, prévias animadas leves, pausa de animações, download de GIF/foto e escolha para o perfil. A marca oficial Powered By GIPHY está incluída.
 
+Na v14.0.2, o selo repetido do rodapé foi removido. A atribuição oficial aparece somente na galeria e na prévia, em formato de texto transparente e compacto, junto aos controles. Downloads de imagens estáticas conservam a extensão correspondente ao tipo real do arquivo.
+
 Para ativar conteúdo real, crie uma chave **Web API** própria em https://developers.giphy.com/dashboard/. Configure `GIPHY_API_KEY` em Settings → Variables and Secrets do Worker `anime-dragon` e salve a nova configuração. Não é necessário editar o código nem alterar o banco. Na prévia Node local, defina a variável no ambiente antes de executar `npm run preview`; em Wrangler local, use `.dev.vars`, nunca versionado.
 
 Essa chave Web fica acessível ao navegador por definição da API. Não configure nela uma credencial de autenticação, de TMDB ou de outro serviço. Não reutilize chaves do site GIPHY ou de aplicativos de terceiros.

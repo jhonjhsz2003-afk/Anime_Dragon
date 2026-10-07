@@ -35,3 +35,10 @@
 ## Dados existentes e limites
 
 O binding D1, contas e segredo de autenticação são preservados. O ZIP não contém node_modules, banco local, logs ou segredos. A publicação deve usar o mesmo Worker anime-dragon, sem migração destrutiva nem plano pago. A disponibilidade dos vídeos e o limite GIPHY pertencem aos provedores externos e variam; os testes não demonstram disponibilidade de todos os episódios do catálogo.
+# Ajuste visual v14.0.2
+
+O selo isolado do rodapé foi removido de todas as páginas. A galeria e a prévia conservam apenas a atribuição oficial compacta e transparente, junto aos controles. Os nove testes de GIPHY passaram novamente; sintaxe do aplicativo validada. A integração foi ativada na produção e a busca Naruto, prévias animadas e download de um GIF real foram conferidos no navegador.
+
+A personalização do nome aceita de 1 a 80 caracteres visíveis, incluindo emojis com combinação, símbolos e letras estilizadas. E-mail, ID, senha e sessões são preservados. A bio mantém um limite independente de 300 caracteres; entradas vazias, linhas adicionais e controles invisíveis são recusados.
+
+Após esse ajuste, 44 testes de perfil, compatibilidade de contas antigas, interface e GIPHY passaram. A validação cobre nome de um caractere, texto estilizado persistindo após login, contagem de emojis compostos, limite independente da bio, atualização atômica e exibição de símbolos como texto sem injetar elementos HTML.

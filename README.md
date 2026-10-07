@@ -1,4 +1,4 @@
-# AnimeDragon v14.0.1
+# AnimeDragon v14.0.2
 
 Projeto para Cloudflare Workers + Static Assets + D1.
 
@@ -52,3 +52,5 @@ No Cloudflare Builds: build `npm run build && npm test`, deploy `npx wrangler de
 ## Validação e limites
 
 Veja `VALIDACAO-v14.md` para os resultados dos testes. A disponibilidade dos vídeos depende das fontes externas e pode mudar. O player tenta as versões disponíveis; uma fonte que não oferece um episódio ou está indisponível não pode ser fabricada pelo site.
+
+O nome do perfil aceita nomes curtos, emojis, símbolos e letras estilizadas (até 80 caracteres visíveis). A bio possui validação própria; login e contas existentes são preservados.

@@ -225,7 +225,7 @@ export default {
       if (url.pathname.startsWith('/api/auth/')) return await auth(request,env);
       if (request.method !== 'GET') return json({ok:false,error:'Método não permitido.'},405,{Allow:'GET'});
       if(url.pathname==='/api/giphy/config')return json(giphyConfig(env),200,{'Cache-Control':'no-store'});
-      if (url.pathname === '/api/health') return json({ok:true,service:'AnimeDragon',version:'14.0.1',catalogVersion:CATALOG_VERSION});
+      if (url.pathname === '/api/health') return json({ok:true,service:'AnimeDragon',version:'14.0.2',catalogVersion:CATALOG_VERSION});
       if (url.pathname === '/api/addons/metadata') {
         const id=url.searchParams.get('id');if(!/^\d{1,10}$/.test(id||''))throw fail(400,'Anime inválido.');
         return json(await addonMetadata(await animeDetail(id,env),env));
