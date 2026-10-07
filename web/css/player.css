@@ -1,4 +1,7 @@
 /* An immersive black stage. Playback behavior remains in player.js. */
+.watch-screen video::cue{background:transparent;color:#fff;font-weight:650;text-shadow:-1px -1px 1px #000,1px -1px 1px #000,-1px 1px 1px #000,1px 1px 1px #000,0 2px 4px #000}
+.watch-screen video::cue-region{background:transparent}
+.watch-screen .shaka-text-container,.watch-screen .shaka-text-container span{background:transparent!important;color:#fff!important;text-shadow:-1px -1px 1px #000,1px -1px 1px #000,-1px 1px 1px #000,1px 1px 1px #000,0 2px 4px #000}
 .modal-back.watch-back { display: block; padding: 0; background: #000; backdrop-filter: none; }
 .modal.watch-modal {
   width: 100%; max-width: none; height: 100dvh; max-height: 100dvh;

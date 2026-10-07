@@ -1,5 +1,6 @@
 import {database} from './database.js';
 import {getUser,throttle} from './auth.js';
+import {giphyAvatar,giphyMarker} from './giphy-avatar.js';
 const fail=(status,message)=>Object.assign(new Error(message),{status});
 const json=data=>Response.json(data,{headers:{'Cache-Control':'no-store'}});
 export const MAX_AVATAR_BYTES=1900000;
@@ -23,7 +24,7 @@ export async function media(request,env){
    if(!row)throw fail(404,'Foto não encontrada.');
    return new Response(avatarBytes(row.data),{headers:{'Content-Type':row.mime,'X-Content-Type-Options':'nosniff','Cache-Control':'no-store','Content-Security-Policy':"default-src 'none'; sandbox",'Cross-Origin-Resource-Policy':'same-origin'}});
  }
- if(!['/api/profile/avatar','/api/profile/avatar/crop','/api/profile/avatar/reset'].includes(url.pathname))throw fail(404,'Página não encontrada.');
+ if(!['/api/profile/avatar','/api/profile/avatar/crop','/api/profile/avatar/reset','/api/profile/avatar/giphy'].includes(url.pathname))throw fail(404,'Página não encontrada.');
  if(request.method!=='POST')throw fail(405,'Método não permitido.');
  const user=await getUser(request,env);if(!user)throw fail(401,'Entre para alterar sua foto.');
  if(request.headers.get('Origin')!==url.origin)throw fail(403,'Origem inválida.');
@@ -34,7 +35,21 @@ export async function media(request,env){
  }
  const x=Number(url.searchParams.get('x')??50),y=Number(url.searchParams.get('y')??50),zoom=Number(url.searchParams.get('zoom')??100);
  if(![x,y,zoom].every(Number.isFinite)||x<0||x>100||y<0||y>100||zoom<100||zoom>300)throw fail(400,'Ajuste de imagem inválido.');
+ if(url.pathname.endsWith('/giphy')){
+   if(!String(env.GIPHY_API_KEY||'').trim())throw fail(503,'A galeria de GIFs ainda não foi ativada.');
+   if(Number(request.headers.get('Content-Length'))>512)throw fail(413,'Escolha um GIF da galeria.');
+   const reader=request.body?.getReader();if(!reader)throw fail(400,'Escolha um GIF da galeria.');const chunks=[];let length=0;
+   while(true){const {done,value}=await reader.read();if(done)break;length+=value.length;if(length>512){await reader.cancel();throw fail(413,'Escolha um GIF da galeria.')}chunks.push(value)}
+   const bytes=new Uint8Array(length);let cursor=0;for(const chunk of chunks){bytes.set(chunk,cursor);cursor+=chunk.length}const text=new TextDecoder().decode(bytes);
+   let data;try{data=JSON.parse(text)}catch{throw fail(400,'Escolha um GIF da galeria.')}
+   if(!data||typeof data!=='object'||Array.isArray(data))throw fail(400,'GIF inválido.');
+   const avatar=giphyMarker(data.id,{x,y,zoom});if(!avatar)throw fail(400,'GIF inválido.');
+   await env.DB.batch([env.DB.prepare('DELETE FROM profile_media WHERE user_id=?').bind(user.id),env.DB.prepare('UPDATE users SET avatar_url=?,updated_at=? WHERE id=?').bind(avatar,new Date().toISOString(),user.id)]);
+   return json({ok:true,avatar,avatarFrame:{x,y,zoom}});
+ }
  if(url.pathname.endsWith('/crop')){
+   const selected=giphyAvatar(user.avatar_url);
+   if(selected){const avatar=giphyMarker(selected.id,{x,y,zoom});await env.DB.prepare('UPDATE users SET avatar_url=?,updated_at=? WHERE id=?').bind(avatar,new Date().toISOString(),user.id).run();return json({ok:true,avatar,avatarFrame:{x,y,zoom}})}
    const row=await env.DB.prepare('SELECT user_id FROM profile_media WHERE user_id=?').bind(user.id).first();if(!row)throw fail(404,'Envie uma foto antes de ajustar.');
    await env.DB.prepare('UPDATE profile_media SET x=?,y=?,zoom=? WHERE user_id=?').bind(x,y,zoom,user.id).run();
    return json({ok:true,avatar:user.avatar_url,avatarFrame:{x,y,zoom}});

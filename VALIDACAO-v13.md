@@ -4,9 +4,9 @@ Verificação realizada em 7 de outubro de 2026.
 
 ## Testes automatizados
 
-204 casos passaram, executados por arquivo para manter isolamento dos mocks de rede no ambiente Windows. Abrangem catálogo, diversidade, datas futuras, player HLS e Shaka, renovação de fontes, segurança do relay, contas existentes, restauração de sessões, perfis, biblioteca, comentários e navegação.
+205 casos passaram, executados por arquivo para manter isolamento dos mocks de rede no ambiente Windows. Abrangem catálogo, diversidade, datas futuras, player HLS e Shaka, renovação de fontes, segurança do relay, contas existentes, restauração de sessões, perfis, biblioteca, comentários e navegação.
 
-Sintaxe dos módulos verificada. Bundles do Worker e da interface compilados com esbuild. O comando Wrangler dry-run não pôde iniciar seu subprocesso neste ambiente restrito (`spawn EPERM`); a publicação real não foi feita nesta validação.
+Sintaxe dos módulos verificada. Bundles do Worker e da interface compilados com esbuild. O comando Wrangler dry-run local não pôde iniciar seu subprocesso no ambiente restrito (`spawn EPERM`). O pipeline Cloudflare executou o build completo com sucesso, e os checks de envio e de pull request passaram no GitHub.
 
 ## Reprodução real observada
 
@@ -37,3 +37,11 @@ A correção do player é geral, sem lista de exceções por anime. Não foi alt
 Testes verificaram tendências semanais reais, retorno de séries com primeira estreia antiga, variedade de gêneros, confiança das avaliações e uso dos caches. A agenda inclui apenas datas posteriores ao dia atual em São Paulo; números desconhecidos ficam desconhecidos. A prévia mostrou séries, temporadas e episódios futuros, filtros, recuperação após erro e ausência de overflow horizontal em 390px.
 
 Referências: [TMDB Discover TV](https://developer.themoviedb.org/reference/discover-tv), [TMDB tendências semanais](https://developer.themoviedb.org/reference/trending-tv), [HTMLMediaElement.play](https://developer.mozilla.org/en-US/docs/Web/API/HTMLMediaElement/play).
+
+## Publicação
+
+Atualização integrada no GitHub pela [PR #5](https://github.com/jhonjhsz2003-afk/Anime_Dragon/pull/5) e publicada no mesmo Worker [AnimeDragon](https://anime-dragon.jhonjhsz2003.workers.dev/). `/api/health` confirmou a versão 13.0.0. Consultas de produção verificaram HLS válido para Heavy Knight, Jujutsu EP.1 e EP.3 e Kaiju EP.1; as fontes alternativas retornaram diagnósticos HTTP 502/402 precisos.
+
+A agenda de produção respondeu com 33 eventos na primeira página e 18 na segunda, todos futuros, sem repetições entre essas páginas. A home combinou ação, fantasia, mistério, drama, comédia e esporte. O ajuste final preserva metadados completos quando uma resposta semanal resumida repete o mesmo anime.
+
+O check de prévia da branch falhou por uma configuração de `previews` ausente no projeto; o build e a publicação de produção passaram. O banco e os segredos de produção permaneceram nos bindings existentes.

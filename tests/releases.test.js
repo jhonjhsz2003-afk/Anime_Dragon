@@ -40,7 +40,21 @@ test('requests remain within the free Worker subrequest budget and limit concurr
 });
 test('partial detail failures preserve confirmed future series without inventing future episodes',async()=>{
  const result=await getReleases({now,normalize,discover:async params=>({results:[anime(params['first_air_date.gte']?1:2,{first_air_date:params['first_air_date.gte']?'2026-10-12':'2020-01-01'})],totalPages:1}),detail:async()=>{throw Error('Unavailable');}});
- assert.equal(result.partial,true);assert.deepEqual(result.items.map(event=>[event.kind,event.anime.id]),[['series',1]]);
+ assert.equal(result.partial,true);assert.equal(result.complete,false);assert.deepEqual(result.resolvedIds,[]);assert.deepEqual(result.items.map(event=>[event.kind,event.anime.id]),[['series',1]]);
+});
+test('summary paints announced premieres without waiting for broadcast discovery or fetching details',async()=>{
+ const calls=[],background=[];let finish;
+ const result=await getReleases({now,summary:true,normalize,waitUntil:task=>background.push(task),discover:async params=>{calls.push(params);return params['first_air_date.gte']?{results:[anime(21,{first_air_date:'2026-10-12'}),anime(22)],totalPages:3}:new Promise(resolve=>finish=resolve);},detail:async()=>{assert.fail('summary must not fetch details');}});
+ assert.equal(calls.length,2);assert.equal(result.summary,true);assert.equal(result.phase,'summary');assert.equal(result.complete,false);assert.equal(result.hasMore,true);assert.deepEqual(result.resolvedIds,[]);
+ assert.deepEqual(result.items.map(entry=>[entry.kind,entry.anime.id,entry.season_number,entry.episode_number]),[['series',21,null,null]]);
+ finish({results:[anime(23,{next_episode_to_air:{air_date:'2026-10-08',season_number:1,episode_number:2}})],totalPages:4});await Promise.all(background);
+});
+test('summary and full stages share discovery requests and reserve detail lookups for the full stage',async()=>{
+ const {createCache}=await import('../server/cache.js'),cache=createCache();let queries=0,reads=0;
+ const discover=params=>cache.get(JSON.stringify(params),60000,async()=>{queries++;return {results:[anime(params['first_air_date.gte']?31:32,{first_air_date:'2026-10-12'})],totalPages:1};});
+ const options={now,normalize,discover,detail:async id=>{reads++;return anime(id,{first_air_date:'2026-10-12'});}};
+ const preview=await getReleases({...options,summary:true});assert.equal(reads,0);assert.equal(preview.items.length,1);
+ const complete=await getReleases(options);assert.equal(queries,2);assert.equal(reads,2);assert.equal(complete.complete,true);assert.equal(complete.phase,'complete');assert.deepEqual(complete.resolvedIds,[31,32]);
 });
 test('a bounded response can retain usable dates while slow details finish in the background',async()=>{
  const finish=[],background=[];
@@ -55,6 +69,7 @@ test('the public Worker route validates anime, reuses the TMDB cache and keeps f
  const records=new Map([[909001,anime(909001,{first_air_date:dateAt(3)})],[909002,anime(909002,{seasons:[{season_number:2,air_date:dateAt(2),episode_count:0}]})],[909003,anime(909003,{next_episode_to_air:{air_date:dateAt(1),season_number:1,episode_number:13}})]]),calls=[];
  t.mock.method(globalThis,'fetch',async url=>{const address=new URL(url);calls.push(address);assert.equal(address.hostname,'api.themoviedb.org');if(address.pathname.includes('/discover/'))return Response.json({results:[...records.values(),{...anime(909004,{first_air_date:dateAt(1)}),genres:[{id:28}]}],page:1,total_pages:1});return Response.json(records.get(Number(address.pathname.split('/').at(-1))));});
  const env={TMDB_API_KEY:'releases-public-route-test'},request=new Request('https://catalog.test/api/catalog/releases?page=1');
+ const preview=await worker.fetch(new Request(request.url+'&summary=1'),env,{}),summary=await preview.json();assert.equal(preview.status,200);assert.equal(summary.summary,true);assert.deepEqual(summary.items.map(entry=>entry.kind),['series']);assert.match(preview.headers.get('Cache-Control'),/s-maxage=15/);assert.equal(calls.length,2);
  const response=await worker.fetch(request,env,{}),data=await response.json();assert.equal(response.status,200);assert.match(response.headers.get('Cache-Control'),/public/);assert.equal(data.asOf,current);assert.deepEqual(data.items.map(entry=>entry.kind),['episode','season','series']);assert.equal(data.items[1].season_number,2);assert.equal(data.items[1].episode_number,null);
- assert.ok(data.items.every(entry=>entry.air_date>current));assert.equal(calls.length,5);await worker.fetch(request,env,{});assert.equal(calls.length,5);
+ assert.ok(data.items.every(entry=>entry.air_date>current));assert.match(response.headers.get('Cache-Control'),/s-maxage=60/);assert.equal(calls.length,5);await worker.fetch(request,env,{});assert.equal(calls.length,5);
 });

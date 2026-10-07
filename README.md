@@ -1,4 +1,4 @@
-# AnimeDragon v13.0.0
+# AnimeDragon v14.0.0
 
 Projeto para Cloudflare Workers + Static Assets + D1.
 
@@ -11,6 +11,14 @@ Projeto para Cloudflare Workers + Static Assets + D1.
 - Fontes MP4 sem extensão podem ser identificadas por GET com poucos bytes. HLS/MP4/WebM têm prioridade; MKV permanece como última alternativa a ser testada pelo navegador.
 - Links expirados são renovados; fontes adicionais são consultadas em paralelo. Os erros agora distinguem a indisponibilidade do provedor de problemas de reprodução.
 - Mantidos login persistente, perfil personalizável, comentários, biblioteca, progresso, ícone azul e cabeçalho compacto ao rolar.
+
+## Novidades v14
+
+- Rótulos de episódio simplificados, topo transparente, Voltar visível e rolagem horizontal sem faixa branca.
+- Busca do vídeo com tentativas automáticas limitadas, renovação e cancelamento ao sair.
+- Legendas extras desligadas por padrão; texto branco com contorno, sem caixa preta.
+- Agenda de lançamentos em duas etapas: primeiras estreias antes das consultas detalhadas.
+- Galeria GIPHY real com busca, tendências, animações, downloads e avatar persistido por ID. Ative com sua própria chave Web; veja `GIPHY.md`.
 
 ## Instalar e validar
 
@@ -43,4 +51,4 @@ No Cloudflare Builds: build `npm run build && npm test`, deploy `npx wrangler de
 
 ## Validação e limites
 
-Veja `VALIDACAO-v13.md` para os resultados dos testes. A disponibilidade dos vídeos depende das fontes externas e pode mudar. O player tenta as versões disponíveis; uma fonte que não oferece um episódio ou está indisponível não pode ser fabricada pelo site.
+Veja `VALIDACAO-v14.md` para os resultados dos testes. A disponibilidade dos vídeos depende das fontes externas e pode mudar. O player tenta as versões disponíveis; uma fonte que não oferece um episódio ou está indisponível não pode ser fabricada pelo site.

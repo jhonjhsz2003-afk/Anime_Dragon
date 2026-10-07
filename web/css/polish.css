@@ -144,6 +144,12 @@ button, a, summary, input, select, textarea {
 /* Reserve each cover's space and postpone rendering cards below the viewport. */
 .poster-wrap { aspect-ratio: 2 / 3; }
 .continue-card img { aspect-ratio: 16 / 9; object-fit: cover; }
+.continue-rail{scrollbar-width:none;-ms-overflow-style:none;overscroll-behavior-inline:contain}
+.continue-rail::-webkit-scrollbar{display:none;width:0;height:0}
+.continue-card progress{appearance:none;-webkit-appearance:none;border:0;border-radius:999px;background:#16334b;overflow:hidden;color:#75d2ff}
+.continue-card progress::-webkit-progress-bar{background:#16334b;border-radius:999px}
+.continue-card progress::-webkit-progress-value{background:#75d2ff;border-radius:999px}
+.continue-card progress::-moz-progress-bar{background:#75d2ff;border-radius:999px}
 @supports (content-visibility: auto) {
   .catalog-grid > :is(.card, .library-item) {
     content-visibility: auto;

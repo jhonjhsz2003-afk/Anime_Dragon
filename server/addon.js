@@ -63,7 +63,7 @@ export function providerFailureReason(error){
  return 'O provedor não conseguiu fornecer este episódio agora. As outras fontes continuam sendo consultadas.';
 }
 export async function readAddon(url,ttl=600000,fresh=false) {
- const previous=failures.get(url);if(previous&&previous.until>Date.now())throw previous.error;
+ const previous=failures.get(url),renewStream=fresh&&new URL(url).pathname.includes('/stream/');if(previous&&previous.until>Date.now()&&!renewStream)throw previous.error;
  return metadata.get(url,ttl,async()=>{
  try{
  const requestUrl=new URL(url);
@@ -95,6 +95,8 @@ export function resourceType(m,name,id) {
 export function capability(m,name,id) {return !!resourceType(m,name,id);}
 async function identity(anime,env,origin) {
  const m=await manifest(env);
+ // This verified adapter accepts exact TMDB catalog coordinates directly.
+ if(env.PROVIDER_ID==='italianhttps')return {m,id:Number.isSafeInteger(anime.id)&&anime.id>0?`tmdb:${anime.id}`:null,mapped:null};
  const response=await env.ASSETS.fetch(new Request(new URL('/addon-mappings.json',origin)));
  const mappings=response.ok?await response.json().catch(()=>({})):{};
  const entry=mappings[String(anime.id)];
@@ -137,7 +139,7 @@ async function resolvePlayback(anime,season,episode,env,origin,fresh) {
    if(data.meta?.id===id)videoId=data.meta.videos?.find(v=>v.season===target.season&&v.episode===target.episode)?.id;
    if(!videoId)return {ok:true,available:false,reason:'Este episódio não foi encontrado no provedor.'};
  }
- if(!videoId&&/^tt\d+$/.test(id))videoId=`${id}:${target.season}:${target.episode}`;
+ if(!videoId&&(/^tt\d+$/.test(id)||env.PROVIDER_ID==='italianhttps'&&/^tmdb:\d+$/.test(id)))videoId=`${id}:${target.season}:${target.episode}`;
  const streamType=videoId&&resourceType(m.data,'stream',videoId);
  if(!videoId||!streamType)return {ok:true,available:false,reason:'O provedor não oferece este episódio no formato esperado.'};
  const streamEndpoint=`${m.base}/stream/${streamType}/${encodeURIComponent(videoId)}.json`;

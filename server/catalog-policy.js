@@ -28,9 +28,18 @@ export function mergeCatalogItems(items){
     const previous=result.get(id);if(!previous){result.set(id,item);continue;}
     const genres=[...new Set([...(previous.genre_ids||[]),...(item.genre_ids||[]),...(previous.genres||[]).map(g=>g.id),...(item.genres||[]).map(g=>g.id)])];
     const merged={...previous,...item,genre_ids:genres};
+    // Discovery/trending rows use empty defaults for fields available only on
+    // detail responses. They must not erase the enriched metadata of a title.
+    for(const name of ['genres','seasons'])if(!item[name]?.length&&previous[name]?.length)merged[name]=previous[name];
+    for(const name of ['status','overview','original_title','first_air_date','poster_path','backdrop_path'])if(!item[name]&&previous[name])merged[name]=previous[name];
+    if(!(Number(item.number_of_episodes)>0)&&Number(previous.number_of_episodes)>0)merged.number_of_episodes=previous.number_of_episodes;
+    if(!(Number(item.vote_average)>0)&&Number(previous.vote_average)>0)merged.vote_average=previous.vote_average;
     for(const name of ['weekly_trending','external_trending','site_viewers','popularity','vote_count'])merged[name]=Math.max(finite(previous[name]),finite(item[name]));
     merged.curation_genres=[...new Set([...(previous.curation_genres||[]),...(item.curation_genres||[])])];
-    if(!merged.last_episode_to_air)merged.last_episode_to_air=previous.last_episode_to_air||null;
+    // A meaningful status comes from a detail response; its explicit null is
+    // authoritative (an ended series may no longer have a next episode).
+    const detailed=typeof item.status==='string'&&item.status.trim().length>0;
+    for(const name of ['next_episode_to_air','last_episode_to_air'])if(!item[name]&&!detailed)merged[name]=previous[name]||null;
     result.set(id,merged);
   }
   return [...result.values()];

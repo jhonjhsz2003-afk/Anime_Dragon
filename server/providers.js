@@ -6,6 +6,7 @@ export function addons(env) {
     {id:'nagare',name:'Nexio Nagare · anime',role:'stream',url:env.NAGARE_MANIFEST_URL||'https://nagare.nexioapp.org/manifest.json'},
     {id:'animepahe',name:'AnimePahe · anime',role:'stream',url:env.ANIMEPAHE_MANIFEST_URL||'https://stremio-animepahe.tsz1da2a.workers.dev/manifest.json'},
     {id:'animesbr',name:'Animes BR',role:'stream',url:env.ANIMESBR_MANIFEST_URL||'https://animes-br-self.vercel.app/manifest.json'},
+    {id:'italianhttps',name:'Italian HTTPS · IT (alternativa)',role:'stream',url:env.ITALIANHTTPS_MANIFEST_URL||'https://xveq22iokni2creoql6q5k2upa0jkdnq.lambda-url.us-east-1.on.aws/manifest.json'},
     {id:'piratebay',name:'ThePirateBay+',role:'external',url:env.TPB_MANIFEST_URL||'https://thepiratebay-plus.strem.fun/manifest.json'},
     {id:'subsense',name:'SubSense',role:'subtitles',url:env.SUBSENSE_MANIFEST_URL||`https://subsense.nepiraw.com/${subsenseConfig}/manifest.json`},
     {id:'aiometadata',name:'AIO Metadata',role:'metadata',configured:!!env.AIOMETADATA_MANIFEST_URL,url:env.AIOMETADATA_MANIFEST_URL||'https://aiometadata.elfhosted.com/stremio/manifest.json'}

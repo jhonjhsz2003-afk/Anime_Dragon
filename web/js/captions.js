@@ -1,10 +1,13 @@
 // Load only the chosen subtitle. No subtitle request delays the video.
+export function cleanCaptionStyles(input){
+ return String(input).split(/\n[ \t]*\n/).filter(block=>!/^STYLE(?:\s|$)/.test(block.trimStart())).join('\n\n').replace(/<\/?c(?:\.[^>]*)?>/gi,'').replace(/<\/?font\b[^>]*>/gi,'');
+}
 export function toVtt(input){
  const text=String(input).replace(/^\uFEFF/,'').replace(/\r\n?/g,'\n').trim();
  if(text.length>2000000)throw new Error('A legenda é grande demais. Escolha outra versão.');
- if(/^WEBVTT(?:\s|$)/.test(text))return text;
+ if(/^WEBVTT(?:\s|$)/.test(text))return cleanCaptionStyles(text);
  if(!/\d{2}:\d{2}:\d{2},\d{3}\s*-->\s*\d{2}:\d{2}:\d{2},\d{3}/.test(text)||/^\s*<(?:!doctype|html)/i.test(text))throw new Error('Formato de legenda incompatível. Escolha uma versão SRT ou VTT.');
- return 'WEBVTT\n\n'+text.replace(/(\d{2}:\d{2}:\d{2}),(\d{3})/g,'$1.$2');
+ return cleanCaptionStyles('WEBVTT\n\n'+text.replace(/(\d{2}:\d{2}:\d{2}),(\d{3})/g,'$1.$2'));
 }
 export function mergeCaptions(...lists){
  const unique=new Map();

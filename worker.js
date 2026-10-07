@@ -3,6 +3,7 @@ import {createCache} from './server/cache.js';
 import {withinCatalogBudget} from './server/catalog-budget.js';
 import {daysSince,currentCatalogItem,mergeCatalogItems,rankDiverseCatalog} from './server/catalog-policy.js';
 import {getReleases,releaseToday} from './server/releases.js';
+import {giphyConfig} from './server/giphy-avatar.js';
 import {providers} from './server/providers.js';
 import {addonMetadata,addonSubtitles} from './server/services.js';
 import {compatibleSources,videoRelay} from './server/hls.js';
@@ -22,7 +23,7 @@ const THEMES = {
 const keywordCache=new Map();
 const catalogCache=createCache(240);
 const anilistCache=createCache(12);
-const CATALOG_VERSION='13.0-current-diverse';
+const CATALOG_VERSION='14.0-current-diverse';
 const SORTS = new Set(['popularity.desc', 'vote_average.desc', 'first_air_date.desc']);
 export const json = (data, status = 200, headers = {}) => new Response(JSON.stringify(data), {
   status, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', ...headers }
@@ -125,7 +126,7 @@ async function animeDetail(id, env) {
 }
 async function catalog(request, env, ctx) {
   const url = new URL(request.url), p = url.pathname.replace('/api/tmdb/', '/api/catalog/');
-  if(p==='/api/catalog/releases')return getReleases({discover:params=>discover(env,params),detail:id=>animeDetail(id,env),normalize,page:pageNumber(url.searchParams.get('page')),waitUntil:ctx?.waitUntil?task=>ctx.waitUntil(task):undefined});
+  if(p==='/api/catalog/releases')return getReleases({discover:params=>discover(env,params),detail:id=>animeDetail(id,env),normalize,page:pageNumber(url.searchParams.get('page')),summary:url.searchParams.get('summary')==='1',waitUntil:ctx?.waitUntil?task=>ctx.waitUntil(task):undefined});
   if (p === '/api/catalog/home') {
     const today=new Date(),todayDate=dayAt(today,0),weekDate=dayAt(today,-7),tomorrowDate=dayAt(today,1),upcomingEnd=dayAt(today,180);
     const recentDate=dayAt(today,-180),popularDate=dayAt(today,-365),activeDate=dayAt(today,-35);
@@ -223,7 +224,8 @@ export default {
       if (url.pathname.startsWith('/api/community/')) return await community(request,env,animeDetail);
       if (url.pathname.startsWith('/api/auth/')) return await auth(request,env);
       if (request.method !== 'GET') return json({ok:false,error:'Método não permitido.'},405,{Allow:'GET'});
-      if (url.pathname === '/api/health') return json({ok:true,service:'AnimeDragon',version:'13.0.0',catalogVersion:CATALOG_VERSION});
+      if(url.pathname==='/api/giphy/config')return json(giphyConfig(env),200,{'Cache-Control':'no-store'});
+      if (url.pathname === '/api/health') return json({ok:true,service:'AnimeDragon',version:'14.0.0',catalogVersion:CATALOG_VERSION});
       if (url.pathname === '/api/addons/metadata') {
         const id=url.searchParams.get('id');if(!/^\d{1,10}$/.test(id||''))throw fail(400,'Anime inválido.');
         return json(await addonMetadata(await animeDetail(id,env),env));
@@ -258,7 +260,8 @@ export default {
       if (hit) return hit;
       const data=await catalog(request,env,ctx);
       const homeRequest=url.pathname==='/api/catalog/home'||url.pathname==='/api/tmdb/home';
-      const response=json(data,200,{'Cache-Control':data.partial?'public, max-age=15, s-maxage=15':homeRequest?'public, max-age=30, s-maxage=120':'public, max-age=60, s-maxage=300'});
+      const releaseRequest=/\/api\/(catalog|tmdb)\/releases$/.test(url.pathname);
+      const response=json(data,200,{'Cache-Control':data.partial||data.summary?'public, max-age=15, s-maxage=15':homeRequest?'public, max-age=30, s-maxage=120':releaseRequest?'public, max-age=60, s-maxage=60':'public, max-age=60, s-maxage=300'});
       if (cache) ctx.waitUntil(cache.put(key,response.clone()));
       return response;
     } catch(e) {
