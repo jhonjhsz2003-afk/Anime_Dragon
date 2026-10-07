@@ -15,34 +15,38 @@ test('home separates ranked, popular and future discoveries, limits details and 
       const id=Number(u.pathname.split('/').at(-1));
       return Response.json(anime(id,{last_episode_to_air:{air_date:id===1?dateAt(-1):id===2?dateAt(0):dateAt(1),season_number:1,episode_number:4}}));
     }
+    if(u.pathname==='/3/trending/tv/week')return Response.json({results:[anime(88)]});
     assert.equal(u.pathname,'/3/discover/tv');
     const params=u.searchParams;
-    assert.equal(params.get('with_genres'),'16');assert.equal(params.get('with_origin_country'),'JP');assert.equal(params.get('include_adult'),'false');
+    assert.match(params.get('with_genres'),/^16(?:,10759|,10765|,9648)?$/);assert.equal(params.get('with_origin_country'),'JP');assert.equal(params.get('include_adult'),'false');
     let results;
-    if(params.get('sort_by')==='vote_average.desc'){
+    if(params.get('with_genres')!=='16')results=[];
+    else if(params.get('sort_by')==='vote_average.desc'){
       assert.equal(params.get('vote_count.gte'),'100');results=[anime(77,{vote_average:9.3})];
     }else if(params.get('sort_by')==='first_air_date.asc'){
       assert.equal(params.get('first_air_date.gte'),dateAt(1));assert.equal(params.get('first_air_date.lte'),dateAt(180));
       results=[anime(99,{first_air_date:dateAt(1)}),anime(201,{first_air_date:dateAt(0)}),anime(202,{first_air_date:dateAt(181)}),anime(203,{first_air_date:''})];
     }else if(params.get('air_date.gte')===dateAt(-7)){
       results=Array.from({length:20},(_,i)=>anime(i+1));
-    }else if(params.get('sort_by')==='popularity.desc'&&!params.has('air_date.gte')){
+    }else if(params.get('sort_by')==='popularity.desc'&&params.get('air_date.gte')===dateAt(-180)){
       results=[anime(88)];
     }else results=[anime(1)];
     return Response.json({results,page:1,total_pages:1});
   });
   const response=await home('home-distinct-fixture'),data=await response.json();
   assert.equal(response.status,200);assert.match(response.headers.get('Cache-Control'),/public, max-age=30, s-maxage=120/);
-  assert.deepEqual(data.top.map(p=>p.id),[77]);assert.deepEqual(data.popular.map(p=>p.id),[88]);assert.deepEqual(data.upcoming.map(p=>p.id),[99]);
-  assert.deepEqual(data.trending.map(p=>p.id),[2,1,88]);assert.deepEqual(data.anime,data.trending);
-  assert.deepEqual(data.updated.map(p=>p.id),[2,1]);assert.ok([1,2,88].includes(data.featured[0].id));
-  assert.equal(calls.filter(u=>u.pathname==='/3/discover/tv').length,6);
+  assert.deepEqual(data.top.map(p=>p.id),[77]);assert.deepEqual(data.popular.map(p=>p.id),[88,2,1]);assert.deepEqual(data.upcoming.map(p=>p.id),[99]);
+  assert.deepEqual(data.trending.map(p=>p.id),[88,2,1]);assert.deepEqual(data.anime,data.trending);
+  assert.deepEqual(data.updated.map(p=>p.id),[2,1]);assert.equal(data.featured[0].id,88);assert.equal(data.trendingSource,'tmdb_week');
+  assert.equal(calls.filter(u=>u.pathname==='/3/discover/tv').length,9);
+  assert.equal(calls.filter(u=>u.pathname==='/3/trending/tv/week').length,1);
   assert.equal(calls.filter(u=>u.pathname.startsWith('/3/tv/')).length,12);
-  assert.equal(calls.length,19);
+  assert.equal(calls.filter(u=>u.hostname==='api.themoviedb.org').length,22);
+  assert.ok(calls.length<=23);const initialReads=calls.length;
   for(const item of [...data.updated,...data.upcoming]){
     assert.equal(item.available,undefined);assert.equal(item.dubbed,undefined);assert.equal(item.uploaded_at,undefined);
   }
-  assert.equal((await home('home-distinct-fixture')).status,200);assert.equal(calls.length,19);
+  assert.equal((await home('home-distinct-fixture')).status,200);assert.equal(calls.length,initialReads);
 });
 
 test('an unavailable optional rail stays empty without relabeling trending titles',async t=>{
@@ -75,14 +79,18 @@ test('local illustrative fixtures keep future premieres distinct and episode dat
 });
 
 
-test('old long-running anime cannot re-enter home just because it aired an episode this week',async t=>{
+test('returning anime qualifies by its current episode while an inactive classic does not fill the home',async t=>{
   const old=anime(500,{first_air_date:'1990-01-07',last_episode_to_air:{air_date:dateAt(0),season_number:1,episode_number:1500},vote_average:9.9});
+  const inactive=anime(501,{first_air_date:'1990-01-07',last_episode_to_air:{air_date:dateAt(-700)},vote_average:9.9});
   t.mock.method(globalThis,'fetch',async url=>{const u=new URL(url);if(u.hostname==='graphql.anilist.co')return Response.json({data:{Page:{media:[]}}});const p=u.searchParams;
-    if(u.pathname.startsWith('/3/tv/'))return Response.json(Number(u.pathname.split('/').at(-1))===500?old:anime(Number(u.pathname.split('/').at(-1)),{last_episode_to_air:{air_date:dateAt(0),season_number:1,episode_number:2}}));
+    if(u.pathname==='/3/trending/tv/week')return Response.json({results:[anime(1)],page:1,total_pages:1});
+    if(u.pathname.startsWith('/3/tv/'))return Response.json(Number(u.pathname.split('/').at(-1))===500?old:Number(u.pathname.split('/').at(-1))===501?inactive:anime(Number(u.pathname.split('/').at(-1)),{last_episode_to_air:{air_date:dateAt(0),season_number:1,episode_number:2}}));
     if(p.get('sort_by')==='first_air_date.asc')return Response.json({results:[],page:1,total_pages:1});
-    if(p.get('air_date.gte')===dateAt(-7))return Response.json({results:[old,anime(1)],page:1,total_pages:1});
-    return Response.json({results:[old,anime(1)],page:1,total_pages:1});
+    if(p.get('air_date.gte')===dateAt(-7))return Response.json({results:[old,inactive,anime(1)],page:1,total_pages:1});
+    return Response.json({results:[old,inactive,anime(1)],page:1,total_pages:1});
   });
   const data=await (await home('old-running-filter-fixture')).json();
-  for(const rail of [data.featured,data.trending,data.updated,data.top,data.popular,data.recent])assert.equal(rail.some(x=>x.id===500),false);
+  assert.equal(data.updated.some(x=>x.id===500),true);assert.equal(data.trending.some(x=>x.id===500),true);
+  assert.equal(data.recent.some(x=>x.id===500),false);
+  for(const rail of [data.featured,data.trending,data.updated,data.top,data.popular,data.recent])assert.equal(rail.some(x=>x.id===501),false);
 });

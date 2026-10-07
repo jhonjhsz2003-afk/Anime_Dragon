@@ -23,8 +23,8 @@ const metadata=(id,name,art,index)=>({
 
 export const demoItems=titles.map((name,i)=>({
   ...metadata(900001+i,name,i+1,i),overview:overviews[i],vote_average:8.9-i*.15,vote_count:400-i*20,popularity:100-i*8,
-  first_air_date:dateAt(-(i%7)-(4+i)*7),status:i===7?'Ended':'Returning Series',number_of_episodes:12,
-  seasons:[{season_number:1,episode_count:12}],
+  first_air_date:dateAt(-(i%7)-(4+i)*7),status:i===7?'In Production':'Returning Series',number_of_episodes:12,
+  seasons:[{season_number:1,episode_count:12,air_date:dateAt(-(i%7)-(4+i)*7)},...(i===7?[{season_number:2,episode_count:0,air_date:dateAt(10),name:'Temporada 2'}]:[])],
   last_episode_to_air:{air_date:dateAt(-(i%7)),season_number:1,episode_number:5+i,name:'Ecos do horizonte'},
   next_episode_to_air:i===7?null:{air_date:dateAt(7-(i%7)),season_number:1,episode_number:6+i,name:'O próximo horizonte'}
 }));
@@ -45,7 +45,8 @@ export function demoResponse(url){
   }
   const item=allItems.find(p=>p.id===id);
   if(u.pathname.includes('/season/')){
-    const episodes=item?.seasons.some(s=>s.season_number===1)?Array.from({length:12},(_,i)=>({
+    const requestedSeason=Number(u.pathname.match(/\/season\/(\d+)/)?.[1]);
+    const episodes=requestedSeason===1&&item?.seasons.some(s=>s.season_number===1)?Array.from({length:12},(_,i)=>({
       episode_number:i+1,season_number:1,
       name:['O começo da jornada','Um encontro inesperado','Ecos do passado','Do outro lado','A promessa','O céu se abre'][i%6],
       runtime:24,
@@ -61,8 +62,10 @@ export function demoResponse(url){
   for(const [key,read] of [['first_air_date',p=>p.first_air_date],['air_date',p=>p.last_episode_to_air?.air_date]]){
     const lower=params.get(`${key}.gte`),upper=params.get(`${key}.lte`);
     if(lower||upper)results=results.filter(p=>{
-      const date=read(p);
-      return Boolean(date)&&(!lower||date>=lower)&&(!upper||date<=upper);
+      // Future discovery sees announced next episodes and future seasons.
+      // Historic/current discovery continues to use the last aired episode.
+      const dates=key==='air_date'&&lower>dateAt(0)?[p.next_episode_to_air?.air_date,...(p.seasons||[]).map(season=>season.air_date)]:[read(p)];
+      return dates.some(date=>Boolean(date)&&(!lower||date>=lower)&&(!upper||date<=upper));
     });
   }
   if(params.has('vote_count.gte'))results=results.filter(p=>p.vote_count>=Number(params.get('vote_count.gte')));

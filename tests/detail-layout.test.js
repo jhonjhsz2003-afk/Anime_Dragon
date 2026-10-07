@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
+import {releaseDay} from '../web/js/releases.js';
 const {parseHTML}=await import(process.env.ANIMEDRAGON_DOM_MODULE||'linkedom');
 const source=readFileSync(new URL('../web/js/app.js',import.meta.url),'utf8');
 const detailCode=source.slice(source.indexOf('let detailHeaderObserver='),source.indexOf('async function openPlayer('));
@@ -13,7 +14,7 @@ function setup({anime=item,entries=episodes,apiOverride}={}){
  let focused=null;Object.defineProperty(document,'activeElement',{get:()=>focused});window.HTMLElement.prototype.focus=function(){focused=this};
  const state={details:null,episodes:[],watched:[],history:[],prefs:{economy:false}},calls=[];
  const playback=async()=>({});playback.prepare=async()=>({});
- const context=vm.createContext({document,navigator:{connection:{}},state,Date,Intl,console,setTimeout,clearTimeout,loadPlayback:playback,modalVersion:0,seasonVersion:0,discussionController:null,watchController:null,detailTrail:[],focusBeforeModal:null,overlayState:()=>null,writeOverlay(){},
+ const context=vm.createContext({releaseDay,document,navigator:{connection:{}},state,Date,Intl,console,setTimeout,clearTimeout,loadPlayback:playback,modalVersion:0,seasonVersion:0,discussionController:null,watchController:null,detailTrail:[],focusBeforeModal:null,overlayState:()=>null,writeOverlay(){},
   $:(selector,root=document)=>root.querySelector(selector),$$:(selector,root=document)=>[...root.querySelectorAll(selector)],
   esc:value=>String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char])),
   img:(path,size)=>`https://image.tmdb.org/t/p/${size}${path}`,icon:()=>'<svg aria-hidden="true"></svg>',year:p=>p.first_air_date?.slice(0,4)||'—',rating:()=>8,

@@ -6,7 +6,7 @@ const DEFAULT_MANIFEST='https://fenixflix.fenixhub.online/manifest.json';
 const metadata=createCache(160), playback=createCache(160);
 const fail=message=>Object.assign(new Error(message),{status:502});
 export function publicHttps(value) {
- try{const u=new URL(value);return u.protocol==='https:'&&!u.username&&!u.password&&!/^(localhost|127\.|10\.|192\.168\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.|\[|0\.)/i.test(u.hostname)&&!u.hostname.endsWith('.local')}catch{return false}
+ try{const u=new URL(value);return u.protocol==='https:'&&!u.username&&!u.password&&!u.port&&!/^(localhost|127\.|10\.|192\.168\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.|\[|0\.)/i.test(u.hostname)&&!u.hostname.endsWith('.local')}catch{return false}
 }
 const failures=new Map();
 function signedExpiry(value){
@@ -22,26 +22,45 @@ function signedExpiry(value){
 }
 function usableStreamUrl(value,skewMs=45000){const expiry=signedExpiry(value);return publicHttps(value)&&(!expiry||expiry>Date.now()+skewMs);}
 
-async function probePrimaryHls(source,origin){
+function probeableOpaque(source){
+ try{const u=new URL(source.url);return ['fenixbot.squareweb.app','passing-melinda-onomed1-d0cbec40.koyeb.app'].includes(u.hostname)&&/^\/stream\/[a-zA-Z0-9_-]+$/.test(u.pathname);}catch{return false;}
+}
+// These provider gateways do not identify the container in their URL and reject
+// HEAD even when GET works. Read a small byte range; never download the video.
+export async function probePrimarySource(source,origin){
  const type=streamMime(source?.url);
- if(!/mpegurl/i.test(type)||canRelaySource(source))return {ok:true};
+ if(canRelaySource(source)||!(/mpegurl|dash/i.test(type)||!type&&probeableOpaque(source)))return {ok:true,type};
  try{
-  const headers=new Headers({Accept:'application/vnd.apple.mpegurl, application/x-mpegURL, */*',Origin:origin});
+  const headers=new Headers({Accept:'application/vnd.apple.mpegurl, video/*, */*',Range:'bytes=0-1023'});
+  if(/mpegurl|dash/i.test(type))headers.set('Origin',origin);
   const response=await fetch(source.url,{method:'GET',headers,redirect:'manual',signal:AbortSignal.timeout(3500)});
-  if(!response.ok){await response.body?.cancel();return {ok:false,reason:`A fonte HLS foi recusada pelo servidor (HTTP ${response.status}).`};}
-  const allow=response.headers.get('Access-Control-Allow-Origin')||'';
-  if(!(allow==='*'||allow===origin)){await response.body?.cancel();return {ok:false,reason:'A fonte HLS não permite reprodução web neste domínio (CORS ausente).'};}
+  if(!response.ok){await response.body?.cancel();return {ok:false,reason:`O servidor desta fonte recusou o vídeo (HTTP ${response.status}).`};}
   const reader=response.body?.getReader?.();
-  if(!reader)return {ok:false,reason:'A fonte HLS não retornou dados de vídeo.'};
-  const first=await reader.read();
-  if(first.done){await reader.cancel().catch(()=>{});return {ok:false,reason:'A fonte HLS retornou uma resposta vazia.'};}
-  const prefix=new TextDecoder().decode(first.value.subarray(0,32));
+  if(!reader)return {ok:false,reason:'A fonte não retornou dados de vídeo.'};
+  let bytes=new Uint8Array();
+  while(bytes.length<32){const first=await reader.read();if(first.done)break;const part=first.value.subarray(0,1024-bytes.length),next=new Uint8Array(bytes.length+part.length);next.set(bytes);next.set(part,bytes.length);bytes=next;}
   await reader.cancel().catch(()=>{});
-  if(!prefix.trimStart().startsWith('#EXTM3U'))return {ok:false,reason:'A fonte anunciada como HLS não retornou um manifesto HLS válido.'};
-  return {ok:true};
+  if(!bytes.length)return {ok:false,reason:'A fonte retornou uma resposta vazia.'};
+  const prefix=new TextDecoder().decode(bytes),mime=(response.headers.get('Content-Type')||'').split(';')[0].toLowerCase();
+  if(/^\s*(?:<(?:!doctype|html|head|body)|[\[{])/i.test(prefix))return {ok:false,reason:'O servidor retornou uma página de erro em vez do vídeo.'};
+  const hls=prefix.trimStart().startsWith('#EXTM3U'),dash=/<MPD(?:\s|>)/i.test(prefix),mp4=new TextDecoder('latin1').decode(bytes.subarray(0,16)).includes('ftyp');
+  if(/matroska/i.test(mime))return {ok:true,type:'video/x-matroska'};
+  if(hls||dash){
+   const allow=response.headers.get('Access-Control-Allow-Origin')||'';
+   if(!(allow==='*'||allow===origin))return {ok:false,reason:'A fonte adaptativa não permite reprodução web neste domínio (CORS ausente).'};
+   return {ok:true,type:hls?'application/vnd.apple.mpegurl':'application/dash+xml'};
+  }
+  if(mp4||mime==='video/mp4')return {ok:true,type:'video/mp4'};
+  if(mime==='video/webm')return {ok:true,type:'video/webm'};
+  return {ok:false,reason:/mpegurl/i.test(type)?'A fonte anunciada como HLS não retornou um manifesto HLS válido.':'O servidor não retornou um formato de vídeo compatível com o navegador.'};
  }catch(error){
-  return {ok:false,reason:error?.name==='TimeoutError'?'A fonte HLS não respondeu a tempo no teste de reprodução web.':'Não foi possível validar esta fonte HLS para o navegador.'};
+  return {ok:false,reason:error?.name==='TimeoutError'?'O servidor de vídeo não respondeu a tempo no teste de reprodução web.':'Não foi possível validar esta fonte para o navegador.'};
  }
+}
+export function providerFailureReason(error){
+ if(Number.isInteger(error?.upstreamStatus))return `O provedor está indisponível (HTTP ${error.upstreamStatus}). As outras fontes continuam sendo consultadas.`;
+ if(error?.name==='TimeoutError'||error?.name==='AbortError')return 'O provedor não respondeu dentro do prazo. As outras fontes continuam sendo consultadas.';
+ return 'O provedor não conseguiu fornecer este episódio agora. As outras fontes continuam sendo consultadas.';
 }
 export async function readAddon(url,ttl=600000,fresh=false) {
  const previous=failures.get(url);if(previous&&previous.until>Date.now())throw previous.error;
@@ -50,7 +69,7 @@ export async function readAddon(url,ttl=600000,fresh=false) {
  const requestUrl=new URL(url);
  if(fresh&&/\/(stream|subtitles)\//.test(requestUrl.pathname))requestUrl.searchParams.set('_ad_refresh',`${Date.now()}-${crypto.randomUUID().slice(0,8)}`);
  const r=await fetch(requestUrl,{headers:{Accept:'application/json',...(fresh?{'Cache-Control':'no-cache, no-store','Pragma':'no-cache'}:{})},signal:AbortSignal.timeout(/\/(stream|subtitles)\//.test(url)?10000:3000),...(fresh?{cf:{cacheTtl:0,cacheEverything:false}}:{})});
- if(!r.ok){await r.body?.cancel();throw fail('Este serviço está temporariamente indisponível.');}
+ if(!r.ok){await r.body?.cancel();throw Object.assign(fail('Este serviço está temporariamente indisponível.'),{upstreamStatus:r.status});}
  const d=await r.json().catch(()=>null);if(!d||typeof d!=='object')throw fail('O provedor retornou uma resposta inválida.');failures.delete(url);return d;
  }catch(error){if(failures.size>=160)failures.delete(failures.keys().next().value);failures.set(url,{until:Date.now()+15000,error});throw error;}
  },fresh);
@@ -136,18 +155,20 @@ async function resolvePlayback(anime,season,episode,env,origin,fresh) {
    return [key,{key,infoHash,fileIdx,name:String(s.name||'Torrent').slice(0,80),title:String(s.description||s.title||'').slice(0,180),magnet:`magnet:?xt=urn:btih:${infoHash}${fileIdx!==null?'&so='+fileIdx:''}`}];
  })).values()].slice(0,12);
  const candidates=[...new Map(raw.filter(s=>usableStreamUrl(s.url)&&(!s.behaviorHints?.proxyHeaders||canRelaySource(s))).map(s=>[s.url,s])).values()].slice(0,12);
- const rejected=[];const checked=[];
- for(const source of candidates){
+ const hasAdaptive=candidates.some(s=>/mpegurl|dash/i.test(streamMime(s.url))||canRelaySource(s));
+ const outcomes=await Promise.all(candidates.map(async source=>{
    const type=streamMime(source.url);
-   if(source.behaviorHints?.notWebReady&&!type&&!canRelaySource(source)){rejected.push('O addon marcou esta fonte como não pronta para navegador.');continue;}
-   if(env.PROVIDER_ID==='primary'&&/mpegurl/i.test(type)&&!canRelaySource(source)){
-     const probe=await probePrimaryHls(source,origin);if(!probe.ok){rejected.push(probe.reason);continue;}
+   if(source.behaviorHints?.notWebReady&&!type&&!canRelaySource(source)&&!probeableOpaque(source))return {reason:'O addon marcou esta fonte como não pronta para navegador.'};
+   if(env.PROVIDER_ID==='primary'&&!(hasAdaptive&&!type&&!canRelaySource(source))){
+     const probe=await probePrimarySource(source,origin);if(!probe.ok)return {reason:probe.reason};
+     return {source:{...source,detectedType:probe.type||type}};
    }
-   checked.push(source);
- }
+   return {source};
+ }));
+ const rejected=outcomes.filter(x=>x.reason).map(x=>x.reason),checked=outcomes.filter(x=>x.source).map(x=>x.source);
  const streams=checked.map((s,i)=>({
    url:s.url,name:String(s.name||`Fonte ${i+1}`).slice(0,80),title:String(s.description||s.title||'').slice(0,180),
-   type:streamMime(s.url),expiresAt:signedExpiry(s.url),
+   type:s.detectedType||streamMime(s.url),expiresAt:signedExpiry(s.url),
    subtitles:(Array.isArray(s.subtitles)?s.subtitles:[]).filter(t=>publicHttps(t.url)).map(t=>({src:t.url,language:t.lang||'pt',label:t.label||t.lang||'Legenda'}))
  }));
  const unavailableReason=rejected[0]||(raw.some(s=>publicHttps(s.url)&&signedExpiry(s.url)&&signedExpiry(s.url)<=Date.now()+45000)?'O provedor devolveu links de vídeo expirados. O AnimeDragon tentou renová-los automaticamente.':externalStreams.length?'Torrents encontrados. Abra em um aplicativo compatível; estas fontes não reproduzem diretamente no navegador.':raw.some(s=>s.behaviorHints?.proxyHeaders)?'Esta fonte exige um aplicativo ou servidor de vídeo compatível; não oferece reprodução direta neste navegador.':'Nenhuma fonte HTTPS direta foi encontrada para este episódio.');
@@ -156,5 +177,5 @@ async function resolvePlayback(anime,season,episode,env,origin,fresh) {
 
 // An opaque provider URL is not evidence of an MP4 container.
 export function streamMime(url) {
- try {const path=new URL(url).pathname.toLowerCase();return path.endsWith('.m3u8')?'application/vnd.apple.mpegurl':path.endsWith('.webm')?'video/webm':path.endsWith('.mp4')?'video/mp4':path.endsWith('.mkv')?'video/x-matroska':'';} catch {return '';}
+ try {const path=new URL(url).pathname.toLowerCase();return path.endsWith('.m3u8')?'application/vnd.apple.mpegurl':path.endsWith('.mpd')?'application/dash+xml':path.endsWith('.webm')?'video/webm':path.endsWith('.mp4')?'video/mp4':path.endsWith('.mkv')?'video/x-matroska':'';} catch {return '';}
 }
