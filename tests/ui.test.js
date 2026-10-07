@@ -1,4 +1,5 @@
 import {createHeaderScroll} from '../web/js/header-scroll.js';
+import {releasesPage,mountReleases,releaseDay} from '../web/js/releases.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
@@ -21,7 +22,7 @@ function setup({saved=false,sessionUser=null,fetchOverride}={}){
  window.HTMLElement.prototype.focus=function(){focused=this};
  window.HTMLElement.prototype.showModal=function(){this.setAttribute('open','');this.querySelector('input')?.focus()};
  window.HTMLElement.prototype.close=function(){this.removeAttribute('open')};
- const context=vm.createContext({createHeaderScroll,createAuthSession,createAccountDialog,mountDiscussion,preferredCaptionLocale,mountWatchPlayer:(host,options)=>{player.options=options;host.innerHTML='<video data-fixture-player></video>';return {destroy(){player.destroyed++;}};},AbortController,createCatalogCache,createIntentPreloader,createSourceLoader,bindLiveSearch,rankSearchResults,console,window,document,location,history:{replaceState(_state,_title,hash){location.hash=hash}},navigator:{language:'pt-BR',languages:['pt-BR'],connection:{}},URLSearchParams,AbortSignal,Date,Intl,Map,HTMLImageElement:window.HTMLImageElement,matchMedia:()=>({matches:true}),requestAnimationFrame:cb=>cb(),setTimeout:()=>0,clearTimeout(){},setInterval:()=>0,clearInterval(){},localStorage:{getItem:k=>memory.get(k)||null,setItem:(k,v)=>memory.set(k,v)},fetch:async(path,options={})=>{
+ const context=vm.createContext({releasesPage,mountReleases,releaseDay,createHeaderScroll,createAuthSession,createAccountDialog,mountDiscussion,preferredCaptionLocale,mountWatchPlayer:(host,options)=>{player.options=options;host.innerHTML='<video data-fixture-player></video>';return {destroy(){player.destroyed++;}};},AbortController,createCatalogCache,createIntentPreloader,createSourceLoader,bindLiveSearch,rankSearchResults,console,window,document,location,history:{replaceState(_state,_title,hash){location.hash=hash}},navigator:{language:'pt-BR',languages:['pt-BR'],connection:{}},URLSearchParams,AbortSignal,Date,Intl,Map,HTMLImageElement:window.HTMLImageElement,matchMedia:()=>({matches:true}),requestAnimationFrame:cb=>cb(),setTimeout:()=>0,clearTimeout(){},setInterval:()=>0,clearInterval(){},localStorage:{getItem:k=>memory.get(k)||null,setItem:(k,v)=>memory.set(k,v)},fetch:async(path,options={})=>{
   calls.push({path,options});
   const overridden=fetchOverride?.(path,options);if(overridden!==undefined)return overridden;
   if(path==='/api/auth/me')return Response.json({ok:true,user:sessionUser});
@@ -186,4 +187,40 @@ test('saving in details updates the hero and persists its state through renderin
  assert.equal(t.run('state.list.length'),0);
  const mutations=t.calls.filter(({path,options})=>path==='/api/community/1'&&options.method==='POST').map(({options})=>JSON.parse(options.body));
  assert.deepEqual(mutations,[{action:'collection',kind:'watchlater',enabled:true},{action:'collection',kind:'watchlater',enabled:false}]);
+});
+
+
+test('Lançamentos opens its public future agenda and never requests the aired discover listing',async()=>{
+ const event={key:'1:episode:2:3:2099-01-02',kind:'episode',air_date:'2099-01-02',season_number:2,episode_number:3,anime:fixture};
+ const t=setup({fetchOverride:path=>path.startsWith('/api/catalog/releases')?Response.json({ok:true,items:[event],asOf:'2026-10-07',page:1,hasMore:false}):undefined});
+ await t.run("location.hash='#releases';render()");await settle();
+ assert.equal(t.document.querySelector('.top-nav a[aria-current="page"]').getAttribute('href'),'#releases');
+ assert.ok(t.document.querySelector('time[datetime="2099-01-02"]'));
+ assert.ok(t.document.querySelector('.release-episode').textContent.includes('T2 · EP.3'));
+ assert.ok(t.calls.some(call=>call.path==='/api/catalog/releases?page=1'));
+ assert.equal(t.calls.some(call=>call.path.startsWith('/api/catalog/discover')),false);
+ t.run('releasesController.destroy();authSession.destroy()');
+});
+
+test('announced anime with no episodes keeps watch disabled and does not fetch a nonexistent season',async()=>{
+ const announced={...fixture,id:90,first_air_date:'2099-01-02',seasons:[],number_of_episodes:0};
+ const t=setup({fetchOverride:path=>path==='/api/catalog/tv/90'?Response.json({ok:true,item:announced}):undefined});
+ await t.run('openDetails(90)');await settle();
+ assert.equal(t.document.querySelector('#detail-watch').disabled,true);
+ assert.equal(t.document.querySelector('#detail-watch').textContent,'Estreia em breve');
+ assert.ok(t.document.querySelector('#episodes').textContent.includes('ainda vai estrear'));
+ assert.equal(t.calls.some(call=>call.path.includes('/tv/90/season/')),false);
+ t.run('closeModal();authSession.destroy()');
+});
+
+test('leaving the release page discards its late response instead of rewriting the next page',async()=>{
+ let finish;
+ const pending=new Promise(resolve=>finish=resolve);
+ const t=setup({fetchOverride:path=>path.startsWith('/api/catalog/releases')?pending:path.startsWith('/api/catalog/discover')?Response.json({ok:true,results:[fixture],page:1,totalPages:1}):undefined});
+ await t.run("location.hash='#releases';render()");
+ await t.run("location.hash='#anime';render()");await settle();
+ finish(Response.json({ok:true,items:[],page:1,hasMore:false}));await settle();
+ assert.equal(t.document.querySelector('.releases-view'),null);
+ assert.ok(t.document.querySelector('#catalog-results .catalog-grid'));
+ t.run('authSession.destroy()');
 });

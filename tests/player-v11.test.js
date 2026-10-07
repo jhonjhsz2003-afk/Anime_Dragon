@@ -12,16 +12,16 @@ import {playbackSourceLabel} from '../web/js/player.js';
 const settle=async()=>{for(let i=0;i<6;i++)await new Promise(resolve=>setImmediate(resolve));};
 function fixture(overrides={},externalDiscussion=false){
   const {window,document}=parseHTML(`<html><body><div id="player"></div>${externalDiscussion?'<section id="discussion" hidden></section>':''}</body></html>`);
-  const calls={episodes:[],comments:[],progress:[],captions:[],revoked:[],closed:0};
+  const calls={episodes:[],comments:[],progress:[],captions:[],revoked:[],closed:0,plays:0};
   const media=window.HTMLElement.prototype;
   Object.defineProperties(media,{
     paused:{configurable:true,get(){return this._paused!==false;}},
     currentTime:{configurable:true,get(){return this._currentTime||0;},set(value){this._currentTime=value;}},
     duration:{configurable:true,get(){return 120;}},
   });
-  media.load=function(){this.currentTime=0;};
+  media.load=function(){this.currentTime=0;this.error=null;};
   media.pause=function(){this._paused=true;this.dispatchEvent(new window.Event('pause'));};
-  media.play=function(){this._paused=false;this.dispatchEvent(new window.Event('playing'));return Promise.resolve();};
+  media.play=function(){calls.plays++;this._paused=false;this.dispatchEvent(new window.Event('playing'));return Promise.resolve();};
   media.canPlayType=()=>'';media.scrollIntoView=function(){};media.focus=function(){};
   const createElement=document.createElement.bind(document);
   document.createElement=name=>{const el=createElement(name);if(name==='track')el.track={mode:'disabled'};return el;};
@@ -147,4 +147,42 @@ test('destroy silences the video, releases captions and ignores delayed provider
   assert.equal(f.q('video').muted,true);assert.equal(f.q('video').paused,true);assert.equal(f.q('video').getAttribute('src'),null);
   update({streams:[{url:'https://video.test/late.mp4'}],complete:true});await settle();
   assert.equal(f.q('video').getAttribute('src'),null);assert.equal(f.timers.size,0);
+});
+
+function hlsFixture(overrides={}){
+ let current;
+ class Hls {
+  static Events={ERROR:'error',MANIFEST_PARSED:'manifest',LEVEL_LOADED:'level',FRAG_LOADED:'fragment'};
+  static isSupported(){return true;}
+  constructor(){this.handlers=new Map();current=this;}
+  on(event,callback){const list=this.handlers.get(event)||[];list.push(callback);this.handlers.set(event,list);}
+  emit(event,data){for(const callback of this.handlers.get(event)||[])callback(event,data);}
+  loadSource(url){this.url=url;}
+  attachMedia(video){this.video=video;}
+  destroy(){this.destroyed=true;}
+ }
+ const f=fixture({loadSource:async()=>({streams:[{url:'https://video.test/episode.m3u8',type:'application/vnd.apple.mpegurl'},{url:'https://video.test/alternate.mp4',type:'video/mp4'}],complete:true}),...overrides});f.window.Hls=Hls;
+ return {...f,get hls(){return current;}};
+}
+
+test('HLS waits for its manifest before play and repeated manifest events never restart the episode',async()=>{
+ const f=hlsFixture();try{
+  await settle();assert.equal(f.calls.plays,0);assert.ok(f.hls);
+  f.hls.emit('manifest');await settle();assert.equal(f.calls.plays,1);
+  f.hls.emit('manifest');await settle();assert.equal(f.calls.plays,1);
+ }finally{f.controller.destroy();}
+});
+
+test('an obsolete native error event without a media error cannot discard a playing source',async()=>{
+ const f=fixture();try{await settle();f.q('video').error=null;f.fire('video','error');await settle();assert.equal(f.q('video').src,'https://video.test/first.mp4');assert.equal(f.calls.plays,1);}finally{f.controller.destroy();}
+});
+
+test('HLS engine fallback ignores late native errors while the alternative engine is loading',async()=>{
+ let finish;const loaded=[];
+ const f=hlsFixture({loadShaka:()=>new Promise(resolve=>finish=resolve)});try{
+  await settle();f.hls.emit('error',{fatal:true,type:'mediaError'});await settle();assert.equal(typeof finish,'function');
+  f.q('video').error={code:4};f.fire('video','error');await settle();assert.equal(f.calls.plays,0);assert.notEqual(f.q('video').src,'https://video.test/alternate.mp4');
+  class Player{static isBrowserSupported(){return true;}async attach(){}addEventListener(){}async load(url){loaded.push(url);}async destroy(){}}
+  f.window.shaka={Player};finish();await settle();assert.deepEqual(loaded,['https://video.test/episode.m3u8']);assert.equal(f.calls.plays,1);
+ }finally{f.controller.destroy();}
 });
