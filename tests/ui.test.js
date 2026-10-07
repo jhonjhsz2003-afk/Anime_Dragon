@@ -14,17 +14,27 @@ import {mountDiscussion} from '../web/js/discussion.js';
 import {preferredCaptionLocale} from '../web/js/caption-language.js';
 const {parseHTML}=await import(process.env.ANIMEDRAGON_DOM_MODULE||'linkedom');
 const fixture={id:1,title:'Anime & teste',overview:'Uma aventura de teste',media_type:'tv',poster_path:'/poster.jpg',backdrop_path:'/back.jpg',first_air_date:'2026-01-01',vote_average:8.5,genres:[],number_of_episodes:2,seasons:[{season_number:1,episode_count:2}]};
-function setup({saved=false,sessionUser=null,fetchOverride,preferences}={}){
+function browserHistoryFixture(window,location){
+ const entries=[{url:'about:blank',state:null},{url:location.hash,state:null}];let index=1,backCalls=0;
+ const move=url=>{const address=new URL(url,'https://anime.test/');location.href=address.href;location.hash=address.hash;};move(entries[index].url);
+ return {get state(){return entries[index].state;},get length(){return entries.length;},get backCalls(){return backCalls;},
+  replaceState(state,_title,url=location.href){entries[index]={state,url};move(url);},
+  pushState(state,_title,url=location.href){entries.splice(index+1);entries.push({state,url});index++;move(url);},
+  back(){backCalls++;if(index===0)return;index--;move(entries[index].url);const event=new window.Event('popstate');event.state=entries[index].state;window.dispatchEvent(event);}
+ };
+}
+function setup({saved=false,sessionUser=null,fetchOverride,preferences,initialHash='#home',nativeHistory=false}={}){
  const {window,document}=parseHTML('<html><head></head><body><div id="app"></div><div id="modal-root"></div><div id="toast-root"></div></body></html>');
  window.scrollTo=()=>{};window.HTMLElement.prototype.scrollIntoView=function(){};window.HTMLElement.prototype.scrollBy=function(){};
- const memory=new Map(),calls=[],player={destroyed:0,options:null},location={hash:'#home',origin:'https://anime.test',pathname:'/'};
+ const memory=new Map(),calls=[],player={destroyed:0,options:null},location={hash:initialHash,origin:'https://anime.test',pathname:'/'};
+ const testHistory=nativeHistory?browserHistoryFixture(window,location):{replaceState(_state,_title,hash){location.hash=hash}};
  if(preferences)memory.set('ad_preferences',JSON.stringify(preferences));
  let focused=null;
  Object.defineProperty(document,'activeElement',{get:()=>focused});
  window.HTMLElement.prototype.focus=function(){focused=this};
  window.HTMLElement.prototype.showModal=function(){this.setAttribute('open','');this.querySelector('input')?.focus()};
  window.HTMLElement.prototype.close=function(){this.removeAttribute('open')};
- const context=vm.createContext({giphyPage,mountGiphy,giphyId,createGiphyClient:options=>createGiphyClient({fetcher:(...args)=>context.fetch(...args),...options}),observeGiphyAvatars:()=>({refresh(){},destroy(){}}),releasesPage,mountReleases,releaseDay,createHeaderScroll,createAuthSession,createAccountDialog,mountDiscussion,preferredCaptionLocale,mountWatchPlayer:(host,options)=>{player.options=options;host.innerHTML='<video data-fixture-player></video>';return {destroy(){player.destroyed++;}};},AbortController,createCatalogCache,createIntentPreloader,createSourceLoader,bindLiveSearch,rankSearchResults,console,window,document,location,history:{replaceState(_state,_title,hash){location.hash=hash}},navigator:{language:'pt-BR',languages:['pt-BR'],connection:{}},URLSearchParams,AbortSignal,Date,Intl,Map,HTMLImageElement:window.HTMLImageElement,matchMedia:()=>({matches:true}),requestAnimationFrame:cb=>cb(),setTimeout:()=>0,clearTimeout(){},setInterval:()=>0,clearInterval(){},localStorage:{getItem:k=>memory.get(k)||null,setItem:(k,v)=>memory.set(k,v)},fetch:async(path,options={})=>{
+ const context=vm.createContext({giphyPage,mountGiphy,giphyId,createGiphyClient:options=>createGiphyClient({fetcher:(...args)=>context.fetch(...args),...options}),observeGiphyAvatars:()=>({refresh(){},destroy(){}}),releasesPage,mountReleases,releaseDay,createHeaderScroll,createAuthSession,createAccountDialog,mountDiscussion,preferredCaptionLocale,mountWatchPlayer:(host,options)=>{player.options=options;host.innerHTML='<video data-fixture-player></video>';return {destroy(){player.destroyed++;}};},AbortController,createCatalogCache,createIntentPreloader,createSourceLoader,bindLiveSearch,rankSearchResults,console,window,document,location,history:testHistory,navigator:{language:'pt-BR',languages:['pt-BR'],connection:{}},URLSearchParams,AbortSignal,Date,Intl,Map,HTMLImageElement:window.HTMLImageElement,matchMedia:()=>({matches:true}),requestAnimationFrame:cb=>cb(),setTimeout:()=>0,clearTimeout(){},setInterval:()=>0,clearInterval(){},localStorage:{getItem:k=>memory.get(k)||null,setItem:(k,v)=>memory.set(k,v)},fetch:async(path,options={})=>{
   calls.push({path,options});
   const overridden=fetchOverride?.(path,options);if(overridden!==undefined)return overridden;
   if(path==='/api/giphy/config')return Response.json({ok:true,configured:true,apiKey:'fixture-public-giphy-key'});
@@ -47,7 +57,7 @@ function setup({saved=false,sessionUser=null,fetchOverride,preferences}={}){
  // Remove startup calls only; later function declarations are needed by details.
  let code=readFileSync(new URL('../web/js/app.js',import.meta.url),'utf8').replace(/^import.*\r?\n/gm,'').replace(/^applyPrefs\(\);loadPersonal\(\);render\(\);\r?$/m,'').replace(/^authSession.start\(\);\r?$/m,'');
  vm.runInContext(code,context);context.fixture=fixture;vm.runInContext('state.home={trending:[fixture,{...fixture,id:2,title:"Segundo anime"}],recent:[fixture],top:[fixture]};remember(state.home.trending);',context);
- return {context,document,calls,player,run:s=>vm.runInContext(s,context)};
+ return {context,document,calls,player,history:testHistory,location,run:s=>vm.runInContext(s,context)};
 }
 const settle=async()=>{for(let i=0;i<10;i++)await new Promise(resolve=>setImmediate(resolve));};
 test('home binds overlay arrows and switches the featured anime',async()=>{const t=setup();await t.run('render()');assert.equal(t.document.querySelectorAll('.catalog-rail .rail-arrow').length,6);assert.equal(t.document.querySelector('.hero h1').textContent,'Anime & teste');t.document.querySelector('[data-hero-step="1"]').onclick();assert.equal(t.document.querySelector('.hero h1').textContent,'Segundo anime');});
@@ -75,7 +85,7 @@ test('profile appearance previews instantly and submits selected choices to the 
 });
 test('details binds episode previews, recommendations and community controls',async()=>{const t=setup();await t.run('openDetails(1)');await settle();assert.ok(t.document.querySelector('.detail-hero-art'));assert.equal(t.document.querySelectorAll('[data-episode]').length,2);assert.ok(t.document.querySelector('.episode-preview img'));assert.equal(t.document.querySelectorAll('.similar-grid .card').length,1);assert.equal(t.document.querySelectorAll('[data-reaction]').length,2);assert.ok(t.document.querySelector('.comment-guest'));assert.equal(t.document.querySelector('#detail-watch').disabled,false);});
 
-test('detail window has a persistent return control that closes and restores the page',async()=>{const t=setup();await t.run('render();openDetails(1)');await settle();assert.ok(t.document.querySelector('.modal-navigation #modal-back'));assert.equal(t.document.querySelector('#mclose'),null);assert.equal(t.document.querySelector('#back-episodes'),null);t.document.querySelector('#modal-back').onclick();assert.equal(t.document.querySelector('.modal'),null);assert.equal(t.document.querySelector('#app').inert,false);});
+test('details mount one masthead return control and hide the duplicate only after it is available',async()=>{const t=setup();await t.run('render();openDetails(1)');await settle();const back=t.document.querySelector('.masthead #header-detail-back');assert.ok(back);assert.equal(t.document.querySelectorAll('#header-detail-back').length,1);assert.equal(t.document.querySelector('.detail-modal .modal-navigation').hidden,true);assert.equal(t.document.querySelector('#mclose'),null);back.onclick();assert.equal(t.document.querySelector('.modal'),null);assert.equal(t.document.querySelector('#header-detail-back'),null);assert.equal(t.document.querySelector('#app').inert,false);});
 
 test('internal page return falls back to home on a direct link',async()=>{const t=setup();await t.run("location.hash='#library';render()");assert.ok(t.document.querySelector('#page-back'));t.document.querySelector('#page-back').onclick();assert.equal(t.run('location.hash'),'#home');});
 
@@ -247,11 +257,11 @@ test('opening and collapsing header search keeps the anime and measures its enti
  t.document.querySelector('.masthead').getBoundingClientRect=header.getBoundingClientRect;
  t.document.querySelector('#header-search').getBoundingClientRect=()=>({bottom:header.classList.contains('search-open')?(header.classList.contains('header-compact')?132:144):0});
  await t.run('openDetails(1)');await settle();const modal=t.document.querySelector('.detail-modal');assert.equal(t.document.documentElement.style.getPropertyValue('--header-actual-offset'),'68px');
- search.onclick();assert.equal(t.document.querySelector('.detail-modal'),modal);assert.equal(t.document.documentElement.style.getPropertyValue('--header-actual-offset'),'144px');assert.equal(typeof t.document.querySelector('#modal-back').onclick,'function');
+ search.onclick();assert.equal(t.document.querySelector('.detail-modal'),modal);assert.equal(t.document.documentElement.style.getPropertyValue('--header-actual-offset'),'144px');assert.equal(typeof t.document.querySelector('.masthead #header-detail-back').onclick,'function');assert.equal(t.document.querySelector('.detail-modal .modal-navigation').hidden,true);
  header.classList.add('header-compact');t.run('syncHeaderOffset()');assert.equal(t.document.documentElement.style.getPropertyValue('--header-actual-offset'),'132px');
  const event=new t.document.defaultView.Event('keydown',{bubbles:true,cancelable:true});event.key='Escape';header.onkeydown(event);t.document.dispatchEvent(event);
  assert.equal(event.defaultPrevented,true);assert.equal(t.document.querySelector('.detail-modal'),modal);assert.equal(t.document.documentElement.style.getPropertyValue('--header-actual-offset'),'56px');
- t.document.querySelector('#modal-back').onclick();assert.equal(t.document.querySelector('.detail-modal'),null);t.run('authSession.destroy()');
+ t.document.querySelector('#header-detail-back').onclick();assert.equal(t.document.querySelector('.detail-modal'),null);t.run('authSession.destroy()');
 });
 
 test('the caption update turns legacy auto-on off once while preserving a later explicit opt-in',async()=>{
@@ -285,4 +295,20 @@ test('leaving the GIF gallery aborts its request and a late provider response ca
  await t.run("location.hash='#anime';render()");await settle();assert.equal(providerSignal.aborted,true);assert.equal(t.run('giphyController'),null);const animePage=t.document.querySelector('#page-content').innerHTML;
  finish(Response.json({data:[{id:'lateGIF',title:'Resposta antiga',images:{fixed_width:{url:'https://media.giphy.com/media/lateGIF/200.gif'}}}],pagination:{count:1,total_count:1},meta:{status:200}}));await settle();
  assert.equal(t.document.querySelector('.giphy-page'),null);assert.equal(t.document.querySelector('#page-content').innerHTML,animePage);assert.ok(t.document.querySelector('#catalog-results .catalog-grid'));
+});
+
+test('a direct shared anime returns from player and related details to home without leaving the site',async testContext=>{
+ const t=setup({nativeHistory:true,initialHash:'#home?anime=1',fetchOverride:path=>path==='/api/catalog/tv/2'?Response.json({ok:true,item:{...fixture,id:2,title:'Relacionado'}}):undefined});testContext.after(()=>t.run('closeModal();authSession.destroy()'));
+ await t.run('render()');await settle();assert.equal(t.history.state.adDirectDetail,true);assert.equal(t.history.length,2);assert.ok(t.document.querySelector('#header-detail-back'));
+ await t.run('openDetails(1)');assert.equal(t.history.state.adDirectDetail,true);assert.equal(t.history.length,2);
+ await t.run('openPlayer(1)');assert.equal(t.history.state.adDirectDetail,undefined);assert.equal(t.document.querySelector('#header-detail-back'),null);assert.ok(t.document.querySelector('.watch-modal .modal-navigation'));
+ t.player.options.onClose();await settle();assert.equal(t.history.backCalls,1);assert.equal(t.history.state.adDirectDetail,true);assert.ok(t.document.querySelector('.detail-modal'));
+ await t.run('openDetails(2)');assert.equal(t.history.state.adDirectDetail,undefined);t.document.querySelector('#header-detail-back').onclick();await settle();assert.equal(t.history.backCalls,2);assert.equal(t.history.state.adDirectDetail,true);
+ t.document.querySelector('#header-detail-back').onclick();await settle();assert.equal(t.history.backCalls,2);assert.equal(t.location.hash,'#home');assert.equal(t.location.href,'https://anime.test/#home');assert.equal(t.history.state.adDirectDetail,undefined);assert.equal(t.history.state.adOverlay,null);assert.equal(t.document.querySelector('.detail-modal'),null);
+});
+
+test('a normal anime opened from search still goes back to search and restores the triggering card focus',async testContext=>{
+ const t=setup({nativeHistory:true,initialHash:'#search?q=Anime'});testContext.after(()=>t.run('closeModal();authSession.destroy()'));
+ await t.run('render()');await settle();const card=t.document.querySelector('#catalog-results [data-id="1"]');card.focus();await card.onclick();await settle();assert.equal(t.history.state.adDirectDetail,undefined);assert.ok(t.document.querySelector('.detail-modal'));
+ t.document.querySelector('#header-detail-back').onclick();await settle();assert.equal(t.history.backCalls,1);assert.equal(t.location.hash,'#search?q=Anime');assert.equal(t.document.querySelector('.detail-modal'),null);assert.equal(t.document.activeElement,card);
 });

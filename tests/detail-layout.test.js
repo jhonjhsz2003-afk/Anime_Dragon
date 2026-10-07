@@ -29,6 +29,7 @@ test('detail page keeps navigation active, while the player isolates the app and
  const t=setup();t.document.querySelector('#original-focus').focus();await t.run('openDetails(7)');
  assert.equal(t.document.querySelector('#app').inert,false);assert.equal(t.document.querySelector('.main').inert,true);assert.equal(t.document.querySelector('.site-header').inert,undefined);
  assert.equal(t.document.querySelector('.detail-modal').getAttribute('role'),'region');assert.equal(t.document.querySelector('.detail-modal').hasAttribute('aria-modal'),false);
+ assert.equal(t.document.querySelector('#header-detail-back'),null);assert.notEqual(t.document.querySelector('.detail-modal .modal-navigation').hidden,true,'the fallback return stays visible when no masthead exists');
  t.run('setModal(`<h2 id="detail-title">Player</h2>`,true)');assert.equal(t.document.querySelector('#app').inert,true);assert.equal(t.document.querySelector('.watch-modal').getAttribute('aria-modal'),'true');
  t.run('closeModal()');assert.equal(t.document.querySelector('#app').inert,false);assert.equal(t.document.querySelector('.main').inert,false);assert.equal(t.document.activeElement.id,'original-focus');
 });
