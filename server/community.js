@@ -2,6 +2,7 @@ import { database } from './database.js';
 
 import { getUser, throttle } from './auth.js';
 import {identityColumns,identityJoin,profileIdentity} from './profile-identity.js';
+import {storedAvatarFrame} from './giphy-avatar.js';
 
 const fail=(status,message)=>Object.assign(new Error(message),{status});
 
@@ -24,7 +25,7 @@ function publicComment(c,user){
   body:deleted?'Comentário excluído.':c.body,spoiler:!deleted&&!!c.spoiler,season:c.season,episode:c.episode,
   parentId:c.parent_id,replyCount:c.reply_count||0,deleted,createdAt:c.created_at,updatedAt:c.updated_at,
   name:deleted?'Comentário excluído':c.username,avatar:deleted?'/assets/avatar-default.svg':c.avatar_url,
-  avatarFrame:deleted?{x:50,y:50,zoom:100}:{x:c.avatar_x??50,y:c.avatar_y??50,zoom:c.avatar_zoom??100},
+  avatarFrame:deleted?{x:50,y:50,zoom:100}:storedAvatarFrame(c),
   mine:!deleted&&String(c.user_id)===user?.id};
 }
 
@@ -47,7 +48,7 @@ export async function community(request, env, validateAnime) {
    target.id=String(target.id);
    const owner=user?.id===target.id;
 
-   const profile={id:target.id,name:target.username,avatar:target.avatar_url,visibility:target.visibility,nameColor:target.name_color,identity:profileIdentity(target),avatarFrame:{x:target.avatar_x??50,y:target.avatar_y??50,zoom:target.avatar_zoom??100}};
+   const profile={id:target.id,name:target.username,avatar:target.avatar_url,visibility:target.visibility,nameColor:target.name_color,identity:profileIdentity(target),avatarFrame:storedAvatarFrame(target)};
 
    if(!owner&&target.visibility!=='public')return json({ok:true,private:true,owner:false,profile});
 

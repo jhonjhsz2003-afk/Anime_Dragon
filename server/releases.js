@@ -44,16 +44,26 @@ export function sortReleaseEvents(items){
 
 // Dependencies reuse the existing anime validation, TMDB credentials, cache,
 // and timeouts. At most two discovery calls and forty detail calls are started.
-export async function getReleases({discover,detail,normalize=x=>x,page=1,now=new Date(),waitUntil,budgetMs=4000}={}){
- if(typeof discover!=='function'||typeof detail!=='function')throw new TypeError('As fontes do catálogo precisam ser fornecidas.');
+export async function getReleases({discover,detail,normalize=x=>x,page=1,now=new Date(),waitUntil,budgetMs=4000,summary=false}={}){
+ if(typeof discover!=='function'||!summary&&typeof detail!=='function')throw new TypeError('As fontes do catálogo precisam ser fornecidas.');
  page=Math.max(1,Math.min(500,Math.trunc(Number(page))||1));
- const asOf=releaseToday(now),from=new Date(Date.parse(asOf+'T00:00:00Z')+86400000).toISOString().slice(0,10),deadline=Date.now()+Math.max(1,budgetMs),missing={results:[],totalPages:0,missing:true};
+ const asOf=releaseToday(now),from=new Date(Date.parse(asOf+'T00:00:00Z')+86400000).toISOString().slice(0,10),deadline=Date.now()+Math.max(1,summary?Math.min(1800,budgetMs):budgetMs),missing={results:[],totalPages:0,missing:true};
  const background=typeof waitUntil==='function'?task=>waitUntil(task):undefined;
  const query=params=>withinCatalogBudget(Promise.resolve().then(()=>discover(params)),Math.max(1,deadline-Date.now()),missing,background);
- const [premieres,airing]=await Promise.all([
-  query({page,sort_by:'first_air_date.asc','first_air_date.gte':from,include_null_first_air_dates:'false',timezone:TIME_ZONE}),
-  query({page,sort_by:'popularity.desc','air_date.gte':from,timezone:TIME_ZONE})
- ]);
+ const premieresTask=query({page,sort_by:'first_air_date.asc','first_air_date.gte':from,include_null_first_air_dates:'false',timezone:TIME_ZONE});
+ const airingTask=query({page,sort_by:'popularity.desc','air_date.gte':from,timezone:TIME_ZONE});
+ if(summary){
+  // A confirmed premiere needs no season/episode lookup. Do not hold its
+  // first paint behind the unrelated broadcast discovery or forty details.
+  let airingPreview=null;airingTask.then(result=>{airingPreview=result;});
+  const premieres=await premieresTask;
+  if(premieres===missing&&(!airingPreview||airingPreview===missing))throw Object.assign(new Error('Não foi possível atualizar os lançamentos. Tente novamente em instantes.'),{status:503});
+  const rows=[...(premieres.results||[]).slice(0,20),...(airingPreview?.results||[]).slice(0,20)];
+  const items=sortReleaseEvents(rows.flatMap(item=>releaseEvents(item,{normalize,today:asOf})).filter(event=>event.kind==='series'));
+  const totalPages=Math.max(0,Math.min(500,Number(premieres.totalPages)||0),Math.min(500,Number(airingPreview?.totalPages)||0));
+  return {ok:true,items,asOf,from,timeZone:TIME_ZONE,source:'TMDB',page,totalPages,hasMore:page<totalPages,summary:true,phase:'summary',complete:false,resolvedIds:[],...(premieres===missing?{partial:true}:{})};
+ }
+ const [premieres,airing]=await Promise.all([premieresTask,airingTask]);
  if(premieres===missing&&airing===missing)throw Object.assign(new Error('Não foi possível atualizar os lançamentos. Tente novamente em instantes.'),{status:503});
  const candidates=new Map();
  for(const item of [...(premieres.results||[]).slice(0,20),...(airing.results||[]).slice(0,20)])if(positive(item?.id)&&!candidates.has(Number(item.id)))candidates.set(Number(item.id),item);
@@ -63,5 +73,6 @@ export async function getReleases({discover,detail,normalize=x=>x,page=1,now=new
  const timedOut=await withinCatalogBudget(task,Math.max(1,deadline-Date.now()),null,background)===null;
  const items=sortReleaseEvents(rows.flatMap(item=>releaseEvents(details.get(Number(item.id))||item,{normalize,today:asOf})));
  const totalPages=Math.max(0,...[premieres,airing].map(result=>Math.min(500,Math.max(0,Number(result.totalPages)||0))));
- return {ok:true,items,asOf,from,timeZone:TIME_ZONE,source:'TMDB',page,totalPages,hasMore:page<totalPages,...(premieres===missing||airing===missing||timedOut||failed||details.size<rows.length?{partial:true}:{})};
+ const complete=premieres!==missing&&airing!==missing&&!timedOut&&!failed&&details.size===rows.length;
+ return {ok:true,items,asOf,from,timeZone:TIME_ZONE,source:'TMDB',page,totalPages,hasMore:page<totalPages,phase:'complete',complete,resolvedIds:[...details.keys()],...(!complete?{partial:true}:{})};
 }

@@ -1,5 +1,6 @@
 import { database } from './database.js';
 import {identityColumns,identityJoin,profileIdentity,validateIdentity} from './profile-identity.js';
+import {giphyAvatar,storedAvatarFrame} from './giphy-avatar.js';
 
 // Passwords and session tokens never leave the server or enter localStorage.
 
@@ -15,9 +16,9 @@ const reply = (data,status=200,headers={}) => new Response(JSON.stringify(data),
 
 const digest = async s => hex(await crypto.subtle.digest('SHA-256',enc.encode(s)));
 
-const avatar = a => /^\/assets\/avatars\/avatar-([1-9]|1[0-2])(-animated)?\.svg$/.test(a || '') || /^\/api\/avatar\/[a-zA-Z0-9-]{1,80}\?v=[a-zA-Z0-9-]+$/.test(a||'') ? a : '/assets/avatar-default.svg';
+const avatar = a => giphyAvatar(a) || /^\/assets\/avatars\/avatar-([1-9]|1[0-2])(-animated)?\.svg$/.test(a || '') || /^\/api\/avatar\/[a-zA-Z0-9-]{1,80}\?v=[a-zA-Z0-9-]+$/.test(a||'') ? a : '/assets/avatar-default.svg';
 
-const publicUser = u => ({id:String(u.id),name:u.username,email:u.email,bio:u.bio || '',avatar:avatar(u.avatar_url),visibility:u.visibility||'private',nameColor:u.name_color||'ice',identity:profileIdentity(u),avatarFrame:{x:u.avatar_x??50,y:u.avatar_y??50,zoom:u.avatar_zoom??100}});
+const publicUser = u => ({id:String(u.id),name:u.username,email:u.email,bio:u.bio || '',avatar:avatar(u.avatar_url),visibility:u.visibility||'private',nameColor:u.name_color||'ice',identity:profileIdentity(u),avatarFrame:storedAvatarFrame(u)});
 
 async function hmac(text,secret) {
 
