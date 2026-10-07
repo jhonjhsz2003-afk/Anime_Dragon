@@ -3,6 +3,11 @@
 # Preencha com sua chave ou token de leitura TMDB; deixe vazio para não configurado.
 TMDB_API_KEY=""
 
+# Chave Web oficial para a galeria. É pública no navegador por exigência GIPHY.
+# O Worker só fornece configuração: pesquisas e mídia vão direto ao GIPHY.
+# Não use outra credencial privada aqui. Crie sua própria chave no Developers.
+GIPHY_API_KEY=""
+
 # Opcional para uma NOVA instalação: segredo aleatório de pelo menos 32 caracteres.
 # O aplicativo também cria uma chave de instalação no D1 automaticamente.
 # Em banco existente, preserve o AUTH_SECRET anterior; não invente outro valor.
