@@ -1,13 +1,14 @@
-/* A small translucent header; the page keeps its space while it contracts. */
-:root { --header-space: 68px; --header-search-space: 76px; }
+/* Transparent navigation stays above the artwork without covering controls. */
+:root { --header-space: 68px; --header-search-space: 76px; --header-actual-offset:var(--header-space); }
 .site-header,
 .home-view .site-header,
 body.detail-open .site-header {
   position: fixed;
   inset: 0 0 auto;
-  background: #07101ea3;
-  border-bottom: 1px solid #91d5ff12;
-  backdrop-filter: blur(8px);
+  background: transparent;
+  border-bottom: 0;
+  backdrop-filter: none;
+  box-shadow:none;
   transition: background-color 180ms ease, border-color 180ms ease;
 }
 .site-header { z-index: 60; }
@@ -23,14 +24,14 @@ body.detail-open .site-header { z-index: 130; }
 .site-header .brand img,
 .site-header .brand strong { transition: width 180ms ease, height 180ms ease, font-size 180ms ease; }
 .site-header.header-compact,
-body.detail-open .site-header.header-compact { background: #07101e73; border-bottom-color: #91d5ff0c; }
+body.detail-open .site-header.header-compact { background: transparent; border-bottom:0; }
 .site-header.header-compact .masthead { min-height: 56px; padding-block: 6px; }
 .site-header.header-compact .brand img { width: 30px; height: 30px; }
 .site-header.header-compact .brand strong { font-size: 19px; }
 .site-header.search-open,
 .site-header.menu-open,
 body.detail-open .site-header.search-open,
-body.detail-open .site-header.menu-open { background: #07101eef; }
+body.detail-open .site-header.menu-open { background: transparent; border-bottom:0; backdrop-filter:none; box-shadow:none; }
 .shell > .main { padding-top: var(--header-space); }
 .shell.home-view > .main { padding-top: 0; }
 .shell:not(.home-view):has(.site-header.search-open) > .main {
@@ -38,11 +39,15 @@ body.detail-open .site-header.menu-open { background: #07101eef; }
 }
 /* The anime artwork sits behind the header. Only the episode tabs stay pinned. */
 .modal-back.detail-back { top: 0; }
-.detail-modal .modal-navigation { position: relative; top: var(--header-space); }
-.detail-modal > .detail-tabs { top: var(--detail-header-height); }
+.detail-modal .modal-navigation { position: sticky; top:calc(var(--header-actual-offset) + 8px); background:transparent; border:0; box-shadow:none; backdrop-filter:none; }
+.detail-modal > .detail-tabs { top:calc(var(--header-actual-offset) + 8px); background:transparent; border-bottom:0; box-shadow:none; backdrop-filter:none; }
 .detail-modal .detail-hero {
   min-height: clamp(620px, calc(100dvh - var(--header-space) - 58px), 920px);
+  padding-top:max(210px,calc(var(--header-actual-offset) + 74px));
 }
+.site-header .topbar{background:transparent;border:0;box-shadow:none;backdrop-filter:none}
+.site-header .brand,.site-header .top-nav>a,.site-header .header-more>summary,.site-header .header-account,.detail-tabs button{text-shadow:0 2px 8px #000b}
+.site-header .search input{background:#081b2ac9;border-color:#88cfff45;backdrop-filter:blur(8px)}
 @media (max-width: 760px) {
   :root { --header-space: 64px; --header-search-space: 70px; }
   .site-header .masthead { padding-block: 10px; }
@@ -54,6 +59,7 @@ body.detail-open .site-header.menu-open { background: #07101eef; }
 }
 @media (max-width: 600px) {
   .detail-modal .detail-hero { min-height: 720px; }
+  .detail-modal > .detail-tabs{top:calc(var(--header-actual-offset) + 64px)}
 }
 @media (max-width: 380px) {
   .site-header .brand strong,
