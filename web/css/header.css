@@ -19,6 +19,7 @@ body.detail-open .site-header { z-index: 130; }
 }
 .site-header .brand img { width: 34px; height: 34px; }
 .site-header .brand strong { font-size: 21px; }
+.site-header .header-account .login-link { display: inline-flex; align-items: center; justify-content: center; gap: 7px; white-space: nowrap; }
 .site-header .brand img,
 .site-header .brand strong { transition: width 180ms ease, height 180ms ease, font-size 180ms ease; }
 .site-header.header-compact,
