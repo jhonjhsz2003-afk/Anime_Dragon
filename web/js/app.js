@@ -1,14 +1,14 @@
-import {releasesPage,mountReleases,releaseDay} from './releases.js?v=14.0.0';
-import {giphyPage,mountGiphy,createGiphyClient,giphyId,observeGiphyAvatars} from './giphy.js?v=14.0.0';
-import {createHeaderScroll} from './header-scroll.js?v=14.0.0';
-import {createAuthSession} from './auth-session.js?v=14.0.0';
-import {mountDiscussion} from './discussion.js?v=14.0.0';
+import {releasesPage,mountReleases,releaseDay} from './releases.js?v=14.0.1';
+import {giphyPage,mountGiphy,createGiphyClient,giphyId,observeGiphyAvatars} from './giphy.js?v=14.0.1';
+import {createHeaderScroll} from './header-scroll.js?v=14.0.1';
+import {createAuthSession} from './auth-session.js?v=14.0.1';
+import {mountDiscussion} from './discussion.js?v=14.0.1';
 import {bindLiveSearch,rankSearchResults} from './live-search.js?v=11.0.0';
 import {preferredCaptionLocale} from './caption-language.js?v=9.6.1';
-import {createCatalogCache,createIntentPreloader} from './navigation.js?v=14.0.0';
-import { mountWatchPlayer } from './player.js?v=14.0.0';
-import {createSourceLoader} from './sources.js?v=14.0.0';
-import {createAccountDialog} from './account-dialog.js?v=14.0.0';
+import {createCatalogCache,createIntentPreloader} from './navigation.js?v=14.0.1';
+import { mountWatchPlayer } from './player.js?v=14.0.1';
+import {createSourceLoader} from './sources.js?v=14.0.1';
+import {createAccountDialog} from './account-dialog.js?v=14.0.1';
 const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
 const esc=(s='')=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const store={get(k,d){try{return JSON.parse(localStorage.getItem(k))??d}catch{return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch{}}};
@@ -44,11 +44,14 @@ function route(){const hash=typeof location.hash==='string'?location.hash:'#home
 const overlayState=()=>history.state?.adOverlay||null;
 function replaceHistoryState(stateValue,url=currentHistoryUrl()){if(typeof history.replaceState==='function')history.replaceState(stateValue,'',url)}
 function pushHistoryState(stateValue,url=currentHistoryUrl()){if(typeof history.pushState==='function')history.pushState(stateValue,'',url);else replaceHistoryState(stateValue,url)}
-function writeOverlay(next,{replace=false}={}){
+function writeOverlay(next,{replace=false,direct=false}={}){
  const stateValue={...(history.state||{}),adOverlay:next||null};
+ const keepDirect=replace&&next?.type==='detail'&&history.state?.adDirectDetail===true&&Number(history.state.adOverlay?.id)===Number(next.id);
+ delete stateValue.adDirectDetail;if(direct||keepDirect)stateValue.adDirectDetail=true;
  if(replace)replaceHistoryState(stateValue);else pushHistoryState(stateValue);
 }
 function closeOverlay(){
+ if(overlayState()?.type==='detail'&&history.state?.adDirectDetail===true){const base={...(history.state||{}),adOverlay:null};delete base.adDirectDetail;replaceHistoryState(base,'#home');lastPage='#home';void render();return;}
  if(overlayState()&&typeof history.back==='function')history.back();else closeModal();
 }
 function nav(page){if(['entrar','cadastro'].includes(page)){openAccount(page==='entrar');return}const hash=`#${page}`;if(location.hash===hash)render();else location.hash=hash}
@@ -97,7 +100,7 @@ function upcomingRailCard(p){
 function rankedCard(p,index){
  return `<button type="button" class="card ranked-card" data-id="${p.id}" aria-label="${index+1}. Ver ${esc(p.title)}"><span class="rank-number" aria-hidden="true">${index+1}</span><div class="poster-wrap">${imageTag(p)}<span class="card-play">▶</span></div><div class="card-body"><div class="card-title">${esc(p.title)}</div><div class="card-sub">★ ${rating(p)} · ${year(p)}</div></div></button>`;
 }
-function brand(){return `<a class="brand" href="#home" aria-label="AnimeDragon, início"><img src="/assets/dragon-mark.webp?v=14.0.0" alt="" width="45" height="45"><strong>Anime<span>Dragon</span></strong></a>`}
+function brand(){return `<a class="brand" href="#home" aria-label="AnimeDragon, início"><img src="/assets/dragon-mark.webp?v=14.0.1" alt="" width="45" height="45"><strong>Anime<span>Dragon</span></strong></a>`}
 function accountMarkup(){if(state.user)return `<a class="profile-chip identity-ring-${identityOf().frame}" href="#profile" aria-label="Meu perfil">${avatarView(state.avatar,state.user?.avatarFrame,'avatar','','Meu perfil')}<b class="${nameClass(state.user.nameColor)}">${esc(state.user.name)}</b></a><button class="icon-btn" data-logout aria-label="Sair da conta">${icon('logout')}</button>`;if(state.authStatus!=='ready')return '<span class="account-restoring" role="status">Conectando sua conta…</span>';return `<a href="#entrar" class="login-link">Entrar ${icon('profile')}</a>`;}
 function updateAccount(){const account=$('.header-account');if(account){account.innerHTML=accountMarkup();bindLogout(account);}}
 function bindLogout(root=document){$$('[data-logout]',root).forEach(b=>b.onclick=async()=>{b.disabled=true;try{await post('/api/auth/logout',{});authSession.clear();nav('home');toast('Você saiu da conta.')}catch(e){toast(e.message,'err');b.disabled=false}});}
@@ -106,7 +109,7 @@ function layout(inner){
  const navs=[['home','Início','#home'],['anime','Animes','#anime'],['calendar','Lançamentos','#releases'],['library','Minha lista','#library']];
  const active=index=>index===2?releases:index===1?current==='anime'&&!releases:current===navs[index][0];
  const searchOpen=current==='search';
- return `<div class="shell ${current==='home'?'home-view':''}"><header class="site-header ${searchOpen?'search-open':''}"><div class="masthead"><button class="icon-btn menu-toggle" id="mobile-menu-toggle" type="button" aria-label="Abrir menu" aria-expanded="false" aria-controls="main-navigation">${icon('menu')}</button>${brand()}<nav class="top-nav" id="main-navigation" aria-label="Navegação principal">${navs.map(([id,name,href],index)=>`<a href="${href}" class="${active(index)?'active':''}" ${active(index)?'aria-current="page"':''}>${icon(id)}<span>${name}</span></a>`).join('')}<details class="header-more"><summary aria-label="Mais opções">${icon('menu')}<span>Explorar</span></summary><div><a href="#genres">${icon('genres')} Gêneros e temas</a><a href="#gifs">${icon('spark')} Galeria de GIFs</a><a href="#calendar">${icon('calendar')} Minha agenda</a><a href="#history">${icon('history')} Histórico</a><a href="#settings">${icon('settings')} Preferências</a></div></details></nav><div class="header-tools"><button class="icon-btn" id="header-surprise" data-surprise type="button" aria-label="Escolher um anime aleatório">${icon('shuffle')}</button><button class="icon-btn" id="header-search-toggle" type="button" aria-label="Buscar anime" aria-expanded="${searchOpen}" aria-controls="header-search">${icon('search')}</button></div><div class="header-account">${accountMarkup()}</div></div><div class="topbar" id="header-search"><form class="search" id="search-form" role="search"><label class="sr-only" for="global-search">Buscar anime</label>${icon('search')}<input id="global-search" type="search" aria-controls="page-content" autocomplete="off" name="q" placeholder="Buscar por nome do anime…" maxlength="120" value="${esc(params.get('q')||'')}"></form><button class="icon-btn" id="header-search-close" type="button" aria-label="Fechar busca">${icon('close')}</button></div></header><main class="main"><div class="content">${current!=='home'?'<button class="page-back" id="page-back">← Voltar</button>':''}<div id="page-content">${inner}</div><footer class="site-footer"><div><a class="footer-brand" href="#home">Anime<span>Dragon</span></a><p>Uma nova história a cada capítulo.</p><small>© ${new Date().getFullYear()} AnimeDragon</small></div><div class="footer-credit"><span>Catálogo atualizado automaticamente</span><small>AnimeDragon v14.0.0</small><a class="giphy-footer-credit" href="https://giphy.com/" target="_blank" rel="noopener noreferrer"><img src="/assets/powered-by-giphy.png" width="140" alt="Powered By GIPHY"></a></div></footer></div></main></div>`;
+ return `<div class="shell ${current==='home'?'home-view':''}"><header class="site-header ${searchOpen?'search-open':''}"><div class="masthead"><button class="icon-btn menu-toggle" id="mobile-menu-toggle" type="button" aria-label="Abrir menu" aria-expanded="false" aria-controls="main-navigation">${icon('menu')}</button>${brand()}<nav class="top-nav" id="main-navigation" aria-label="Navegação principal">${navs.map(([id,name,href],index)=>`<a href="${href}" class="${active(index)?'active':''}" ${active(index)?'aria-current="page"':''}>${icon(id)}<span>${name}</span></a>`).join('')}<details class="header-more"><summary aria-label="Mais opções">${icon('menu')}<span>Explorar</span></summary><div><a href="#genres">${icon('genres')} Gêneros e temas</a><a href="#gifs">${icon('spark')} Galeria de GIFs</a><a href="#calendar">${icon('calendar')} Minha agenda</a><a href="#history">${icon('history')} Histórico</a><a href="#settings">${icon('settings')} Preferências</a></div></details></nav><div class="header-tools"><button class="icon-btn" id="header-surprise" data-surprise type="button" aria-label="Escolher um anime aleatório">${icon('shuffle')}</button><button class="icon-btn" id="header-search-toggle" type="button" aria-label="Buscar anime" aria-expanded="${searchOpen}" aria-controls="header-search">${icon('search')}</button></div><div class="header-account">${accountMarkup()}</div></div><div class="topbar" id="header-search"><form class="search" id="search-form" role="search"><label class="sr-only" for="global-search">Buscar anime</label>${icon('search')}<input id="global-search" type="search" aria-controls="page-content" autocomplete="off" name="q" placeholder="Buscar por nome do anime…" maxlength="120" value="${esc(params.get('q')||'')}"></form><button class="icon-btn" id="header-search-close" type="button" aria-label="Fechar busca">${icon('close')}</button></div></header><main class="main"><div class="content">${current!=='home'?'<button class="page-back" id="page-back">← Voltar</button>':''}<div id="page-content">${inner}</div><footer class="site-footer"><div><a class="footer-brand" href="#home">Anime<span>Dragon</span></a><p>Uma nova história a cada capítulo.</p><small>© ${new Date().getFullYear()} AnimeDragon</small></div><div class="footer-credit"><span>Catálogo atualizado automaticamente</span><small>AnimeDragon v14.0.1</small><a class="giphy-footer-credit" href="https://giphy.com/" target="_blank" rel="noopener noreferrer"><img src="/assets/powered-by-giphy.png" width="140" alt="Powered By GIPHY"></a></div></footer></div></main></div>`;
 }
 function home(){
  const d=state.home,hero=(d.featured||d.trending)[0];
@@ -148,7 +151,7 @@ async function render(){const authPage=route().page;if(['entrar','cadastro'].inc
  if(page==='releases')releasesController=mountReleases($('#page-content'),{api,remember,onOpen:event=>openDetails(event.anime.id,event.kind==='episode'?event.season_number:undefined)});
  if(page==='gifs')giphyController=mountGiphy($('#page-content'),{client:giphyClient,user:()=>state.user,onLogin:()=>openAccount(true),onSelect:async id=>{const userId=state.user?.id;if(!userId)throw new Error('Entre para personalizar seu perfil.');const data=await post('/api/profile/avatar/giphy',{id});if(state.user?.id!==userId)throw new Error('Entre novamente para salvar sua escolha.');authSession.accept({...state.user,avatar:data.avatar,avatarFrame:data.avatarFrame});store.set('ad_avatar',data.avatar);toast('Seu novo GIF foi salvo no perfil!');nav('profile')}});
  if(page==='home'&&params.get('anime')){
-  const id=Number(params.get('anime'));if(Number.isInteger(id)&&id>0){writeOverlay({type:'detail',id,season:null},{replace:true});void openDetails(id,undefined,null,true);}
+  const id=Number(params.get('anime'));if(Number.isInteger(id)&&id>0){writeOverlay({type:'detail',id,season:null},{replace:true,direct:true});void openDetails(id,undefined,null,true);}
  }
  if(page==='home'&&!state.home){try{const data=await api('/api/catalog/home');state.home=data;remember([...data.trending,...data.top,...data.recent,...(data.updated||[]),...(data.featured||[]),...(data.upcoming||[]),...(data.popular||[])]);migrateLists();if(version===renderVersion)render()}catch(e){if(version===renderVersion){$('.content').innerHTML=empty('O catálogo deu uma pausa.',esc(e.message),'<button class="primary" id="retry-home">Tentar novamente</button>');$('#retry-home').onclick=()=>render()}}}
  if(page==='anime'||page==='search')loadCatalog(page,params,version);
@@ -189,6 +192,7 @@ function beginCatalogSearch(q){
  const hash=`#search?q=${encodeURIComponent(q)}`,entering=route().page!=='search';
  if(entering)window.scrollTo(0,0);
  const nextState={...(history.state||{}),adOverlay:null};
+ delete nextState.adDirectDetail;
  if(entering)pushHistoryState(nextState,hash);else replaceHistoryState(nextState,hash);
  lastPage=hash;
  $$('.top-nav a').forEach(a=>{a.classList.remove('active');a.removeAttribute('aria-current');});
@@ -237,6 +241,17 @@ function bind(){bindHeader();bindProfilePrivacy();bindCards();bindExtras();bindH
 function reducedMotion(){return !state.prefs.motion||matchMedia('(prefers-reduced-motion: reduce)').matches}
 
 let detailHeaderObserver=null;
+function clearDetailHeaderBack(){
+ $('#header-detail-back')?.remove();$('.site-header')?.classList.remove('has-detail-back');document.body.classList.remove('detail-header-back');
+}
+function mountDetailHeaderBack(){
+ const header=$('.site-header'),masthead=$('.masthead',header||document);if(!header||!masthead)return false;
+ let button=$('#header-detail-back',masthead);
+ if(!button){button=document.createElement('button');button.id='header-detail-back';button.type='button';button.className='header-detail-back';button.setAttribute('aria-label','Voltar para a página anterior');button.innerHTML=`${icon('left')}<span>Voltar</span>`;masthead.prepend(button);}
+ button.onclick=closeOverlay;header.classList.add('has-detail-back');document.body.classList.add('detail-header-back');
+ const previous=$('#modal-root .detail-modal .modal-navigation');if(previous)previous.hidden=true;
+ return true;
+}
 function syncHeaderOffset(header=$('.site-header')){
  if(!header)return;
  const bottom=element=>{const box=element?.getBoundingClientRect?.();return Number(box?.bottom??box?.height??element?.offsetHeight)||0;};
@@ -249,6 +264,7 @@ function setModal(content,watch=false){
  detailHeaderObserver?.disconnect();detailHeaderObserver=null;
  $('#modal-root').innerHTML=`<div class="modal-back ${watch?'watch-back':'detail-back'}"><section class="modal ${watch?'watch-modal':'detail-modal'}" role="${watch?'dialog':'region'}" ${watch?'aria-modal="true" ':''}aria-labelledby="detail-title" tabindex="-1"><div class="modal-navigation"><button class="modal-back-button" id="modal-back">${icon('left')} Voltar</button><span>ANIMEDRAGON</span></div>${content}</section></div>`;
  document.body.classList.add('modal-open');document.body.classList.toggle('detail-open',!watch);$('#app').inert=watch;
+ if(watch)clearDetailHeaderBack();else mountDetailHeaderBack();
  const main=$('#app .main');if(main)main.inert=!watch;refreshHeaderScroll();
  if(!watch){const header=$('.site-header');const measure=()=>syncHeaderOffset(header);measure();if(header&&typeof ResizeObserver==='function'){detailHeaderObserver=new ResizeObserver(measure);[header,$('.masthead',header),$('#header-search',header),$('#main-navigation',header)].filter(Boolean).forEach(element=>detailHeaderObserver.observe(element));}}
  $('#modal-root .modal').focus();$('#modal-root .modal-back').onclick=e=>{if(e.target===e.currentTarget)closeOverlay()};
@@ -332,6 +348,7 @@ function renderEpisodes(options={}){
 }
 function closeModal(){
  discussionController?.destroy();discussionController=null;detailHeaderObserver?.disconnect();detailHeaderObserver=null;
+ clearDetailHeaderBack();
  if(watchController){watchController.destroy();watchController=null;}++modalVersion;++seasonVersion;const had=!!$('#modal-root').innerHTML;$('#modal-root').innerHTML='';document.body.classList.remove('modal-open','detail-open');$('#app').inert=false;const main=$('#app .main');if(main)main.inert=false;refreshHeaderScroll();
  if(had&&focusBeforeModal?.isConnected)focusBeforeModal.focus();
 }

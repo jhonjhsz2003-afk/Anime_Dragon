@@ -1,13 +1,13 @@
-# Validação AnimeDragon v14.0.0
+# Validação AnimeDragon v14.0.1
 
 ## Verificações locais
 
-- 240 testes passaram em 31 arquivos, executados em processos isolados. Os testes cobrem contas/sessões, banco legado, perfis, catálogo, identidade de episódios, vídeo/fontes, recuperação, legendas, interface, lançamentos e GIPHY.
+- 242 testes passaram em 31 arquivos, executados em processos isolados. Os testes cobrem contas/sessões, banco legado, perfis, catálogo, identidade de episódios, vídeo/fontes, recuperação, legendas, interface, lançamentos e GIPHY.
 - Verificação de sintaxe dos 32 módulos JS: passou.
 - Bundles esbuild de Worker e app: passaram.
-- Cabeçalho com busca aberta: fundo computado totalmente transparente; header terminou em 144px e Voltar começou em 152px. Teste de compactação verifica o offset após rolagem e busca.
+- Cabeçalho com busca aberta: fundo computado totalmente transparente. Voltar agora ocupa a própria masthead; as abas do anime ficam no fluxo da página e não cobrem a busca de episódios. Prévia de390px não apresentou overflow; botão permanece44px. Voltar de um link direto fecha para#home e Voltar da busca conserva a pesquisa, sem abrir about:blank.
 - Rótulos EP.x mantêm temporada real nas chamadas de API; a barra branca de rolagem horizontal foi removida sem impedir teclado/toque.
-- Teste real do anime The Greatest Demon Lord Is Reborn as a Typical Nobody EP.1, com assets novos e APIs v13 antigas, esgotou três tentativas automaticamente e deixou legendas extras off. A fonte adicional é a diferença necessária para esse caso e será consultada na publicação v14.
+- Teste inicial com APIs v13 antigas confirmou três tentativas automáticas sem cliques repetidos. Na produção v14 publicada pela PR6, The Greatest Demon Lord Is Reborn as a Typical Nobody EP.1 reproduziu20 segundos pela alternativa italiana; Kaiju No.8 EP.1 reproduziu36 segundos e EP.2 reproduziu32 segundos pela FenixFlix PT-BR. Todos mantiveram legendas extras off e readyState4. O refinamento14.0.1 altera somente navegação/layout e versão, preservando esse player.
 
 ## Reprodução e fontes
 
@@ -22,6 +22,7 @@
 - Resumo: só duas consultas de descoberta e zero detalhes por título. Primeiras estreias confirmadas aparecem antes da etapa de datas detalhadas.
 - Consulta completa: orçamento4 s, no máximo 42 requests / 6 simultâneos, respeitando o orçamento do Worker gratuito. Consolidação preserva filtro, remove duplicatas e conserva cards se a segunda etapa falhar.
 - Cache curto: 15 s para resposta parcial/resumo e 60 s para completa. Só datas futuras são mostradas; data de chegada do vídeo não é inventada.
+- Produção v14: resumo entregou13 estreias em543ms e a etapa completa entregou33 eventos em2828ms (séries, temporadas e episódios), todos futuros. Medidas pontuais, sujeitas à rede e aos provedores.
 
 ## GIPHY
 
