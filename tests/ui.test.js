@@ -76,6 +76,14 @@ test('opening, switching and closing account access preserves the current anime 
  t.document.querySelector('.account-close').onclick();assert.equal(t.document.querySelector('.account-dialog'),null);assert.equal(t.document.querySelector('.detail-modal'),detail);t.run('closeModal();authSession.destroy()');
 });
 
+test('custom display names remain text and profile fields accept short and multi-codepoint names',async()=>{
+ const user={id:'u1',name:'꧁🔥 <img id="injected-name" src=x> ꧂',email:'custom@example.test',avatar:'/assets/avatar-default.svg',bio:''};
+ const t=setup();t.context.confirmedUser=user;t.run("authSession.accept(confirmedUser);location.hash='#profile';render()");await settle();
+ assert.equal(t.document.querySelector('#injected-name'),null);assert.equal(t.document.querySelector('.profile-cover h2').textContent,user.name);
+ const input=t.document.querySelector('#pf-name');assert.equal(input.value,user.name);assert.equal(input.getAttribute('minlength'),'1');assert.equal(input.getAttribute('maxlength'),'1024');
+ assert.match(t.document.querySelector('#pf-name-help').textContent,/80 caracteres visíveis/);t.run('authSession.destroy()');
+});
+
 test('profile appearance previews instantly and submits selected choices to the server',async()=>{
  let submitted;const user={id:'u1',name:'Testador',email:'test@example.com',avatar:'/assets/avatar-default.svg',bio:''};
  const t=setup({fetchOverride:(path,options)=>{if(path==='/api/auth/profile'){submitted=JSON.parse(options.body);return Response.json({ok:true,user:{...user,identity:submitted.identity}});}}});t.context.confirmedUser=user;t.run("authSession.accept(confirmedUser);location.hash='#profile';render()");await settle();
