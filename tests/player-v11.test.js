@@ -1,3 +1,4 @@
+import {createOpeningSkip} from '../web/js/opening-skip.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
@@ -27,7 +28,7 @@ function fixture(overrides={},externalDiscussion=false){
   const createElement=document.createElement.bind(document);
   document.createElement=name=>{const el=createElement(name);if(name==='track')el.track={mode:'disabled'};return el;};
   let seq=0;const timers=new Map();
-  const context=vm.createContext({window,document,MutationObserver:window.MutationObserver,AbortController,Blob,chooseCaption,mergeCaptions,disposeMedia,preferredAlternative,createPlaybackRecovery,console,Date,
+  const context=vm.createContext({window,document,MutationObserver:window.MutationObserver,AbortController,Blob,chooseCaption,mergeCaptions,disposeMedia,preferredAlternative,createPlaybackRecovery,createOpeningSkip,console,Date,
     URL:{createObjectURL:()=>`blob:caption-${++seq}`,revokeObjectURL:value=>calls.revoked.push(value)},
     setTimeout:(fn,delay)=>{const id=++seq;timers.set(id,{fn,delay});return id;},clearTimeout:id=>timers.delete(id),
     createPlaybackWatchdog:()=>({start(){},stop(){},progress(){}}),
@@ -57,6 +58,17 @@ test('source labels describe supplied video metadata without inventing audio var
   assert.equal(playbackSourceLabel({label:'1080p'}),'1080p');
   assert.equal(playbackSourceLabel({},1),'Vídeo 2');
   assert.equal(playbackSourceLabel({label:'  '}),'Vídeo 1');
+});
+
+test('mounted player loads episode opening independently and cleans up its overlay on source change',async()=>{
+  const requests=[],f=fixture({loadOpening:async options=>{requests.push(options);return {opening:{start:35.25,end:125.5,episodeLength:1420}};}});try{
+    await settle();const video=f.q('video');Object.defineProperty(video,'duration',{get:()=>1420});Object.defineProperty(video,'readyState',{get:()=>4});video.playbackRate=1;
+    assert.equal(f.q('[data-opening-skip]').hidden,true);f.fire('video','loadedmetadata');await settle();assert.equal(requests.length,1);assert.equal(requests[0].duration,1420);
+    video.currentTime=35.25;f.fire('video','timeupdate');assert.equal(f.q('[data-opening-skip]').hidden,false);
+    f.fire('[data-opening-skip]');assert.equal(video.currentTime,125.5);assert.equal(f.q('[data-opening-skip]').hidden,true);
+    video.currentTime=40;f.fire('video','timeupdate');assert.equal(f.q('[data-opening-skip]').hidden,false);
+    f.choose('#watch-source','1');assert.equal(f.q('[data-opening-skip]').hidden,true);f.controller.destroy();assert.equal(f.timers.size,0);
+  }finally{f.controller.destroy();}
 });
 
 test('player exposes real comments count, close callback and a collapsed episode list',async()=>{

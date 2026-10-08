@@ -1,8 +1,14 @@
-# AnimeDragon v14.0.2
+# AnimeDragon v14.1.0
 
 Projeto para Cloudflare Workers + Static Assets + D1.
 
-## Mudanças desta versão
+## Pular abertura v14.1
+
+- Botão aparece durante o intervalo de abertura do episódio, avança para seu fim e desaparece imediatamente. Funciona também em tela cheia e preserva pausa e velocidade.
+- Correspondência por temporada e episódio exatos; duração incompatível, dados ausentes ou marcações conflitantes mantêm o botão oculto. Não há intervalo genérico de 90 segundos nem garantia de cobertura de todo o catálogo. Veja `ANISKIP.md`.
+- Tempos consultados separadamente do vídeo; requisições e timers são cancelados ao trocar a fonte, episódio ou fechar o player.
+
+## Mudanças anteriores
 
 - Home combina tendências semanais do TMDB, popularidade, avaliações com quantidade de votos e episódios recentes. Séries que voltaram com uma temporada nova podem aparecer mesmo quando a primeira estreia é antiga.
 - Seleções principais misturam gêneros. Romance continua disponível, junto de ação, fantasia, comédia, mistério e outros temas.
