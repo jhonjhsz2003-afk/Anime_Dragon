@@ -2,6 +2,7 @@ import {chooseCaption} from './caption-language.js?v=9.6.1';
 import {disposeMedia} from './media-lifecycle.js?v=9.6.1';
 import {createPlaybackWatchdog,preferredAlternative,createPlaybackRecovery} from './playback-watchdog.js?v=14.0.0';
 import {mergeCaptions,readCaption} from './captions.js?v=14.0.0';
+import {createOpeningSkip} from './opening-skip.js?v=14.1.0';
 const escapeHTML = (value='') => String(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const playerIcons={
   play:'<path d="m9 5 11 7-11 7z" fill="currentColor" stroke="none"/>',
@@ -15,6 +16,7 @@ const playerIcons={
   shrink:'<path d="M3 8h5V3m13 5h-5V3M8 21v-5H3m13 5v-5h5"/>',
   settings:'<path d="m10 3-1 3-3 1-3-1-1 4 3 2v3l-2 2 3 3 3-1 2 1 1 3h4l1-3 3-1 3 1 1-4-3-2v-3l2-2-3-3-3 1-2-1-1-3z" transform="translate(1 -1) scale(.95)"/><circle cx="12" cy="12" r="3"/>',
   captions:'<rect x="3" y="5" width="18" height="14" rx="3"/><path d="M10 9H7v6h3m7-6h-3v6h3"/>',
+  opening:'<path d="m4 5 10 7-10 7z"/><path d="m14 5 6 7-6 7M21 5v14"/>',
   episodes:'<rect x="3" y="4" width="18" height="16" rx="3"/><path d="M8 8h10M8 12h10M8 16h10M5 8h.01M5 12h.01M5 16h.01"/>',
   comment:'<path d="M20 16a3 3 0 0 1-3 3H8l-5 3V6a3 3 0 0 1 3-3h11a3 3 0 0 1 3 3z"/>',
   check:'<path d="m5 12 4 4 10-10"/>',
@@ -66,6 +68,7 @@ export function mountWatchPlayer(host, options) {
     <header class="watch-heading">${typeof o.onClose==='function'?`<button class="watch-icon watch-close" data-player-close aria-label="Fechar player">${playerIcon('close')}</button>`:''}<div><h2 id="detail-title">${e(o.title)}</h2><p>EP.${o.episode} — ${e(o.episodes.find(x=>x.episode_number===o.episode)?.name||'Episódio '+o.episode)}</p></div></header>
     <div class="watch-notice"><span class="watch-loader" aria-hidden="true"></span><h3 data-message-title>Preparando episódio</h3><p data-message>Preparando o vídeo para você…</p><button class="watch-button" data-overlay-retry hidden>Tentar novamente</button><details class="watch-diagnostic" data-diagnostic hidden><summary>Detalhes das fontes</summary><pre data-diagnostic-text></pre></details></div>
     <div class="watch-center" hidden><button class="watch-icon watch-center-skip" data-skip="-10" aria-label="Retroceder 10 segundos" disabled>${skipIcon(-1)}</button><button class="watch-big-play" aria-label="Reproduzir vídeo">${playerIcon('play')}</button><button class="watch-icon watch-center-skip" data-skip="10" aria-label="Avançar 10 segundos" disabled>${skipIcon(1)}</button></div>
+    <button class="watch-opening-skip" data-opening-skip hidden aria-label="Pular abertura">Pular abertura ${playerIcon('opening')}</button>
     <div class="watch-settings-panel" id="watch-settings-panel" hidden><div class="watch-settings-heading"><b>Ajustes da reprodução</b><button class="watch-icon" data-settings-close aria-label="Fechar ajustes">${playerIcon('close')}</button></div><label for="watch-source">Vídeo<select id="watch-source" disabled><option>Preparando vídeo…</option></select></label><label for="watch-caption">Legendas<select id="watch-caption" disabled><option>Buscando legendas…</option></select></label><label for="watch-speed">Velocidade<select id="watch-speed">${[.5,.75,1,1.25,1.5,1.75,2].map(x=>`<option value="${x}" ${x===1?'selected':''}>${x===1?'Normal':x+'×'}</option>`).join('')}</select></label></div>
     <div class="watch-controls"><label class="sr-only" for="watch-seek">Posição do vídeo</label><input id="watch-seek" type="range" min="0" max="100" value="0" step="0.1" disabled>
       <div class="watch-control-row"><button class="watch-icon" data-play aria-label="Reproduzir" disabled>${playerIcon('play')}</button><span class="watch-time">0:00 / 0:00</span><span class="watch-spacer"></span><div class="watch-volume-group"><button class="watch-icon" data-mute aria-label="Silenciar">${playerIcon('sound')}</button><input class="watch-volume" type="range" min="0" max="1" step="0.05" value="1" aria-label="Volume"></div><button class="watch-icon" data-settings aria-label="Ajustes de vídeo, legendas e velocidade" aria-expanded="false" aria-controls="watch-settings-panel">${playerIcon('settings')}</button><button class="watch-icon" data-fullscreen aria-label="Tela cheia">${playerIcon('fullscreen')}</button></div>
@@ -78,6 +81,7 @@ export function mountWatchPlayer(host, options) {
     ${externalDiscussion?'':'<section id="discussion" class="discussion-section watch-discussion" aria-label="Comentários do episódio" hidden><h3>Comentários do episódio</h3><p>Carregando comentários…</p></section>'}
   </main></div>`;
   const video=q('video'), screen=q('.watch-screen'), seek=q('#watch-seek'), status=q('.watch-status'),discussion=externalDiscussion||q('#discussion');
+  const openingSkip=createOpeningSkip({video,button:q('[data-opening-skip]'),load:o.loadOpening,onSkip:()=>{save();showControls();},onFocus:()=>{if(document.activeElement===q('[data-opening-skip]'))screen.focus();}});
   const watchdog=createPlaybackWatchdog(()=>{if(!dead&&!engineSwitching)failure('Nenhuma versão conseguiu iniciar a reprodução. Tente novamente em instantes.');},{idleMs:8000,totalMs:24000});
   const recovery=createPlaybackRecovery({
     onAttempt:({fresh,signal,attempt,timeoutMs})=>load(fresh,signal,attempt,timeoutMs),
@@ -137,7 +141,7 @@ export function mountWatchPlayer(host, options) {
   async function refreshCommunity(){try{const result=await o.loadCommunity();if(!dead){community=result;renderCommunity();}}catch{if(!dead)q('[data-community-status]').textContent='Não foi possível consultar se este episódio foi assistido. Reabra o episódio para tentar novamente.';}}
   async function mutate(payload,button){button.disabled=true;try{await o.onMutation(payload);if(!dead)await refreshCommunity();}catch(err){if(!dead)q('[data-community-status]').textContent=err.message;}finally{if(!dead)button.disabled=false;}}
   function releaseShaka(){if(!shakaPlayer)return;const player=shakaPlayer;shakaPlayer=null;Promise.resolve(player.destroy?.()).catch(()=>{});}
-  function resetMedia(){externalTrack=null;++captionRequest;captionAbort?.abort();watchdog.stop();engineSwitching=false;if(hls){hls.destroy();hls=null;}releaseShaka();video.pause();video.removeAttribute('src');video.load();video.querySelectorAll('track').forEach(t=>t.remove());captionUrls.forEach(URL.revokeObjectURL);captionUrls=[];seek.disabled=true;seek.value='0';seek.style.setProperty('--played','0%');q('.watch-time').textContent='0:00 / 0:00';host.querySelectorAll('[data-skip]').forEach(b=>b.disabled=true);}
+  function resetMedia(){openingSkip.reset();externalTrack=null;++captionRequest;captionAbort?.abort();watchdog.stop();engineSwitching=false;if(hls){hls.destroy();hls=null;}releaseShaka();video.pause();video.removeAttribute('src');video.load();video.querySelectorAll('track').forEach(t=>t.remove());captionUrls.forEach(URL.revokeObjectURL);captionUrls=[];seek.disabled=true;seek.value='0';seek.style.setProperty('--played','0%');q('.watch-time').textContent='0:00 / 0:00';host.querySelectorAll('[data-skip]').forEach(b=>b.disabled=true);}
   function syncCaptionVisibility(){
     if(hls){if(hls.subtitleDisplay!==false)hls.subtitleDisplay=false;if(hls.subtitleTrack!==-1)hls.subtitleTrack=-1;}
     try{shakaPlayer?.setTextTrackVisibility?.(false);}catch{}
@@ -284,7 +288,7 @@ export function mountWatchPlayer(host, options) {
   on(document,'keydown',ev=>{if(dead||ev.ctrlKey||ev.altKey||ev.metaKey||ev.target.closest('input,select,textarea,[contenteditable="true"]'))return;const k=ev.key.toLowerCase();if((k===' '||k==='k')&&!ev.target.closest('button,a,summary')){ev.preventDefault();void play();}else if(k==='arrowleft'||k==='arrowright'){ev.preventDefault();skip(k==='arrowleft'?-10:10);}else if(k==='m')video.muted=!video.muted;else if(k==='f')void fullscreen();});
   if(video.textTracks?.addEventListener){on(video.textTracks,'addtrack',syncCaptionVisibility);on(video.textTracks,'change',syncCaptionVisibility);}
   renderEpisodes();renderOptions();startPlayback();void loadExtraCaptions();void refreshCommunity();
-  function destroy(){if(dead)return;dead=true;recovery.cancel();clearTimeout(controlsTimer);++generation;++loadGeneration;observer.disconnect();watchdog.stop();captionAbort?.abort();abort.abort();save();disposeMedia(video,hls);hls=null;releaseShaka();captionUrls.forEach(URL.revokeObjectURL);captionUrls=[];}
+  function destroy(){if(dead)return;dead=true;openingSkip.destroy();recovery.cancel();clearTimeout(controlsTimer);++generation;++loadGeneration;observer.disconnect();watchdog.stop();captionAbort?.abort();abort.abort();save();disposeMedia(video,hls);hls=null;releaseShaka();captionUrls.forEach(URL.revokeObjectURL);captionUrls=[];}
   const observer=new MutationObserver(()=>{if(!host.isConnected)destroy();});
   observer.observe(document.documentElement,{childList:true,subtree:true});
   on(window,'pagehide',destroy);on(window,'popstate',destroy);on(window,'hashchange',destroy);

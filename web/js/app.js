@@ -1,14 +1,14 @@
-import {releasesPage,mountReleases,releaseDay} from './releases.js?v=14.0.2';
-import {giphyPage,mountGiphy,createGiphyClient,giphyId,observeGiphyAvatars} from './giphy.js?v=14.0.2';
-import {createHeaderScroll} from './header-scroll.js?v=14.0.2';
-import {createAuthSession} from './auth-session.js?v=14.0.2';
-import {mountDiscussion} from './discussion.js?v=14.0.2';
+import {releasesPage,mountReleases,releaseDay} from './releases.js?v=14.1.0';
+import {giphyPage,mountGiphy,createGiphyClient,giphyId,observeGiphyAvatars} from './giphy.js?v=14.1.0';
+import {createHeaderScroll} from './header-scroll.js?v=14.1.0';
+import {createAuthSession} from './auth-session.js?v=14.1.0';
+import {mountDiscussion} from './discussion.js?v=14.1.0';
 import {bindLiveSearch,rankSearchResults} from './live-search.js?v=11.0.0';
 import {preferredCaptionLocale} from './caption-language.js?v=9.6.1';
-import {createCatalogCache,createIntentPreloader} from './navigation.js?v=14.0.2';
-import { mountWatchPlayer } from './player.js?v=14.0.2';
-import {createSourceLoader} from './sources.js?v=14.0.2';
-import {createAccountDialog} from './account-dialog.js?v=14.0.2';
+import {createCatalogCache,createIntentPreloader} from './navigation.js?v=14.1.0';
+import { mountWatchPlayer } from './player.js?v=14.1.0';
+import {createSourceLoader} from './sources.js?v=14.1.0';
+import {createAccountDialog} from './account-dialog.js?v=14.1.0';
 const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
 const esc=(s='')=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const store={get(k,d){try{return JSON.parse(localStorage.getItem(k))??d}catch{return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch{}}};
@@ -100,7 +100,7 @@ function upcomingRailCard(p){
 function rankedCard(p,index){
  return `<button type="button" class="card ranked-card" data-id="${p.id}" aria-label="${index+1}. Ver ${esc(p.title)}"><span class="rank-number" aria-hidden="true">${index+1}</span><div class="poster-wrap">${imageTag(p)}<span class="card-play">▶</span></div><div class="card-body"><div class="card-title">${esc(p.title)}</div><div class="card-sub">★ ${rating(p)} · ${year(p)}</div></div></button>`;
 }
-function brand(){return `<a class="brand" href="#home" aria-label="AnimeDragon, início"><img src="/assets/dragon-mark.webp?v=14.0.2" alt="" width="45" height="45"><strong>Anime<span>Dragon</span></strong></a>`}
+function brand(){return `<a class="brand" href="#home" aria-label="AnimeDragon, início"><img src="/assets/dragon-mark.webp?v=14.1.0" alt="" width="45" height="45"><strong>Anime<span>Dragon</span></strong></a>`}
 function accountMarkup(){if(state.user)return `<a class="profile-chip identity-ring-${identityOf().frame}" href="#profile" aria-label="Meu perfil">${avatarView(state.avatar,state.user?.avatarFrame,'avatar','','Meu perfil')}<b class="${nameClass(state.user.nameColor)}">${esc(state.user.name)}</b></a><button class="icon-btn" data-logout aria-label="Sair da conta">${icon('logout')}</button>`;if(state.authStatus!=='ready')return '<span class="account-restoring" role="status">Conectando sua conta…</span>';return `<a href="#entrar" class="login-link">Entrar ${icon('profile')}</a>`;}
 function updateAccount(){const account=$('.header-account');if(account){account.innerHTML=accountMarkup();bindLogout(account);}}
 function bindLogout(root=document){$$('[data-logout]',root).forEach(b=>b.onclick=async()=>{b.disabled=true;try{await post('/api/auth/logout',{});authSession.clear();nav('home');toast('Você saiu da conta.')}catch(e){toast(e.message,'err');b.disabled=false}});}
@@ -109,7 +109,7 @@ function layout(inner){
  const navs=[['home','Início','#home'],['anime','Animes','#anime'],['calendar','Lançamentos','#releases'],['library','Minha lista','#library']];
  const active=index=>index===2?releases:index===1?current==='anime'&&!releases:current===navs[index][0];
  const searchOpen=current==='search';
- return `<div class="shell ${current==='home'?'home-view':''}"><header class="site-header ${searchOpen?'search-open':''}"><div class="masthead"><button class="icon-btn menu-toggle" id="mobile-menu-toggle" type="button" aria-label="Abrir menu" aria-expanded="false" aria-controls="main-navigation">${icon('menu')}</button>${brand()}<nav class="top-nav" id="main-navigation" aria-label="Navegação principal">${navs.map(([id,name,href],index)=>`<a href="${href}" class="${active(index)?'active':''}" ${active(index)?'aria-current="page"':''}>${icon(id)}<span>${name}</span></a>`).join('')}<details class="header-more"><summary aria-label="Mais opções">${icon('menu')}<span>Explorar</span></summary><div><a href="#genres">${icon('genres')} Gêneros e temas</a><a href="#gifs">${icon('spark')} Galeria de GIFs</a><a href="#calendar">${icon('calendar')} Minha agenda</a><a href="#history">${icon('history')} Histórico</a><a href="#settings">${icon('settings')} Preferências</a></div></details></nav><div class="header-tools"><button class="icon-btn" id="header-surprise" data-surprise type="button" aria-label="Escolher um anime aleatório">${icon('shuffle')}</button><button class="icon-btn" id="header-search-toggle" type="button" aria-label="Buscar anime" aria-expanded="${searchOpen}" aria-controls="header-search">${icon('search')}</button></div><div class="header-account">${accountMarkup()}</div></div><div class="topbar" id="header-search"><form class="search" id="search-form" role="search"><label class="sr-only" for="global-search">Buscar anime</label>${icon('search')}<input id="global-search" type="search" aria-controls="page-content" autocomplete="off" name="q" placeholder="Buscar por nome do anime…" maxlength="120" value="${esc(params.get('q')||'')}"></form><button class="icon-btn" id="header-search-close" type="button" aria-label="Fechar busca">${icon('close')}</button></div></header><main class="main"><div class="content">${current!=='home'?'<button class="page-back" id="page-back">← Voltar</button>':''}<div id="page-content">${inner}</div><footer class="site-footer"><div><a class="footer-brand" href="#home">Anime<span>Dragon</span></a><p>Uma nova história a cada capítulo.</p><small>© ${new Date().getFullYear()} AnimeDragon</small></div><div class="footer-credit"><span>Catálogo atualizado automaticamente</span><small>AnimeDragon v14.0.2</small></div></footer></div></main></div>`;
+ return `<div class="shell ${current==='home'?'home-view':''}"><header class="site-header ${searchOpen?'search-open':''}"><div class="masthead"><button class="icon-btn menu-toggle" id="mobile-menu-toggle" type="button" aria-label="Abrir menu" aria-expanded="false" aria-controls="main-navigation">${icon('menu')}</button>${brand()}<nav class="top-nav" id="main-navigation" aria-label="Navegação principal">${navs.map(([id,name,href],index)=>`<a href="${href}" class="${active(index)?'active':''}" ${active(index)?'aria-current="page"':''}>${icon(id)}<span>${name}</span></a>`).join('')}<details class="header-more"><summary aria-label="Mais opções">${icon('menu')}<span>Explorar</span></summary><div><a href="#genres">${icon('genres')} Gêneros e temas</a><a href="#gifs">${icon('spark')} Galeria de GIFs</a><a href="#calendar">${icon('calendar')} Minha agenda</a><a href="#history">${icon('history')} Histórico</a><a href="#settings">${icon('settings')} Preferências</a></div></details></nav><div class="header-tools"><button class="icon-btn" id="header-surprise" data-surprise type="button" aria-label="Escolher um anime aleatório">${icon('shuffle')}</button><button class="icon-btn" id="header-search-toggle" type="button" aria-label="Buscar anime" aria-expanded="${searchOpen}" aria-controls="header-search">${icon('search')}</button></div><div class="header-account">${accountMarkup()}</div></div><div class="topbar" id="header-search"><form class="search" id="search-form" role="search"><label class="sr-only" for="global-search">Buscar anime</label>${icon('search')}<input id="global-search" type="search" aria-controls="page-content" autocomplete="off" name="q" placeholder="Buscar por nome do anime…" maxlength="120" value="${esc(params.get('q')||'')}"></form><button class="icon-btn" id="header-search-close" type="button" aria-label="Fechar busca">${icon('close')}</button></div></header><main class="main"><div class="content">${current!=='home'?'<button class="page-back" id="page-back">← Voltar</button>':''}<div id="page-content">${inner}</div><footer class="site-footer"><div><a class="footer-brand" href="#home">Anime<span>Dragon</span></a><p>Uma nova história a cada capítulo.</p><small>© ${new Date().getFullYear()} AnimeDragon</small></div><div class="footer-credit"><span>Catálogo atualizado automaticamente</span><small>AnimeDragon v14.1.0</small></div></footer></div></main></div>`;
 }
 function home(){
  const d=state.home,hero=(d.featured||d.trending)[0];
@@ -366,6 +366,7 @@ async function openPlayer(episode,fromHistory=false){
  watchController=mountWatchPlayer($('#playback-body'),{
   title:p.title,season,episode,episodes:state.episodes,poster:img(p.backdrop_path,state.prefs.economy?'w780':'original'),autoplay:true,resume:previous?.progress||0,
   loadSource:options=>loadPlayback(p.id,season,episode,options),
+  loadOpening:({duration,signal})=>api(`/api/opening?id=${p.id}&season=${season}&episode=${episode}&duration=${duration.toFixed(3)}`,{signal}),
   captionLocale,loadSubtitles:()=>api(`/api/subtitles?id=${p.id}&season=${season}&episode=${episode}&locale=${encodeURIComponent(captionLocale)}`),autoCaptions:state.prefs.autoCaptions===true,
   prefetch:next=>!state.prefs.economy&&!navigator.connection?.saveData?loadPlayback(p.id,season,next):Promise.resolve(),
   loadCommunity:()=>api(`/api/community/${p.id}?season=${season}&episode=${episode}`),loadHls,loadShaka,
