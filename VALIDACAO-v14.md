@@ -1,3 +1,13 @@
+# Validação mais recente: AnimeDragon v14.1.0
+
+- 87 testes passaram em sete arquivos: opening-skip (6), opening-times (10), player-v11 (19), worker (17), ui (28), player (2), playback-recovery (5).
+- Sintaxe dos 33 módulos: passou. Bundles do Worker e app via esbuild: passaram. Wrangler dry-run local indisponível porque o sandbox bloqueia subprocessos; a publicação será validada pelo build do GitHub/Cloudflare.
+- Prévia local com catálogo/fontes públicas reais: Jujutsu Kaisen EP.3, vídeo 1434.975627 s, marcação 191.727–282.077 s. Botão visível em 217.343964 s; clique avançou exatamente para 282.077 s, ocultou o botão e preservou a pausa. Screenshot em outputs/AnimeDragon-v14.1-abertura-qa.png.
+- Kaiju EP.2 recebeu cortes com duração ~1420.044 s, enquanto o registro é 1421.046 s; diferença acima de 1 s oculta o botão. Isso confirma a recusa de outro corte, sem estimar/ajustar a abertura.
+- Marcações comunitárias dependem da cobertura e qualidade do AniSkip. Correspondência explícita inclui 6.418 temporadas, sem garantir marcações para todos os episódios. Licença/proveniência em ANISKIP.md.
+
+## Validações anteriores
+
 # Validação AnimeDragon v14.0.1
 
 ## Verificações locais
