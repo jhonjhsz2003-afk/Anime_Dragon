@@ -44,7 +44,7 @@
 
 ## Dados existentes e limites
 
-O binding D1, contas e segredo de autenticação são preservados. O ZIP não contém node_modules, banco local, logs ou segredos. A publicação deve usar o mesmo Worker anime-dragon, sem migração destrutiva nem plano pago. A disponibilidade dos vídeos e o limite GIPHY pertencem aos provedores externos e variam; os testes não demonstram disponibilidade de todos os episódios do catálogo.
+O binding D1, contas e segredo de autenticação são preservados. O ZIP não contém node_modules, banco local, logs ou segredos. A publicação deve usar o Worker existente, renomeado para site, sem migração destrutiva nem plano pago. A disponibilidade dos vídeos e o limite GIPHY pertencem aos provedores externos e variam; os testes não demonstram disponibilidade de todos os episódios do catálogo.
 # Ajuste visual v14.0.2
 
 O selo isolado do rodapé foi removido de todas as páginas. A galeria e a prévia conservam apenas a atribuição oficial compacta e transparente, junto aos controles. Os nove testes de GIPHY passaram novamente; sintaxe do aplicativo validada. A integração foi ativada na produção e a busca Naruto, prévias animadas e download de um GIF real foram conferidos no navegador.

@@ -47,7 +47,7 @@ Sem TMDB_API_KEY, a prévia usa histórias ilustrativas originais, identificadas
 
 ## Atualizar o site existente
 
-Substitua o código do repositório por esta versão e publique no mesmo Worker `anime-dragon`. O `wrangler.toml` mantém o binding DB e o banco D1 existentes. Preserve as variáveis/segredos configurados no Cloudflare, inclusive a chave TMDB e o segredo de autenticação quando já utilizado.
+Substitua o código do repositório por esta versão e publique no Worker existente, renomeado para `site`, em [site.anime-dragon.workers.dev](https://site.anime-dragon.workers.dev/). O `wrangler.toml` mantém o binding DB e o banco D1 existentes. Preserve as variáveis/segredos configurados no Cloudflare, inclusive a chave TMDB e o segredo de autenticação quando já utilizado.
 
 ```bash
 npx wrangler deploy
