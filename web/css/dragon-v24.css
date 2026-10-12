@@ -1,0 +1,91 @@
+/* AnimeDragon v24: assinatura viva de fogo azul (somente CSS, sem recursos externos). */
+.site-header .brand-bluefire {
+  position:relative; isolation:isolate; overflow:visible; padding-right:10px;
+  text-decoration:none; filter:drop-shadow(0 0 8px rgba(1,136,255,.2));
+}
+.site-header .brand-bluefire::before {
+  content:""; position:absolute;pointer-events:none;z-index:-1;
+  inset:-10px -13px -2px 28%; opacity:.42;
+  background:radial-gradient(ellipse at 18% 86%,#0666fa99 0,transparent 29%),radial-gradient(ellipse at 52% 57%,#00baff99 0,transparent 36%),radial-gradient(ellipse at 80% 80%,#66dcff87 0,transparent 38%);
+  filter:blur(7px);
+  clip-path:polygon(0 100%,5% 76%,12% 32%,22% 72%,30% 11%,42% 73%,52% 18%,62% 67%,76% 8%,83% 68%,91% 30%,100% 90%,100% 100%);
+  animation:brand-blue-flare 3.1s ease-in-out infinite alternate;
+}
+.site-header .brand-bluefire::after {
+  content:""; position:absolute; pointer-events:none; z-index:-1;
+  inset:35% 1% -6px 39%; border-radius:50%;
+  background:radial-gradient(ellipse at center,rgba(0,174,255,.22),rgba(19,82,222,.06) 55%,transparent 76%);
+  filter:blur(9px); animation:brand-blue-heat 4s ease-in-out infinite alternate;
+}
+.site-header .brand-bluefire img {filter:drop-shadow(0 0 4px rgba(0,199,255,.72)) drop-shadow(0 0 12px rgba(34,81,255,.27));}
+.site-header .brand-bluefire .brand-wordmark {
+  position:relative; display:inline-flex; align-items:baseline; gap:0;
+  line-height:1.25; font-weight:850; letter-spacing:-.6px; white-space:nowrap;
+  text-shadow:0 1px 1px #001328,0 0 9px rgba(23,151,255,.5),0 0 24px rgba(1,78,209,.3);
+}
+.site-header .brand-bluefire .brand-anime,
+.site-header .brand-bluefire .brand-dragon {
+  display:inline-block; color:transparent!important;
+  background-clip:text; -webkit-background-clip:text;
+  -webkit-text-fill-color:transparent;
+  background-size:180% 250%;
+  animation:brand-blue-flame 5s ease-in-out infinite alternate;
+}
+.site-header .brand-bluefire .brand-anime {
+  background-image:linear-gradient(118deg,#f3fcff 9%,#80e8ff 29%,#ffffff 43%,#b0e5ff 62%,#44aeff 88%);
+}
+.site-header .brand-bluefire .brand-dragon {
+  background-image:linear-gradient(109deg,#53a4ff 8%,#6ae7ff 25%,#e9ffff 40%,#36b3ff 60%,#587fff 80%,#28ccff 100%);
+  animation-delay:-1.7s;
+}
+.site-header .brand-bluefire .brand-wordmark::after {
+  content:""; position:absolute; left:12%; right:0; bottom:-5px; height:2px;
+  border-radius:50%; opacity:.85;
+  background:linear-gradient(90deg,transparent,#16c7ff 22%,#d3fbff 49%,#2985ff 74%,transparent);
+  box-shadow:0 0 6px #25c8ff,0 0 14px #1269eb;
+  transform-origin:center; animation:brand-blue-pulse 3.2s ease-in-out infinite;
+}
+.site-header .brand-bluefire:hover .brand-wordmark {text-shadow:0 0 10px rgba(86,207,255,.72),0 0 22px rgba(47,131,255,.59),0 0 38px rgba(0,144,255,.35);}
+@keyframes brand-blue-flare{from{opacity:.23;transform:translateY(3px) scaleY(.86)}to{opacity:.65;transform:translateY(-3px) scaleY(1.13)}}
+@keyframes brand-blue-flame {0%{background-position:0% 82%;filter:brightness(.99)}48%{background-position:84% 30%;filter:brightness(1.2)}100%{background-position:18% 4%;filter:brightness(1.06)}}
+@keyframes brand-blue-pulse{0%,100%{opacity:.55;transform:scaleX(.91)}50%{opacity:1;transform:scaleX(1.03)}}
+@keyframes brand-blue-heat{from{opacity:.46;transform:translateY(3px) scale(.9)}to{opacity:.98;transform:translateY(-3px) scale(1.12)}}
+
+/* Popover compacto ao lado de Sair: top 4, coroas únicas para 1º e 2º. */
+.header-account .ranking-anchor{position:relative;flex-shrink:0;}
+.header-account .ranking-toggle{font-size:22px; color:#94dfff; border:1px solid #58baff34; border-radius:12px; background:linear-gradient(140deg,#092237d8,#091426e8);text-shadow:0 0 13px #25b7ff66;}
+.header-account .ranking-toggle:hover,.header-account .ranking-toggle[aria-expanded=true]{border-color:#88dcff99; color:#e0f7ff;box-shadow:0 0 16px #197cca33;}
+.header-account .ranking-popover{
+  position:absolute; top:calc(100% + 14px);right:0;z-index:300;
+  width:min(345px,calc(100vw - 24px)); max-height:min(540px,calc(100dvh - 90px)); overflow:auto;
+  background:linear-gradient(160deg,#111d32 0%,#081323 64%,#11132a 100%);
+  color:#e5f4ff; border:1px solid #77ceff62; border-radius:20px;
+  box-shadow:0 25px 65px #02060ecc,0 0 28px #2088ff1b;
+  padding:16px; text-shadow:none;
+}
+.header-account .ranking-popover[hidden]{display:none!important;}
+.ranking-head{display:flex;align-items:center;gap:10px;padding-bottom:13px;border-bottom:1px solid #b7eaff20;}
+.ranking-head .ranking-glint{color:#7edbff;font-size:26px;text-shadow:0 0 13px #16adff;}
+.ranking-head>div{flex:1;min-width:0;display:grid;gap:3px}
+.ranking-head b{font-size:15px;letter-spacing:.1px;max-width:none;white-space:normal}.ranking-head small{font-size:10px;color:#95aeca;line-height:1.5}
+.ranking-close{width:30px;height:30px;border:1px solid #9dd9ff2a;border-radius:9px;background:#c2eaff0c;color:#cbeaff;font-size:21px;cursor:pointer}
+.ranking-entries{display:grid;gap:9px;margin:14px 0;}
+.ranking-entry{display:flex;gap:10px;align-items:center;min-height:66px;padding:10px;border:1px solid #b8e9ff1a;border-radius:13px;background:#122037b0;color:#deeeff!important;text-decoration:none;transition:transform .2s,border-color .2s;}
+.ranking-entry:hover{transform:translateX(2px);border-color:#76cfff70;}
+.ranking-entry.ranking-pos-1{background:linear-gradient(108deg,#52411a70,#172539 71%);border-color:#ffd17982;box-shadow:inset 0 0 15px #ffd66e10;}
+.ranking-entry.ranking-pos-2{background:linear-gradient(108deg,#37688854,#17243c 76%);border-color:#b6e8ff7a;}
+.ranking-position{font-size:17px;width:30px;text-align:center;flex-shrink:0;font-weight:850;color:#9db9d5}
+.ranking-pos-1 .ranking-position{font-size:24px;filter:drop-shadow(0 0 5px #ffca43)}
+.ranking-pos-2 .ranking-position{font-size:26px;color:#e4f5ff;text-shadow:0 0 9px #bde6ff;}
+.ranking-avatar{width:42px;height:42px;flex:none;border:2px solid #71baff66;border-radius:50%;overflow:hidden;}
+.ranking-person{min-width:0;flex:1;display:grid;gap:4px}.ranking-person b{font-size:12px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.ranking-person small{color:#9bb4ca;font-size:10px;}
+.ranking-pos-1 .ranking-person b{color:#ffe7a6;}.ranking-pos-2 .ranking-person b{color:#d6edff;}
+.ranking-consent{padding-top:13px;border-top:1px solid #bedfff20;font-size:11px;line-height:1.5;color:#adc4d8;}
+.ranking-consent p{margin:0 0 10px;}.ranking-consent label{display:flex;align-items:center;gap:8px;cursor:pointer;color:#dbefff;}.ranking-consent input{accent-color:#4bbfff;flex:none;width:16px;height:16px;}
+.ranking-empty,.ranking-loading{color:#b7cbe0;font-size:12px;line-height:1.6;padding:13px 4px;}
+.resume-progress-unavailable{display:block;color:#82d7ff;font-size:11px;margin-top:10px;}
+@media(max-width:720px){.header-account .ranking-toggle{width:32px;min-width:32px;height:32px;font-size:17px;padding:2px;}.header-account .ranking-popover{position:fixed;top:var(--header-space,68px);right:12px;width:min(345px,calc(100vw - 24px));}}
+@media(prefers-reduced-motion:reduce){.site-header .brand-bluefire *, .site-header .brand-bluefire::after{animation:none!important;transition:none!important;}}
+html.reduce-motion .site-header .brand-bluefire *,html.reduce-motion .site-header .brand-bluefire::after{animation:none!important;transition:none!important;}
+
+.history-rail{flex-wrap:wrap;overflow-x:visible;}.history-rail .continue-card{flex:1 1 270px;max-width:340px;}

@@ -1,0 +1,12 @@
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  X-Frame-Options: DENY
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()
+  Content-Security-Policy: default-src 'self'; base-uri 'self'; object-src 'none'; frame-src https://myembed.biz; child-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self' https://cdn.jsdelivr.net/npm/shaka-player@5.2.12/dist/shaka-player.compiled.js; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; font-src 'self' data:; media-src 'self' blob:; connect-src 'self' https://api.giphy.com https://*.giphy.com https://*.giphyusercontent.com; worker-src 'self' blob:; manifest-src 'self' 
+/assets/*
+  Cache-Control: public, max-age=604800
+/css/*
+  Cache-Control: public, max-age=3600, must-revalidate
+/js/*
+  Cache-Control: public, max-age=300, must-revalidate
