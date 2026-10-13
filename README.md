@@ -1,3 +1,5 @@
+> **Versão 31.3:** Integração DragonGIF diretamente via navegador, documentação em [LEIA-PRIMEIRO-v31.3.md](LEIA-PRIMEIRO-v31.3.md).
+
 # AnimeDragon v30 — Biblioteca local de GIFs e Stickers
 
 A **galeria pública `#gifs`** e o editor **Perfil > Personalizar > Stickers locais** agora usam mídias estáticas do próprio site, sem chave ou conexão com a API do GIPHY. As pastas estão vazias: **você coloca os seus próprios arquivos autorizados** antes de subir para o GitHub.

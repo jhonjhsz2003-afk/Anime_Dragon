@@ -1,7 +1,6 @@
 import { database } from './database.js';
 import {identityColumns,identityJoin,profileIdentity,validateIdentity,validateDisplayName} from './profile-identity.js';
 import {localAvatar,storedAvatarFrame} from './local-avatar.js';
-import {verifyDragonStickers} from './dragongif.js';
 
 // Passwords and session tokens never leave the server or enter localStorage.
 
@@ -156,7 +155,8 @@ export async function auth(request,env) {
 
     const nameColor=data.nameColor??u.name_color??'ice';
     const identity=validateIdentity(data.identity,u);
-    if(data.identity?.stickers!==undefined)await verifyDragonStickers(env,identity.stickers);
+    // URLs públicas do DragonGIF já foram validadas por validateIdentity.
+    // A verificação não depende de outra conta Cloudflare.
 
     if(!["ice", "blue", "cyan", "green", "gold", "orange", "pink", "violet", "ruby", "mint", "silver", "peach", "lavender", "rgb-aurora", "rgb-candy", "rgb-dragon", "rgb-inferno", "rgb-sakura", "rgb-neon", "rgb-cosmic", "rgb-ice", "rgb-gold", "rgb-rainbow", "rgb-mystic", "rgb-ocean", "rgb-eclipse", "rgb-stellar"].includes(nameColor))throw error(400,'Escolha uma das cores disponíveis.');
 

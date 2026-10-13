@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>DragonGIF · Diagnóstico AnimeDragon</title>
+  <style>
+    *{box-sizing:border-box}body{margin:0;background:#070c15;color:#eff8ff;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;line-height:1.5;padding:3rem 1rem}main{max-width:750px;margin:auto}h1{font-size:clamp(1.7rem,4vw,2.6rem);margin:.2rem 0 0}p{color:#b7c9dc}a{color:#70d7ff}small{color:#9ab1c8}header{padding-bottom:1rem;border-bottom:1px solid #22344f}.eyebrow{font-size:.75rem;letter-spacing:.18em;color:#66c9ff;font-weight:800}.grid{display:grid;gap:.8rem;margin:1.5rem 0}.check{border:1px solid #263e5d;background:#101a2b;padding:1rem 1.1rem;border-radius:14px;display:grid;gap:.3rem}.check strong{font-size:1.02rem}.check small{word-break:break-word}.success{border-color:#256a58}.failure{border-color:#b04f5b}.state{font-weight:700;color:#8bdcff}.failure .state{color:#ffb4b4}.success .state{color:#9ae8cb}button{padding:.8rem 1.3rem;border:0;border-radius:12px;background:#70d7ff;color:#071320;font-weight:800;cursor:pointer}button:disabled{opacity:.6;cursor:wait}.preview{max-width:140px;max-height:140px;border:1px solid #294a6a;border-radius:12px;margin-top:.4rem}footer{margin-top:2rem;color:#8da9c5;font-size:.9rem}
+  </style>
+</head>
+<body>
+  <main>
+    <header><span class="eyebrow">ANIMEDRAGON · TESTE REAL</span><h1>Conexão com o DragonGIF</h1><p>Veja o resultado de cada etapa, diretamente no seu navegador. Não precisa de API Key.</p></header>
+    <div class="grid">
+      <section class="check" id="ad"><strong>1. Versão do AnimeDragon</strong><span class="state">Aguardando...</span><small>Verifica se a v31.3 foi publicada.</small></section>
+      <section class="check" id="dg"><strong>2. DragonGIF acessível pelo navegador</strong><span class="state">Aguardando...</span><small>Testa a API pública e a permissão CORS.</small></section>
+      <section class="check" id="search"><strong>3. Pesquisa de GIFs e stickers</strong><span class="state">Aguardando...</span><small>Verifica se o catálogo retorna resultados reais.</small></section>
+      <section class="check" id="img"><strong>4. Carregamento de arquivo</strong><span class="state">Aguardando...</span><small>Confere se uma imagem do DragonGIF abre normalmente.</small><div id="preview"></div></section>
+    </div>
+    <button id="retry">Testar novamente</button>
+    <footer>Se alguma etapa falhar, copie a mensagem mostrada e envie na conversa. Não inclua credenciais. <p><a href="/">Voltar ao AnimeDragon</a> · <a href="https://dragongif-api.jhonjhszgame2003.workers.dev/api/v1/health" rel="noopener" target="_blank">API DragonGIF</a></p></footer>
+  </main>
+  <script type="module" src="/js/dragon-status.js?v=31.3.0"></script>
+</body>
+</html>

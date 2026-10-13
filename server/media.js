@@ -1,7 +1,7 @@
 import {database} from './database.js';
 import {getUser,throttle} from './auth.js';
 import {localAvatar,localAvatarMarker} from './local-avatar.js';
-import {dragonFileId,validateDragonItem} from './dragongif.js';
+import {dragonFileId,dragonMediaUrl} from './dragongif.js';
 const fail=(status,message)=>Object.assign(new Error(message),{status});
 const json=data=>Response.json(data,{headers:{'Cache-Control':'no-store'}});
 export const MAX_AVATAR_BYTES=1900000;
@@ -43,7 +43,8 @@ export async function media(request,env){
    const avatar=localAvatarMarker(data?.path,{x,y,zoom});
    if(!avatar)throw fail(400,'GIF inválido. Selecione um arquivo da biblioteca.');
    const remoteId=dragonFileId(data?.path);
-   if(remoteId)await validateDragonItem(env,remoteId,'gifs');
+   if(remoteId)throw fail(409,'Selecione o GIF novamente na nova galeria DragonGIF.');
+   if(!dragonMediaUrl(data?.path,'gifs') && !data?.path?.startsWith('/assets/profile-media/'))throw fail(400,'GIF fora da biblioteca DragonGIF.');
    await env.DB.batch([env.DB.prepare('DELETE FROM profile_media WHERE user_id=?').bind(user.id),env.DB.prepare('UPDATE users SET avatar_url=?,updated_at=? WHERE id=?').bind(avatar,new Date().toISOString(),user.id)]);
    return json({ok:true,avatar,avatarFrame:{x,y,zoom}});
  }

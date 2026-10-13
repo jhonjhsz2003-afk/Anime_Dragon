@@ -1,4 +1,17 @@
 /** AnimeDragon -> DragonGIF public HTTPS API, inclusive entre contas Cloudflare. */
+export const DRAGONGIF_ORIGIN='https://dragongif-api.jhonjhszgame2003.workers.dev';
+/** URLs sob o nosso próprio catálogo estático; nenhum host arbitrário é aceito. */
+export function dragonMediaUrl(value,kind){
+ if(typeof value!=='string'||value.length>1000||!value.startsWith(DRAGONGIF_ORIGIN+'/media/'))return false;
+ let u;try{u=new URL(value)}catch{return false}
+ if(u.origin!==DRAGONGIF_ORIGIN||u.href!==value||u.search||u.hash||u.username||u.password)return false;
+ const match=/^\/media\/(gifs|stickers)\/(.+)$/i.exec(u.pathname);
+ if(!match||(kind&&match[1]!==kind))return false;
+ const parts=match[2].split('/');
+ if(parts.some(x=>!x||/%(?:2f|5c|00)/i.test(x)))return false;
+ try{if(parts.some(x=>{const d=decodeURIComponent(x);return d==='.'||d==='..'||/[\\\x00-\x1f]/.test(d)}))return false}catch{return false}
+ return /\.(gif|webp|png|apng|avif)$/i.test(u.pathname);
+}
 export const FILE_PATH = /^\/api\/dragongif\/file\/(dg_[a-f0-9]{32})$/;
 const ID=/^dg_[a-f0-9]{32}$/;
 const err=(status,message)=>Object.assign(new Error(message),{status});
@@ -39,16 +52,13 @@ export async function dragonRouter(request,env){
   return new Response(null,{status:302,headers:{Location:src.href,'Cache-Control':'public, max-age=180','X-Content-Type-Options':'nosniff'}});
  }
  if(url.pathname==='/api/dragongif/search'){
+  // 302: o navegador acessa diretamente a API, sem fetch Worker->Worker.
   const type=url.searchParams.get('type')||'all';if(!['all','gifs','stickers'].includes(type))throw err(400,'Tipo inválido.');
   const q=(url.searchParams.get('q')||'').slice(0,100),page=Math.min(10000,Math.max(1,parseInt(url.searchParams.get('page'),10)||1)),limit=Math.min(100,Math.max(1,parseInt(url.searchParams.get('limit'),10)||36));
-  const qs=new URLSearchParams({type,q,page:String(page),limit:String(limit)});
-  const result=await dragonFetch(env,'/api/v1/media?'+qs);
-  const items=(Array.isArray(result.items)?result.items:[]).filter(item=>ID.test(item.id)&&['gifs','stickers'].includes(item.kind)).map(item=>({id:item.id,title:String(item.title||'Sem título').slice(0,120),kind:item.kind==='gifs'?'gif':'sticker',url:`/api/dragongif/file/${item.id}`,tags:item.tags||[]}));
-  return Response.json({ok:true,items,page,limit,hasMore:!!result.hasMore,query:q,type},{headers:{'Cache-Control':'public, max-age=20','X-Content-Type-Options':'nosniff'}});
+  return Response.redirect(dragonBase(env)+'/api/v1/media?'+new URLSearchParams({type,q,page:String(page),limit:String(limit)}),302);
  }
  if(url.pathname==='/api/dragongif/status'){
-  const result=await dragonFetch(env,'/api/v1/stats');
-  return Response.json({ok:true,gifs:result.gifs||0,stickers:result.stickers||0,total:result.total||0},{headers:{'Cache-Control':'public, max-age=30'}});
+  return Response.redirect(dragonBase(env)+'/api/v1/stats',302);
  }
  throw err(404,'Rota DragonGIF não encontrada.');
 }

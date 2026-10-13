@@ -14,7 +14,7 @@ export function contentSecurityPolicy(){
     "img-src 'self' https: data: blob:",
     "font-src 'self' data:",
     "media-src 'self' blob:", 
-    "connect-src 'self'",
+    "connect-src 'self' https://dragongif-api.jhonjhszgame2003.workers.dev",
     "worker-src 'self' blob:",
     "manifest-src 'self'"
   ].join('; ');

@@ -7,7 +7,7 @@ test('v31: sticker search uses DragonGIF API, without GIPHY',()=>{
  const js=file('web/js/app.js'),gallery=file('web/js/local-media.js');
  assert.match(js,/searchDragonMedia/);assert.match(js,/kind:'sticker'/);
  assert.doesNotMatch(js,/api\.giphy\.com/);
- assert.match(gallery,/api\/dragongif\/search/);
+ assert.match(gallery,/api\/v1\/media/);
 });
 test('v29: separate profile tabs, 12 atmospheres, name segments and shared profile poster sizing',()=>{
  const js=file('web/js/app.js'),css=file('web/css/profile-v29.css'),server=file('server/profile-identity.js');

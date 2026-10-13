@@ -1,5 +1,5 @@
 import {releasesPage,mountReleases,releaseDay} from './releases.js?v=14.1.0';
-import {localGalleryPage,mountLocalGallery,searchDragonMedia,localAvatarSrc} from './local-media.js?v=31.2.0';
+import {localGalleryPage,mountLocalGallery,searchDragonMedia,localAvatarSrc,restoreDragonImages} from './local-media.js?v=31.3.0';
 import {createHeaderScroll} from './header-scroll.js?v=14.1.0';
 import {createAuthSession} from './auth-session.js?v=14.1.0';
 import {mountDiscussion} from './discussion.js?v=14.1.0';
@@ -13,6 +13,14 @@ const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelect
 const esc=(s='')=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const store={get(k,d){try{return JSON.parse(localStorage.getItem(k))??d}catch{return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch{}}};
 const defaultAvatar='/assets/avatar-default.svg';
+if(typeof document!=='undefined'&&typeof MutationObserver!=='undefined'){
+ let scheduled=false;
+ const hydrate=()=>{scheduled=false;void restoreDragonImages(document)};
+ const observer=new MutationObserver(()=>{if(!scheduled){scheduled=true;queueMicrotask(hydrate)}});
+ const start=()=>observer.observe(document.body,{childList:true,subtree:true});
+ if(document.body)start();else document.addEventListener('DOMContentLoaded',start,{once:true});
+}
+
 const safeAvatar=src=>localAvatarSrc(src)||(/^\/api\/avatar\/[a-zA-Z0-9-]{1,80}\?v=[a-zA-Z0-9-]+$/.test(src||'')||/^\/assets\/avatars\/avatar-([1-9]|1[0-2])(-animated)?\.svg$/.test(src||'')?src:defaultAvatar);
 const frameStyle=(frame={})=>{const x=Math.max(0,Math.min(100,Number(frame.x??50)||0)),y=Math.max(0,Math.min(100,Number(frame.y??50)||0)),z=Math.max(100,Math.min(300,Number(frame.zoom??100)||100))/100;return `object-position:${x}% ${y}%;transform:translate(${(50-x)*(z-1)}%,${(50-y)*(z-1)}%) scale(${z})`};
 function avatarView(src,frame={},cls='avatar',id='',alt=''){return `<span class="avatar-frame ${cls}" ${id?`id="${id}"`:''}><img src="${esc(safeAvatar(src))}" alt="${esc(alt)}" style="${frameStyle(frame)}"></span>`}

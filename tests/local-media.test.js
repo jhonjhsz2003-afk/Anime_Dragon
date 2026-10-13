@@ -60,9 +60,9 @@ test('DragonGIF client search filters locally and requests a paginated remote ca
  assert.deepEqual(filterLocalMedia(items,{query:'Sakura',kind:'sticker'}),[items[1]]);
  assert.equal(filterLocalMedia(items,{query:'abc',kind:'all'}).length,0);
  assert.match(localGalleryPage(),/DRAGONGIF/);
- const remote=[{id:'dg_'+('a'.repeat(32)),kind:'gif',url:'/api/dragongif/file/dg_'+('a'.repeat(32)),title:'Dragão'}];
- const original=await loadLocalCatalog({refresh:true,fetcher:async (url)=>{assert.match(url,/api\/dragongif\/search/);return Response.json({ok:true,items:remote,hasMore:false})}});
- assert.deepEqual(original,remote);
+ const remote=[{id:'dg_'+('a'.repeat(32)),kind:'gifs',url:'https://dragongif-api.jhonjhszgame2003.workers.dev/media/gifs/naruto.gif',title:'Dragão'}];
+ const original=await loadLocalCatalog({refresh:true,fetcher:async (url)=>{assert.match(url,/api\/v1\/media/);return Response.json({ok:true,items:remote,hasMore:false})}});
+ assert.deepEqual(original,remote.map(x=>({...x,kind:'gif',tags:[]})));
 });
 
 test('local avatar is visible on shared profile with crop and without any external API',async()=>{

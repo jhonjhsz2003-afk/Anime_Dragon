@@ -1,9 +1,24 @@
 /** AnimeDragon v31 — searchable DragonGIF-backed media gallery. No GIPHY API key. */
 const escapeHtml=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+export const DRAGONGIF_ORIGIN='https://dragongif-api.jhonjhszgame2003.workers.dev';
+/** Nunca exibir URLs fornecidas pela API que apontem para outro domínio. */
+export function isDragonMediaUrl(value,kind){
+ if(typeof value!=='string'||value.length>1000||!value.startsWith(DRAGONGIF_ORIGIN+'/media/'))return false;
+ let url;try{url=new URL(value)}catch{return false}
+ if(url.href!==value||url.origin!==DRAGONGIF_ORIGIN||url.search||url.hash||url.username||url.password)return false;
+ const m=/^\/media\/(gifs|stickers)\/(.+)$/i.exec(url.pathname);
+ if(!m||(kind&&m[1]!==kind))return false;
+ const segments=m[2].split('/');
+ if(segments.some(s=>!s||/%(?:2f|5c|00)/i.test(s)))return false;
+ try{if(segments.some(s=>{const d=decodeURIComponent(s);return d==='.'||d==='..'||/[\\\x00-\x1f]/.test(d)}))return false}catch{return false}
+ return /\.(gif|webp|png|apng|avif)$/i.test(url.pathname);
+}
 let latestResults=null;
 export function localAvatarSrc(value){
  if(typeof value!=='string')return null;
  const path=value.split('?')[0];
+ if(isDragonMediaUrl(path,'gifs'))return path;
+ // URLs antigas são convertidas para URLs diretas quando renderizadas no navegador.
  if(/^\/api\/dragongif\/file\/dg_[0-9a-f]{32}$/.test(path))return path;
  if(!/^\/assets\/profile-media\/GIFs\/[\w%().!~*'\/-]+\.(?:gif|webp|png|apng|jpe?g|avif)$/i.test(path)||/(?:^|\/)\.{1,2}(?:\/|$)/.test(path)||/%2f|%5c|%00/i.test(path))return null;
  return path;
@@ -16,11 +31,37 @@ export function filterLocalMedia(rows,{query='',kind='gif'}={}){
 export async function searchDragonMedia({query='',kind='all',page=1,limit=36,fetcher=globalThis.fetch,signal}={}){
  const type=kind==='gif'?'gifs':kind==='sticker'?'stickers':'all';
  const params=new URLSearchParams({q:String(query).slice(0,100),type,page:String(page),limit:String(limit)});
- const response=await fetcher('/api/dragongif/search?'+params,{signal,cache:'no-store'});
+ let response;
+ try{response=await fetcher(DRAGONGIF_ORIGIN+'/api/v1/media?'+params,{signal,mode:'cors',cache:'no-store',credentials:'omit'});}
+ catch(error){if(error?.name==='AbortError')throw error;throw new Error('Falha na conexão direta com DragonGIF. Verifique a API e as permissões CORS no navegador.');}
  const data=await response.json().catch(()=>({}));
- if(!response.ok||data.ok===false)throw new Error(data.error||'Falha ao consultar o DragonGIF.');
- const items=(Array.isArray(data.items)?data.items:[]).filter(x=>/^\/api\/dragongif\/file\/dg_[0-9a-f]{32}$/.test(x.url)&&['gif','sticker'].includes(x.kind));
+ if(!response.ok||data.ok!==true)throw new Error(data.error||'Falha ao consultar o DragonGIF.');
+ const ids=new Set();
+ const items=(Array.isArray(data.items)?data.items:[]).filter(x=>{
+   if(!/^dg_[0-9a-f]{32}$/.test(x.id)||ids.has(x.id)||!['gifs','stickers'].includes(x.kind)||!isDragonMediaUrl(x.url,x.kind))return false;
+   ids.add(x.id);return true;
+ }).map(x=>({id:x.id,title:String(x.title||'Sem título').slice(0,120),kind:x.kind==='gifs'?'gif':'sticker',url:x.url,tags:Array.isArray(x.tags)?x.tags:[]}));
  return {...data,items};
+}
+export async function dragonStats({fetcher=globalThis.fetch}={}){
+ let response;
+ try{response=await fetcher(DRAGONGIF_ORIGIN+'/api/v1/stats',{mode:'cors',cache:'no-store',credentials:'omit'});}
+ catch{throw new Error('Não foi possível conectar à API pública do DragonGIF.');}
+ const data=await response.json().catch(()=>({}));
+ if(!response.ok||data.ok!==true)throw new Error(data.error||'API DragonGIF indisponível.');
+ return data;
+}
+/** Restaura somente imagens com URLs legadas de perfis das versões anteriores. */
+export async function restoreDragonImages(root=document,{fetcher=globalThis.fetch}={}){
+ const targets=Array.from(root.querySelectorAll('img[src^="/api/dragongif/file/dg_"]'));
+ await Promise.all(targets.map(async img=>{
+   const value=img.getAttribute('src');const id=/^\/api\/dragongif\/file\/(dg_[0-9a-f]{32})$/.exec(value)?.[1];
+   if(!id)return;
+   try{
+     const r=await fetcher(DRAGONGIF_ORIGIN+'/api/v1/media/'+id,{mode:'cors',credentials:'omit'});
+     const d=await r.json();if(r.ok&&d.ok&&isDragonMediaUrl(d.item?.url,d.item?.kind))img.src=d.item.url;
+   }catch{/* perfis novos utilizam as URLs estáticas diretamente */}
+ }));
 }
 export async function loadLocalCatalog({refresh=false,fetcher=globalThis.fetch}={}){
  if(refresh)latestResults=null;
@@ -46,7 +87,7 @@ export function mountLocalGallery(host,{onSelect,onLogin,user,loadMedia=searchDr
   }catch(error){if(!dead&&token===serial&&error.name!=='AbortError')status.textContent=error.message||'Falha ao buscar no DragonGIF.';}
   finally{if(token===serial){busy=false;controller=null;}}
  }
- fetch('/api/dragongif/status').then(async r=>{const d=await r.json();if(!r.ok||!d.ok)throw new Error(d.error||'Indisponível');if(!dead)host.querySelector('#local-gallery-count').textContent=`${(d.gifs||0).toLocaleString('pt-BR')} GIFs · ${(d.stickers||0).toLocaleString('pt-BR')} stickers · acervo DragonGIF`}).catch(()=>{if(!dead)host.querySelector('#local-gallery-count').textContent='Aguardando conexão com o DragonGIF.'});
+ dragonStats().then(d=>{if(!dead)host.querySelector('#local-gallery-count').textContent=`${(d.gifs||0).toLocaleString('pt-BR')} GIFs · ${(d.stickers||0).toLocaleString('pt-BR')} stickers · acervo DragonGIF`}).catch(()=>{if(!dead)host.querySelector('#local-gallery-count').textContent='Aguardando conexão com o DragonGIF.'});
  void load(true);
  function open(x){selected=x;host.querySelector('#local-gallery-preview').innerHTML=`<img src="${escapeHtml(x.url)}" alt="${escapeHtml(x.title)}">`;host.querySelector('#local-gallery-selection').innerHTML=`<h2>${escapeHtml(x.title)}</h2><p>${x.kind==='gif'?'GIF animado':'Sticker'} · DragonGIF</p><div class="dragon-media-actions">${x.kind==='gif'?'<button class="primary" type="button" id="local-gallery-use">Usar como avatar</button>':'<a class="primary" href="#profile?edit=stickers">Adicionar ao perfil ↗</a>'}<button class="secondary" id="local-gallery-cancel" type="button">Voltar à galeria</button></div><p id="local-gallery-action-status" role="status"></p>`;dialog.showModal();}
  host.addEventListener('click',async e=>{
