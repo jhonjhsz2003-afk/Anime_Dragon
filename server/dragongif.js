@@ -1,4 +1,4 @@
-/** AnimeDragon -> DragonGIF public API via Cloudflare Service Binding. */
+/** AnimeDragon -> DragonGIF public HTTPS API, inclusive entre contas Cloudflare. */
 export const FILE_PATH = /^\/api\/dragongif\/file\/(dg_[a-f0-9]{32})$/;
 const ID=/^dg_[a-f0-9]{32}$/;
 const err=(status,message)=>Object.assign(new Error(message),{status});
@@ -12,8 +12,8 @@ export function dragonBase(env){
 export async function dragonFetch(env,path){
  const base=dragonBase(env),endpoint=base+path;
  let resp;
- try{resp=await (env.DRAGONGIF?.fetch?env.DRAGONGIF.fetch(endpoint,{headers:{Accept:'application/json'}}):fetch(endpoint,{headers:{Accept:'application/json'},signal:AbortSignal.timeout(9000)}));}
- catch{throw err(503,'DragonGIF indisponível. Verifique se o Worker foi publicado e se o Service Binding está configurado.');}
+ try{resp=await fetch(endpoint,{headers:{Accept:'application/json'},redirect:'error',signal:AbortSignal.timeout(9000)});}
+ catch{throw err(503,'DragonGIF indisponível na URL pública. Confira DRAGONGIF_PUBLIC_URL e o funcionamento de /api/v1/health.');}
  const data=await resp.json().catch(()=>null);
  if(!resp.ok||!data?.ok)throw err(resp.status===404?404:resp.status===429?429:503,data?.error||'DragonGIF não respondeu corretamente.');
  return data;

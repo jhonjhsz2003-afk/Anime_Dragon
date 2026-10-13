@@ -4,7 +4,7 @@
 
 ## Como publicar
 
-1. Instale e publique **DragonGIF** primeiro usando o outro ZIP. A versao DragonGIF v3.0 usa arquivos estaticos do Cloudflare Workers Free, sem D1/R2. O Worker deve se chamar `dragongif-api` e estar na mesma conta do AnimeDragon para o Service Binding funcionar.
+1. Instale e publique **DragonGIF** primeiro usando o outro ZIP. A versao DragonGIF v3.0 usa arquivos estaticos do Cloudflare Workers Free, sem D1/R2. O Worker pode estar em outra conta Cloudflare; o AnimeDragon acessa sua URL publica HTTPS.
 2. A URL publica `https://dragongif-api.jhonjhszgame2003.workers.dev` ja esta configurada em `wrangler.toml`. Nao modifique o `database_id` do AnimeDragon nem o nome do Worker `site`.
 3. Atualize o GitHub com `powershell -ExecutionPolicy Bypass -File .\SUBIR-GITHUB.ps1` (execute na pasta AnimeDragon extraída). Esse script **exclui os diretórios de GIFs e Stickers** e so publica o codigo. As midias ficam hospedadas no repositorio separado do DragonGIF. O Worker do Cloudflare pode fazer deploy automaticamente se sua integração GitHub estiver ativa.
 4. Se necessário, publique manualmente: `powershell -ExecutionPolicy Bypass -File .\PUBLICAR-CLOUDFLARE.ps1`.

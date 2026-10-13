@@ -19,11 +19,6 @@ crons = ["0 */6 * * *"]
 [observability]
 enabled = true
 
-# DragonGIF deve ser publicado primeiro, com o nome de Worker 'dragongif-api'.
-[[services]]
-binding = "DRAGONGIF"
-service = "dragongif-api"
-
 [vars]
-# URL publica do DragonGIF v3.0 informada pelo usuario e confirmada pela resposta /api/v1/health.
+# URL publica do DragonGIF v3.0 (outro subdominio Cloudflare). Sem Service Binding: acesso HTTPS entre contas.
 DRAGONGIF_PUBLIC_URL = "https://dragongif-api.jhonjhszgame2003.workers.dev"

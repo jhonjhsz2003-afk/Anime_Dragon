@@ -4,7 +4,7 @@ $repo='https://github.com/jhonjhsz2003-afk/Anime_Dragon.git'
 $stage=Join-Path $env:TEMP ('AnimeDragon-v31-'+[guid]::NewGuid().ToString('N'))
 foreach($item in @('worker.js','wrangler.toml','package.json','web','server')) {if(-not(Test-Path (Join-Path $source $item))){throw "Abra a pasta raiz AnimeDragon: ausente $item"}}
 if(-not(Get-Command git -ErrorAction SilentlyContinue)){throw 'Git nao instalado.'}
-Write-Host 'Atualizando AnimeDragon no GitHub; R2 armazena as midias pesadas.' -ForegroundColor Cyan
+Write-Host 'Atualizando AnimeDragon no GitHub; DragonGIF armazena midias em outro repositorio.' -ForegroundColor Cyan
 try {
  & git clone --branch main --single-branch $repo $stage
  if($LASTEXITCODE -ne 0){throw 'Falha no git clone.'}

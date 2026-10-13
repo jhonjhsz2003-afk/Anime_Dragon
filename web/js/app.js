@@ -1,5 +1,5 @@
 import {releasesPage,mountReleases,releaseDay} from './releases.js?v=14.1.0';
-import {localGalleryPage,mountLocalGallery,searchDragonMedia,localAvatarSrc} from './local-media.js?v=31.0.0';
+import {localGalleryPage,mountLocalGallery,searchDragonMedia,localAvatarSrc} from './local-media.js?v=31.1.0';
 import {createHeaderScroll} from './header-scroll.js?v=14.1.0';
 import {createAuthSession} from './auth-session.js?v=14.1.0';
 import {mountDiscussion} from './discussion.js?v=14.1.0';

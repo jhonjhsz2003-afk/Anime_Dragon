@@ -1,6 +1,6 @@
 # AnimeDragon v31 conectado ao DragonGIF v3.0
 
-Este pacote ja contem em `wrangler.toml` o endereco `https://dragongif-api.jhonjhszgame2003.workers.dev` e o Service Binding `DRAGONGIF` apontando para o Worker `dragongif-api`.
+Este pacote ja contem em `wrangler.toml` o endereco `https://dragongif-api.jhonjhszgame2003.workers.dev` sem Service Binding, consultando a API HTTPS publica.
 
 ## Antes da publicacao
 
@@ -9,7 +9,7 @@ Este pacote ja contem em `wrangler.toml` o endereco `https://dragongif-api.jhonj
    - https://dragongif-api.jhonjhszgame2003.workers.dev/api/v1/stats
    - https://dragongif-api.jhonjhszgame2003.workers.dev/api/v1/media?type=gifs&q=anime
    - https://dragongif-api.jhonjhszgame2003.workers.dev/api/v1/media?type=stickers&q=anime
-2. Confirme que o Worker `dragongif-api` foi publicado na mesma conta Cloudflare que o Worker `site`. Se forem contas diferentes, o Service Binding nao funciona; nesse caso, configure os Workers na mesma conta antes de publicar.
+2. Confirme que `https://dragongif-api.jhonjhszgame2003.workers.dev/api/v1/health` retorna ok. As contas Cloudflare podem ser diferentes, pois agora nao usamos Service Binding.
 
 ## Publicar AnimeDragon
 
