@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
 import {DatabaseSync} from 'node:sqlite';
 import worker from '../worker.js';
 import {giphyAvatar,giphyMarker,giphyConfig,storedAvatarFrame} from '../server/giphy-avatar.js';
@@ -102,4 +103,42 @@ test('gallery videos load only near the viewport and pause without starting offs
  observer.callback([{target:first,isIntersecting:true},{target:second,isIntersecting:false}]);assert.equal(first.src,gifs[0].images.fixed_width.mp4);assert.equal(first.playCount,1);assert.equal(second.src,undefined);
  const click=button=>button.dispatchEvent(new window.Event('click',{bubbles:true}));click(host.querySelector('[data-gif-motion]'));assert.ok(first.pauseCount>0);click(host.querySelector('[data-gif-motion]'));assert.equal(first.playCount,2);assert.equal(second.playCount,undefined);
  host.querySelector('dialog').showModal=function(){this.setAttribute('open','')};click(host.querySelector('[data-gif-select]'));assert.equal(second.src,undefined);assert.equal(second.playCount,undefined);
+});
+
+
+test('v29.1: concurrent identical requests reuse one GIPHY call without storing results',async()=>{
+ let requests=0,resolve;
+ const client=createGiphyClient({fetcher:async url=>{if(url==='/api/giphy/config')return Response.json({configured:true,apiKey:KEY});requests++;return requests===1?new Promise(r=>resolve=()=>r(Response.json({data:[],meta:{status:200}}))):Response.json({data:[],meta:{status:200}});}});
+ const a=client.read({query:'anime'}),b=client.read({query:'anime'});
+ await new Promise(r=>setImmediate(r));
+ assert.equal(requests,1);resolve();await Promise.all([a,b]);
+ await client.read({query:'anime'}); // não guarda resposta/URLs de mídia em cache
+ assert.equal(requests,2);
+});
+
+test('v29.1: 429 applies Retry-After cooldown, without retrying against the exhausted quota',async()=>{
+ let requests=0,time=0;
+ const client=createGiphyClient({now:()=>time,fetcher:async url=>{
+  if(url==='/api/giphy/config')return Response.json({configured:true,apiKey:KEY});
+  requests++;return requests===1?new Response('',{status:429,headers:{'Retry-After':'120'}}):Response.json({data:[],meta:{status:200}});
+ }});
+ await assert.rejects(client.read({query:'anime'}),/limite de consultas/);
+ await assert.rejects(client.read({query:'Naruto'}),/Aguarde 2 min/);
+ assert.equal(requests,1);time=120001;await client.read({query:'Naruto'});assert.equal(requests,2);
+});
+
+test('v29.1: a separate public sticker key may be configured for GIPHY sections',async()=>{
+ const config=giphyConfig({GIPHY_API_KEY:KEY,GIPHY_STICKERS_API_KEY:'separate-sticker-key'});
+ assert.equal(config.stickersApiKey,'separate-sticker-key');
+ const urls=[];const client=createGiphyClient({fetcher:async url=>{if(url==='/api/giphy/config')return Response.json(config);urls.push(new URL(url));return Response.json({data:[],meta:{status:200}});}});
+ await client.read({kind:'stickers',query:'anime'});await client.read({kind:'gifs',query:'anime'});
+ assert.equal(urls[0].searchParams.get('api_key'),'separate-sticker-key');
+ assert.equal(urls[1].searchParams.get('api_key'),KEY);
+});
+
+test('v29.1: sticker results render directly from search renditions, no per-result id lookup',()=>{
+ const app=readFileSync(new URL('../web/js/app.js',import.meta.url),'utf8');
+ assert.match(app,/giphyMedia\(g\.images\?\.fixed_height/);
+ assert.match(app,/results\.innerHTML=rows\.map/);
+ assert.match(app,/src=\"\$\{esc\(src\)\}\"/);
 });

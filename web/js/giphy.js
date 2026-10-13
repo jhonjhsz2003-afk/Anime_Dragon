@@ -9,10 +9,51 @@ export function giphyRequest(key,{query='anime',trending=false,offset=0,id,kind=
  if(!id){url.searchParams.set('limit','24');url.searchParams.set('offset',String(Math.max(0,Math.min(trending?499:4999,offset))));url.searchParams.set('rating','pg-13');if(!trending){url.searchParams.set('q',String(query).slice(0,50));url.searchParams.set('lang','pt')}}
  return url.toString();
 }
-export function createGiphyClient({fetcher=globalThis.fetch}={}){
- let configTask=null;
- async function config(){if(!configTask)configTask=fetcher('/api/giphy/config',{credentials:'same-origin',cache:'no-store'}).then(r=>{if(!r.ok)throw new Error('Não foi possível conectar a galeria.');return r.json()}).then(c=>{if(!c.configured||!c.apiKey)throw new Error('A galeria de GIFs ainda não foi ativada.');return c}).catch(e=>{configTask=null;throw e});return configTask}
- async function read(options={},signal){const c=await config();const response=await fetcher(giphyRequest(c.apiKey,options),{signal,credentials:'omit',cache:'no-store',referrerPolicy:'strict-origin-when-cross-origin'});if(!response.ok)throw new Error(response.status===429?'A galeria atingiu o limite de consultas. Aguarde um pouco antes de pesquisar novamente.':'O GIPHY não respondeu agora. Tente novamente em instantes.');const data=await response.json();if(data.meta?.status&&data.meta.status!==200)throw new Error('Não foi possível consultar o GIPHY.');return data}
+// Uma requisição por pesquisa, sem cachear URLs/mídia do GIPHY.
+// Respeitar a cota do provedor: um HTTP 429 impede novas tentativas até a pausa terminar.
+export function createGiphyClient({fetcher=globalThis.fetch,now=()=>Date.now()}={}){
+ let configTask=null,cooldownUntil=0;
+ const inFlight=new Map();
+ async function config(){
+  if(!configTask)configTask=fetcher('/api/giphy/config',{credentials:'same-origin',cache:'no-store'})
+   .then(r=>{if(!r.ok)throw new Error('Não foi possível conectar a galeria.');return r.json()})
+   .then(c=>{if(!c.configured||!c.apiKey)throw new Error('A galeria de GIFs ainda não foi ativada.');return c})
+   .catch(e=>{configTask=null;throw e});
+  return configTask;
+ }
+ function limited(waitMs){
+  const minutes=Math.max(1,Math.ceil(waitMs/60000));
+  const error=new Error(`O GIPHY atingiu o limite de consultas. Aguarde ${minutes} min antes de tentar novamente.`);
+  error.name='GiphyRateLimitError';return error;
+ }
+ function backoff(response){
+  const value=response?.headers?.get?.('Retry-After');
+  let ms=Number(value)*1000;
+  if(!value||!Number.isFinite(ms))ms=Date.parse(value)-now();
+  if(!Number.isFinite(ms)||ms<=0)ms=90_000;
+  cooldownUntil=Math.max(cooldownUntil,now()+Math.min(ms,3_600_000));
+  return limited(cooldownUntil-now());
+ }
+ async function read(options={},signal){
+  const c=await config();
+  const key=options.kind==='stickers'?(c.stickersApiKey||c.apiKey):c.apiKey;
+  const url=giphyRequest(key,options);
+  if(cooldownUntil>now())throw limited(cooldownUntil-now());
+  const previous=inFlight.get(url);
+  if(previous&&!previous.signal?.aborted)return previous.promise;
+  const promise=(async()=>{
+   const response=await fetcher(url,{signal,credentials:'omit',cache:'no-store',referrerPolicy:'strict-origin-when-cross-origin'});
+   if(response.status===429)throw backoff(response);
+   if(response.status===401||response.status===403)throw new Error('A chave GIPHY não está autorizada. Confira a configuração no Cloudflare.');
+   if(!response.ok)throw new Error('O GIPHY não respondeu agora. Tente novamente em instantes.');
+   const data=await response.json();
+   if(data.meta?.status===429)throw backoff(response);
+   if(data.meta?.status&&data.meta.status!==200)throw new Error('Não foi possível consultar o GIPHY.');
+   return data;
+  })();
+  inFlight.set(url,{promise,signal});
+  try{return await promise}finally{if(inFlight.get(url)?.promise===promise)inFlight.delete(url)}
+ }
  return {read};
 }
 const powered=()=>'<a class="giphy-attribution" href="https://giphy.com/" target="_blank" rel="noopener noreferrer"><img src="/assets/powered-by-giphy-text.png?v=14.0.2" width="200" height="22" alt="Powered By GIPHY"></a>';

@@ -1,5 +1,5 @@
 import {releasesPage,mountReleases,releaseDay} from './releases.js?v=14.1.0';
-import {giphyPage,mountGiphy,createGiphyClient,giphyId,observeGiphyAvatars} from './giphy.js?v=14.1.0';
+import {giphyPage,mountGiphy,createGiphyClient,giphyId,observeGiphyAvatars} from './giphy.js?v=14.1.1';
 import {createHeaderScroll} from './header-scroll.js?v=14.1.0';
 import {createAuthSession} from './auth-session.js?v=14.1.0';
 import {mountDiscussion} from './discussion.js?v=14.1.0';
@@ -593,7 +593,29 @@ function bindStickerEditor(){
  $('#sticker-clear').onclick=()=>{profileStickers=[];select(-1);status.textContent='Stickers removidos. Salve para confirmar.';};
  results.onclick=e=>{const b=e.target.closest('[data-new-sticker]');if(!b)return;const id=b.dataset.newSticker;if(profileStickers.length>=6){status.textContent='Limite de seis stickers por perfil.';return}if(profileStickers.some(s=>s.id===id)){status.textContent='Este sticker já foi adicionado.';return}profileStickers.push({id,x:50,y:50,size:17});select(profileStickers.length-1);status.textContent='Sticker adicionado. Arraste para posicionar e salve.';};
  $('#sticker-query').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();$('#sticker-search-btn').click();}};
- $('#sticker-search-btn').onclick=async()=>{const token=++requestId,q=$('#sticker-query').value.trim();if(!q)return;status.textContent='Buscando stickers…';results.innerHTML='';try{const data=await giphyClient.read({query:q,kind:'stickers'});if(token!==requestId||!stage.isConnected)return;const rows=Array.isArray(data.data)?data.data:[];results.innerHTML=rows.filter(g=>/^[a-zA-Z0-9]{1,80}$/.test(g.id)).map(g=>`<button type="button" data-new-sticker="${esc(g.id)}" aria-label="Adicionar ${esc(g.title||'sticker')}"><img src="/assets/avatar-default.svg" data-giphy-avatar="${esc(g.id)}" alt="" loading="lazy"></button>`).join('');giphyAvatars.refresh();status.textContent=rows.length?'Clique no sticker para adicionar à atmosfera.':'Nenhum sticker encontrado.';}catch(err){status.textContent=err.message||'Não foi possível pesquisar stickers.';}};
+ const stickerSearchButton=$('#sticker-search-btn');
+ stickerSearchButton.onclick=async()=>{
+  if(stickerSearchButton.disabled)return;
+  const token=++requestId,q=$('#sticker-query').value.trim();if(!q)return;
+  stickerSearchButton.disabled=true;status.textContent='Buscando stickers…';
+  try{
+   const data=await giphyClient.read({query:q,kind:'stickers'});
+   if(token!==requestId||!stage.isConnected)return;
+   const rows=Array.isArray(data.data)?data.data:[];
+   // As URLs já vêm da busca: mostrar as próprias rendições evita fazer
+   // mais 24 consultas /gifs/:id por cada pesquisa de stickers.
+   results.innerHTML=rows.map(g=>{
+    if(!/^[a-zA-Z0-9]{1,80}$/.test(g.id))return '';
+    const src=giphyMedia(g.images?.fixed_height?.url||g.images?.original?.url||g.images?.downsized?.url);
+    if(!src)return '';
+    return `<button type="button" data-new-sticker="${esc(g.id)}" aria-label="Adicionar ${esc(g.title||'sticker')}"><img src="${esc(src)}" alt="" loading="lazy" decoding="async"></button>`;
+   }).join('');
+   status.textContent=results.childElementCount?'Clique no sticker para adicionar à atmosfera.':'Nenhum sticker encontrado.';
+  }catch(err){
+   // Deixa a pesquisa anterior visível quando a API retorna 429.
+   if(token===requestId&&stage.isConnected)status.textContent=err.message||'Não foi possível pesquisar stickers.';
+  }finally{if(token===requestId&&stickerSearchButton.isConnected)stickerSearchButton.disabled=false;}
+ };
  draw();
 }
 function bindIdentityEditor(){

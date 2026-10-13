@@ -1,3 +1,7 @@
+# AnimeDragon v29.1 — Correção do GIPHY
+
+Consulte `CORRECAO-GIPHY-v29.1.md` para detalhes, limites e configuração opcional da chave de stickers.
+
 # AnimeDragon v29 — Personalização do perfil
 
 - 12 atmosferas, 30 molduras e editor de stickers GIPHY (até 6 stickers por perfil).

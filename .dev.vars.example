@@ -1,0 +1,12 @@
+# AnimeDragon — variáveis do ambiente de desenvolvimento
+TMDB_API_KEY=""
+GIPHY_API_KEY=""
+# Opcional (para instalações anteriores):
+# AUTH_SECRET=""
+
+# Reprodução: EmbedMovies usa iframe público e ID TMDB, sem token/API key.
+# Conforme documentação https://embedmovies.org/ — origem https://myembed.biz
+# Não inserir neste arquivo links diretos de streams nem chaves de terceiros.
+
+# Opcional: chave publica distinta do GIPHY para a secao de stickers
+GIPHY_STICKERS_API_KEY = ""

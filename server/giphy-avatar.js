@@ -17,5 +17,6 @@ export function giphyConfig(env){
  const key=String(env.GIPHY_API_KEY||'').trim();
  // A Web API key is public by design: client requests are required by GIPHY.
  // No TMDB, authentication, or other Worker credentials are exposed here.
- return {ok:true,configured:!!key,apiKey:key||null,rating:'pg-13'};
+ const stickerKey=String(env.GIPHY_STICKERS_API_KEY||'').trim();
+ return {ok:true,configured:!!key,apiKey:key||null,rating:'pg-13',...(stickerKey?{stickersApiKey:stickerKey}:{})};
 }
