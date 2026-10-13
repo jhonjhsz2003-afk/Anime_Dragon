@@ -119,8 +119,8 @@ async function themeKeyword(theme,env) {
   }
   return null;
 }
-async function animeDetail(id, env) {
-  const d = await tmdb(`/tv/${id}`, {append_to_response:'external_ids'}, env);
+async function animeDetail(id, env, withAliases = false) {
+  const d = await tmdb(`/tv/${id}`, {append_to_response:withAliases ? 'external_ids,translations,alternative_titles' : 'external_ids'}, env);
   if (!isAnime(d)) throw fail(404, 'Este título não faz parte do catálogo de animes.');
   return d;
 }
@@ -232,7 +232,7 @@ export default {
       if (url.pathname.startsWith('/api/auth/')) return await auth(request,env);
       if (request.method !== 'GET') return json({ok:false,error:'Método não permitido.'},405,{Allow:'GET'});
       if(url.pathname==='/api/giphy/config')return json(giphyConfig(env),200,{'Cache-Control':'no-store'});
-      if (url.pathname === '/api/health') return json({ok:true,service:'AnimeDragon',version:'26.0.0',catalogVersion:CATALOG_VERSION});
+      if (url.pathname === '/api/health') return json({ok:true,service:'AnimeDragon',version:'27.0.0',catalogVersion:CATALOG_VERSION});
       if(url.pathname==='/api/opening'){
         const id=url.searchParams.get('id'),s=url.searchParams.get('season'),ep=url.searchParams.get('episode'),duration=Number(url.searchParams.get('duration'));
         if(!/^\d{1,10}$/.test(id||'')||Number(id)<1||!/^\d{1,4}$/.test(s||'')||!/^\d{1,4}$/.test(ep||'')||Number(ep)<1||!Number.isFinite(duration)||duration<=0||duration>21600)throw fail(400,'Episódio ou duração inválidos.');
@@ -246,7 +246,7 @@ export default {
         if (![id,s,ep].every(x=>/^\d{1,10}$/.test(x||''))||Number(id)<1||Number(ep)<1||Number(s)>1000||Number(ep)>10000)
           throw fail(400,'Episódio inválido.');
         if(url.searchParams.has('provider')&&!['auto','animefire','embedmovies'].includes(url.searchParams.get('provider')))throw fail(400,'Provedor não encontrado.');
-        const anime=await animeDetail(id,env);
+        const anime=await animeDetail(id,env,true);
         const selected=url.searchParams.get('provider')||'auto';
         const fallback=embedMoviesPlayback(anime,Number(s),Number(ep));
         if(selected==='embedmovies')return json(fallback);
@@ -255,7 +255,7 @@ export default {
         const streams=[...external.streams,...fallback.streams];
         return json({ok:true,available:streams.length>0,streams,embed:fallback.embed,
           provider:external.available?'AnimeFire':'EmbedMovies',providerId:external.available?'animefire':'embedmovies',
-          primaryAvailable:external.available,animefireReason:external.reason||'',
+          primaryAvailable:external.available,animefireReason:external.reason||'',animefireReasonCode:external.reasonCode||'',
           notice:external.available?'Prioridade: áudio dublado. Reprodução depende do CDN e do navegador.':fallback.notice});
       }
       if (!/^\/api\/(catalog|tmdb)\//.test(url.pathname)) throw fail(404,'Página não encontrada.');

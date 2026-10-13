@@ -1,4 +1,4 @@
-import {isEmbedMoviesEmbed} from './sources.js?v=26.0.0';
+import {isEmbedMoviesEmbed} from './sources.js?v=27.0.0';
 import {chooseCaption} from './caption-language.js?v=9.6.1';
 import {disposeMedia} from './media-lifecycle.js?v=9.6.1';
 import {createPlaybackWatchdog,preferredAlternative,createPlaybackRecovery} from './playback-watchdog.js?v=14.0.0';

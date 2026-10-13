@@ -47,9 +47,9 @@ export function createSourceLoader(request,now=Date.now,{schedule=setTimeout,can
       entry.task.then(data=>{if(!active)return;release();resolve(data);},error=>{if(!active)return;release();reject(error);});
     });
   }
-  const load=async(id,season,episode,{fresh=false,onUpdate=()=>{},signal,timeoutMs=12000}={})=>{
+  const load=async(id,season,episode,{fresh=false,onUpdate=()=>{},signal,timeoutMs=18000}={})=>{
     const deadline=new AbortController();
-    const timer=schedule(()=>deadline.abort(Object.assign(new Error('A busca de fontes não respondeu dentro do prazo.'),{name:'TimeoutError'})),Math.max(1,Math.min(12000,timeoutMs)));
+    const timer=schedule(()=>deadline.abort(Object.assign(new Error('A busca de fontes não respondeu dentro do prazo.'),{name:'TimeoutError'})),Math.max(1,Math.min(18000,timeoutMs)));
     const current=signal?AbortSignal.any([signal,deadline.signal]):deadline.signal;
     try{
       if(current.aborted)throw current.reason;
