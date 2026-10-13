@@ -1,18 +1,64 @@
-# AnimeDragon v29.1 — Correção do GIPHY
+# AnimeDragon v30 — Biblioteca local de GIFs e Stickers
 
-Consulte `CORRECAO-GIPHY-v29.1.md` para detalhes, limites e configuração opcional da chave de stickers.
+A **galeria pública `#gifs`** e o editor **Perfil > Personalizar > Stickers locais** agora usam mídias estáticas do próprio site, sem chave ou conexão com a API do GIPHY. As pastas estão vazias: **você coloca os seus próprios arquivos autorizados** antes de subir para o GitHub.
 
-# AnimeDragon v29 — Personalização do perfil
+## Passo a passo (Windows / Opera GX)
 
-- 12 atmosferas, 30 molduras e editor de stickers GIPHY (até 6 stickers por perfil).
-- Coleção como primeira aba; Aparência, Foto e Conta em abas próprias.
-- Nome RGB aplicado somente às letras; emojis/coroas mantêm as cores originais.
-- Capas maiores no perfil compartilhável.
-- Stickers armazenados como IDs do GIPHY e coordenadas no D1, não como arquivos ou URLs externos.
+1. Extraia o ZIP do AnimeDragon e abra a pasta **AnimeDragon** que contém `package.json`, `wrangler.toml` e os scripts PowerShell.
+2. Copie **GIFs** e **Stickers** de `Downloads\gifs` para **`web\assets\profile-media`** (mesclando com as pastas vazias). Ou execute o script **`COPIAR-MIDIAS.ps1`** para copiar automaticamente:
 
-**Migração D1:** o Worker cria a tabela `profile_stickers_v29` automaticamente no primeiro acesso ao banco, sem apagar tabelas antigas. Confira credenciais e backup antes de publicar. A chave `GIPHY_API_KEY` já configurada no Worker continua necessária para pesquisar stickers.
+   ```powershell
+   powershell -NoProfile -ExecutionPolicy Bypass -File .\COPIAR-MIDIAS.ps1
+   ```
 
-**Limitações:** stickers são resolvidos no navegador via GIPHY e podem ficar indisponíveis se o GIF for removido, a API atingir os limites ou a chave deixar de funcionar. Sem chave configurada, as demais opções visuais continuam funcionando.
+   Para outra origem, use `-Origem 'D:\MinhaPasta\gifs'`.
+
+3. Na mesma pasta **AnimeDragon**, execute:
+
+   ```powershell
+   powershell -NoProfile -ExecutionPolicy Bypass -File .\SUBIR-GITHUB.ps1
+   ```
+
+   Esse script indexa as mídias, cria `web/assets/profile-media/catalog.json` e `server/local-media-index.js`, prepara a versão completa e faz **commit `AnimeDragon` + push na branch main** do repo `jhonjhsz2003-afk/Anime_Dragon`, **sem `--force`**.
+
+4. Aguarde a publicação via integração Cloudflare/GitHub. Confirme `https://site.anime-dragon.workers.dev/api/health` com `version: 30.0.0`, recarregue com Ctrl+F5 e abra a seção GIFs. Se Cloudflare não publicar, execute `PUBLICAR-CLOUDFLARE.ps1` com Node e npm instalados.
+
+### Estrutura
+
+```text
+AnimeDragon/
+  web/assets/profile-media/
+    GIFs/               <- coloque arquivos .gif, .webp, .png, .apng, .jpg, .avif
+      Naruto/            <- pastas opcionais por anime ajudam na pesquisa
+    Stickers/           <- coloque os stickers aqui (subpastas também funcionam)
+      Sakura/
+    catalog.json        <- gerado automaticamente; nao editar
+  server/local-media-index.js <- lista permitida usada no servidor
+  COPIAR-MIDIAS.ps1
+  SUBIR-GITHUB.ps1
+  PUBLICAR-CLOUDFLARE.ps1
+```
+
+## Funcionalidade do site
+
+- **Busca local** por nomes de arquivo e subpasta, com filtros GIFs / Stickers / Todos, sem chave ou limites de consulta de terceiros.
+- Até **quatro stickers por perfil**, com tamanho ajustável, arrastar para reposicionar, setas do teclado, alterar ordem de camadas, remover e substituir.
+- **Avatares GIF animados** ficam armazenados como caminhos locais validados no banco D1 e aparecem também para outras pessoas nos perfis públicos, comentários e outros componentes que mostram o avatar.
+- Perfis com conta preservada, capa/atmosfera, 30 molduras, cores RGB, coleção, privacidade e tema atuais.
+- Filtro que esconde arquivos de conteúdo idêntico dentro da mesma categoria durante a indexação.
+- Arquivos não são guardados no D1; somente caminhos e coordenadas são guardados, preservando o banco anterior.
+
+A busca **não consegue descobrir quem aparece dentro de GIFs com nomes aleatórios**: ela usa o nome dos arquivos e das pastas. Organize por nome de anime/personagem para melhores resultados. Nada falso é exibido quando a biblioteca estiver vazia.
+
+## Limites e segurança
+
+Somente publique arquivos criados por você ou com licença/autorização para divulgação pública. Baixar uma mídia não concede automaticamente permissão para redistribuí-la. O site já não depende da API de terceiros, mas **a hospedagem, GitHub e Cloudflare continuam sujeitos aos seus próprios limites**. O indexador interrompe arquivos individuais maiores que 24 MiB; acervos muito grandes podem precisar de Cloudflare R2 ou outro serviço apropriado em vez de assets do Worker/Git. Evite renomear ou excluir arquivos já usados nos perfis, pois isso altera seus caminhos.
+
+Para gerar o catálogo sem subir: `npm run media:index`. Para validar JavaScript: `npm run check`. Para rodar testes: `npm ci` e `npm test`.
+
+A D1 e o nome do Worker continuam os mesmos e não há comando para excluir dados de usuário. 
+
+---
 
 # AnimeDragon v28 — EmbedMovies e perfil renovado
 

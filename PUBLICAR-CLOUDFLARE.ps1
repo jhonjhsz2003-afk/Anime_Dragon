@@ -14,9 +14,11 @@ if (-not (Test-Path -LiteralPath './wrangler.toml')) {
 if (-not (Select-String -Path './wrangler.toml' -Pattern '^\s*name\s*=\s*"site"\s*$' -Quiet)) {
     throw 'Publicacao interrompida: o wrangler.toml nao aponta para o Worker site.'
 }
+if ((Get-Content -LiteralPath './wrangler.toml' -Raw) -match 'SEUSUBDOMINIO') { throw 'Edite DRAGONGIF_PUBLIC_URL com a URL real do DragonGIF antes de publicar.' }
 Write-Host 'Instalando dependencias...' -ForegroundColor Cyan
 & npm ci
 if ($LASTEXITCODE -ne 0) { throw 'npm ci falhou. Verifique a internet e tente novamente.' }
+Write-Host 'Midias agora sao servidas pelo DragonGIF via R2; sem upload de GIFs neste site.' -ForegroundColor Cyan
 Write-Host 'Conferindo sintaxe...' -ForegroundColor Cyan
 & npm run check
 if ($LASTEXITCODE -ne 0) { throw 'A checagem de sintaxe falhou; deploy cancelado.' }

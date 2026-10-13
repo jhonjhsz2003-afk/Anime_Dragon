@@ -14,7 +14,7 @@ export function contentSecurityPolicy(){
     "img-src 'self' https: data: blob:",
     "font-src 'self' data:",
     "media-src 'self' blob:", 
-    "connect-src 'self' https://api.giphy.com https://*.giphy.com https://*.giphyusercontent.com",
+    "connect-src 'self'",
     "worker-src 'self' blob:",
     "manifest-src 'self'"
   ].join('; ');

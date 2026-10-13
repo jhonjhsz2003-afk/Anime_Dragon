@@ -2,7 +2,6 @@ import {createCache} from './server/cache.js';
 import {withinCatalogBudget} from './server/catalog-budget.js';
 import {daysSince,currentCatalogItem,mergeCatalogItems,rankDiverseCatalog} from './server/catalog-policy.js';
 import {getReleases,releaseToday} from './server/releases.js';
-import {giphyConfig} from './server/giphy-avatar.js';
 import {openingTimes} from './server/opening-times.js';
 import {providers} from './server/providers.js';
 import {media} from './server/media.js';
@@ -10,6 +9,7 @@ import { community } from './server/community.js';
 import {embedMoviesPlayback} from './server/embedmovies.js';
 import {contentSecurityPolicy} from './server/media-policy.js';
 import { auth, cleanupSessions } from './server/auth.js';
+import {dragonRouter} from './server/dragongif.js';
 
 const BASE = 'https://api.themoviedb.org/3';
 const GENRES = new Set(['10759', '35', '18', '10765', '9648', '10762']);
@@ -226,12 +226,12 @@ export default {
       return new Response(response.body,{status:response.status,statusText:response.statusText,headers});
     }
     try {
+      if (url.pathname.startsWith('/api/dragongif/'))return await dragonRouter(request,env);
       if (url.pathname.startsWith('/api/avatar/')||url.pathname.startsWith('/api/profile/avatar'))return await media(request,env);
       if (url.pathname.startsWith('/api/community/')) return await community(request,env,animeDetail);
       if (url.pathname.startsWith('/api/auth/')) return await auth(request,env);
       if (request.method !== 'GET') return json({ok:false,error:'Método não permitido.'},405,{Allow:'GET'});
-      if(url.pathname==='/api/giphy/config')return json(giphyConfig(env),200,{'Cache-Control':'no-store'});
-      if (url.pathname === '/api/health') return json({ok:true,service:'AnimeDragon',version:'29.1.0',catalogVersion:CATALOG_VERSION});
+      if (url.pathname === '/api/health') return json({ok:true,service:'AnimeDragon',version:'31.0.0',catalogVersion:CATALOG_VERSION});
       if(url.pathname==='/api/opening'){
         const id=url.searchParams.get('id'),s=url.searchParams.get('season'),ep=url.searchParams.get('episode'),duration=Number(url.searchParams.get('duration'));
         if(!/^\d{1,10}$/.test(id||'')||Number(id)<1||!/^\d{1,4}$/.test(s||'')||!/^\d{1,4}$/.test(ep||'')||Number(ep)<1||!Number.isFinite(duration)||duration<=0||duration>21600)throw fail(400,'Episódio ou duração inválidos.');

@@ -2,7 +2,7 @@ import { database } from './database.js';
 
 import { getUser, throttle } from './auth.js';
 import {identityColumns,identityJoin,profileIdentity} from './profile-identity.js';
-import {storedAvatarFrame} from './giphy-avatar.js';
+import {storedAvatarFrame} from './local-avatar.js';
 
 const fail=(status,message)=>Object.assign(new Error(message),{status});
 

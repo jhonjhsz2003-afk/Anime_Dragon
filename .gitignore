@@ -14,3 +14,7 @@ playwright-report/
 test-results/
 coverage/
 .wrangler-build/
+
+# Midias agora ficam no Cloudflare R2 do DragonGIF (nunca subir no GitHub)
+web/assets/profile-media/GIFs/
+web/assets/profile-media/Stickers/

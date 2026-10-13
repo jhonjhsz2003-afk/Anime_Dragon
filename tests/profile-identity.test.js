@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {DatabaseSync} from 'node:sqlite';
 import worker from '../worker.js';
 import {validateDisplayName} from '../server/profile-identity.js';
+import {localStickerPaths} from '../server/local-media-index.js';
 
 function fixture(){
  const sqlite=new DatabaseSync(':memory:');
@@ -61,7 +62,8 @@ test('v29: atmospheres, stickers and their coordinates persist across sessions',
  const t=fixture(),details={name:'Teste v29',email:'v29@example.test',password:'senha-teste-segura-123'};
  const registered=await t.call('/api/auth/register',details);assert.equal(registered.status,200);
  const u=(await registered.json()).user,cookie=registered.headers.get('Set-Cookie');
- const stickers=[{id:'ABC123',x:12.5,y:78.2,size:18},{id:'XYZ999',x:95,y:15,size:22}];
+ const ids=['/assets/profile-media/Stickers/sticker-a.gif','/assets/profile-media/Stickers/sticker-b.webp'];ids.forEach(id=>localStickerPaths.add(id));
+ const stickers=[{id:ids[0],x:12.5,y:78.2,size:18},{id:ids[1],x:95,y:15,size:22}];
  const r=await t.call('/api/auth/profile',{name:u.name,bio:'Um universo',nameColor:'rgb-ocean',identity:{cover:'sakura',frame:'azure-dragon',title:'Otaku',stickers}},cookie);
  assert.equal(r.status,200,await r.text());
  const user=(await(await t.call('/api/auth/me',null,cookie)).json()).user;
@@ -71,17 +73,18 @@ test('v29: atmospheres, stickers and their coordinates persist across sessions',
  assert.deepEqual(shared.identity.stickers,stickers);assert.equal(shared.nameColor,'rgb-ocean');
 });
 
-test('v29: invalid or excessive GIPHY stickers cannot modify saved decorations',async()=>{
+test('v30: invalid or excessive local stickers cannot modify saved decorations',async()=>{
  const t=fixture(),d={name:'Teste',email:'sticker@example.test',password:'senha-teste-segura-123'};
  const registration=await t.call('/api/auth/register',d),u=(await registration.json()).user,cookie=registration.headers.get('Set-Cookie');
- const base={name:u.name,bio:'',nameColor:'ice',identity:{cover:'aurora',frame:'stardust',title:'Explorador',stickers:[{id:'FIRST',x:0,y:100,size:15}]}};
+ const allowed='/assets/profile-media/Stickers/selected.gif';localStickerPaths.add(allowed);
+ const base={name:u.name,bio:'',nameColor:'ice',identity:{cover:'aurora',frame:'stardust',title:'Explorador',stickers:[{id:allowed,x:0,y:100,size:15}]}};
  assert.equal((await t.call('/api/auth/profile',base,cookie)).status,200);
  for(const bad of [
   [{id:'https://attacker.test/sticker',x:5,y:10,size:17}],
-  [{id:'ABC',x:-10,y:40,size:17}],
-  [{id:'ABC',x:30,y:50,size:999}],
-  Array.from({length:7},(_,i)=>({id:'TEST'+i,x:50,y:50,size:17})),
-  [{id:'ABC',x:10,y:10,size:17},{id:'ABC',x:20,y:30,size:17}]
+  [{id:allowed,x:-10,y:40,size:17}],
+  [{id:allowed,x:30,y:50,size:999}],
+  Array.from({length:5},(_,i)=>({id:allowed,x:50,y:50,size:17})),
+  [{id:allowed,x:10,y:10,size:17},{id:allowed,x:20,y:30,size:17}]
  ]){const r=await t.call('/api/auth/profile',{...base,identity:{...base.identity,stickers:bad}},cookie);assert.equal(r.status,400)}
  const final=(await(await t.call('/api/auth/me',null,cookie)).json()).user;
  assert.deepEqual(final.identity.stickers,base.identity.stickers);

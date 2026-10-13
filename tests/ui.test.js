@@ -1,6 +1,6 @@
 import {createHeaderScroll} from '../web/js/header-scroll.js';
 import {releasesPage,mountReleases,releaseDay} from '../web/js/releases.js';
-import {giphyPage,mountGiphy,createGiphyClient,giphyId} from '../web/js/giphy.js';
+import {localGalleryPage,mountLocalGallery,loadLocalCatalog,filterLocalMedia,localAvatarSrc} from '../web/js/local-media.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
@@ -34,11 +34,9 @@ function setup({saved=false,sessionUser=null,fetchOverride,preferences,initialHa
  window.HTMLElement.prototype.focus=function(){focused=this};
  window.HTMLElement.prototype.showModal=function(){this.setAttribute('open','');this.querySelector('input')?.focus()};
  window.HTMLElement.prototype.close=function(){this.removeAttribute('open')};
- const context=vm.createContext({giphyPage,mountGiphy,giphyId,createGiphyClient:options=>createGiphyClient({fetcher:(...args)=>context.fetch(...args),...options}),observeGiphyAvatars:()=>({refresh(){},destroy(){}}),releasesPage,mountReleases,releaseDay,createHeaderScroll,createAuthSession,createAccountDialog,mountDiscussion,preferredCaptionLocale,mountWatchPlayer:(host,options)=>{player.options=options;host.innerHTML='<video data-fixture-player></video>';return {destroy(){player.destroyed++;}};},AbortController,createCatalogCache,createIntentPreloader,createSourceLoader,bindLiveSearch,rankSearchResults,console,window,document,location,history:testHistory,navigator:{language:'pt-BR',languages:['pt-BR'],connection:{}},URLSearchParams,AbortSignal,Date,Intl,Map,HTMLImageElement:window.HTMLImageElement,matchMedia:()=>({matches:true}),requestAnimationFrame:cb=>cb(),setTimeout:()=>0,clearTimeout(){},setInterval:()=>0,clearInterval(){},localStorage:{getItem:k=>memory.get(k)||null,setItem:(k,v)=>memory.set(k,v)},fetch:async(path,options={})=>{
+ const context=vm.createContext({localGalleryPage,mountLocalGallery,filterLocalMedia,localAvatarSrc,loadLocalCatalog:async()=>[{url:'/assets/profile-media/GIFs/fixtureAnimeGIF.gif',title:'Anime em movimento',kind:'gif',size:100}],releasesPage,mountReleases,releaseDay,createHeaderScroll,createAuthSession,createAccountDialog,mountDiscussion,preferredCaptionLocale,mountWatchPlayer:(host,options)=>{player.options=options;host.innerHTML='<video data-fixture-player></video>';return {destroy(){player.destroyed++;}};},AbortController,createCatalogCache,createIntentPreloader,createSourceLoader,bindLiveSearch,rankSearchResults,console,window,document,location,history:testHistory,navigator:{language:'pt-BR',languages:['pt-BR'],connection:{}},URLSearchParams,AbortSignal,Date,Intl,Map,HTMLImageElement:window.HTMLImageElement,matchMedia:()=>({matches:true}),requestAnimationFrame:cb=>cb(),setTimeout:()=>0,clearTimeout(){},setInterval:()=>0,clearInterval(){},localStorage:{getItem:k=>memory.get(k)||null,setItem:(k,v)=>memory.set(k,v)},fetch:async(path,options={})=>{
   calls.push({path,options});
   const overridden=fetchOverride?.(path,options);if(overridden!==undefined)return overridden;
-  if(path==='/api/giphy/config')return Response.json({ok:true,configured:true,apiKey:'fixture-public-giphy-key'});
-  if(path.startsWith('https://api.giphy.com/'))return Response.json({data:[{id:'fixtureAnimeGIF',title:'Anime em movimento',images:{fixed_width:{url:'https://media.giphy.com/media/fixtureAnimeGIF/200.gif'},fixed_width_still:{url:'https://media.giphy.com/media/fixtureAnimeGIF/200_s.gif'},original:{url:'https://media.giphy.com/media/fixtureAnimeGIF/giphy.gif'}}}],pagination:{count:1,total_count:1},meta:{status:200}});
   if(path==='/api/auth/me')return Response.json({ok:true,user:sessionUser});
   if(path.includes('/api/community/')){
    if(options.method==='POST'){
@@ -287,22 +285,24 @@ test('caller cancellation reaches fetch without cancelling or removing another s
  assert.equal(t.run('pending.size'),0);t.run('authSession.destroy()');
 });
 
-test('the public GIF route uses the real gallery and reads provider results without opening the anime catalog',async testContext=>{
- const t=setup();testContext.after(()=>t.run('giphyController?.destroy();authSession.destroy()'));
+test('the public GIF route uses only the site-owned catalog, not an external provider',async testContext=>{
+ const t=setup();testContext.after(()=>t.run('localGalleryController?.destroy();authSession.destroy()'));
  await t.run("location.hash='#gifs';render()");await settle();
- assert.ok(t.document.querySelector('.giphy-page'));assert.equal(t.document.querySelectorAll('[data-gif-select]').length,1);assert.ok(t.document.querySelector('.giphy-attribution img'));assert.equal(t.document.querySelector('.account-dialog'),null);
- assert.ok(t.document.querySelector('.header-more a[href="#gifs"]'));assert.ok(t.calls.some(call=>call.path==='/api/giphy/config'));
- const provider=t.calls.find(call=>call.path.startsWith('https://api.giphy.com/'));assert.equal(new URL(provider.path).searchParams.get('q'),'anime');assert.equal(provider.options.credentials,'omit');assert.equal(provider.options.cache,'no-store');
- assert.equal(t.calls.some(call=>call.path.startsWith('/api/catalog/discover')),false);
+ assert.ok(t.document.querySelector('.local-gallery'));
+ assert.equal(t.document.querySelectorAll('[data-local-open]').length,1);
+ assert.equal(t.document.querySelector('.account-dialog'),null);
+ assert.ok(t.document.querySelector('.header-more a[href="#gifs"]'));
+ assert.equal(t.calls.filter(c=>/^https:\/\/api\.giphy\.com/.test(c.path)).length,0);
+ assert.equal(t.calls.some(c=>c.path.startsWith('/api/catalog/discover')),false);
 });
 
-test('leaving the GIF gallery aborts its request and a late provider response cannot replace the anime page',async testContext=>{
- let finish,providerSignal;const pending=new Promise(resolve=>finish=resolve);
- const t=setup({fetchOverride:(path,options)=>{if(path.startsWith('https://api.giphy.com/')){providerSignal=options.signal;return pending;}if(path.startsWith('/api/catalog/discover'))return Response.json({ok:true,results:[fixture],page:1,totalPages:1});}});testContext.after(()=>t.run('giphyController?.destroy();authSession.destroy()'));
- await t.run("location.hash='#gifs';render()");await settle();assert.ok(providerSignal);assert.equal(providerSignal.aborted,false);
- await t.run("location.hash='#anime';render()");await settle();assert.equal(providerSignal.aborted,true);assert.equal(t.run('giphyController'),null);const animePage=t.document.querySelector('#page-content').innerHTML;
- finish(Response.json({data:[{id:'lateGIF',title:'Resposta antiga',images:{fixed_width:{url:'https://media.giphy.com/media/lateGIF/200.gif'}}}],pagination:{count:1,total_count:1},meta:{status:200}}));await settle();
- assert.equal(t.document.querySelector('.giphy-page'),null);assert.equal(t.document.querySelector('#page-content').innerHTML,animePage);assert.ok(t.document.querySelector('#catalog-results .catalog-grid'));
+test('navigating away from the gallery keeps the anime page isolated',async testContext=>{
+ const t=setup();testContext.after(()=>t.run('localGalleryController?.destroy();authSession.destroy()'));
+ await t.run("location.hash='#gifs';render()");await settle();
+ await t.run("location.hash='#anime';render()");await settle();
+ assert.equal(t.run('localGalleryController'),null);
+ assert.equal(t.document.querySelector('.local-gallery'),null);
+ assert.ok(t.document.querySelector('#catalog-results .catalog-grid'));
 });
 
 test('a direct shared anime returns from player and related details to home without leaving the site',async testContext=>{
