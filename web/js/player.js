@@ -1,4 +1,4 @@
-import {isEmbedMoviesEmbed} from './sources.js?v=23.0.0';
+import {isEmbedMoviesEmbed} from './sources.js?v=26.0.0';
 import {chooseCaption} from './caption-language.js?v=9.6.1';
 import {disposeMedia} from './media-lifecycle.js?v=9.6.1';
 import {createPlaybackWatchdog,preferredAlternative,createPlaybackRecovery} from './playback-watchdog.js?v=14.0.0';
@@ -83,7 +83,9 @@ export function mountWatchPlayer(host, options) {
     ${externalDiscussion?'':'<section id="discussion" class="discussion-section watch-discussion" aria-label="Comentários do episódio" hidden><h3>Comentários do episódio</h3><p>Carregando comentários…</p></section>'}
   </main></div>`;
   const video=q('video'), screen=q('.watch-screen'), embedHost=q('[data-external-embed]'), seek=q('#watch-seek'), status=q('.watch-status'),discussion=externalDiscussion||q('#discussion');
-  const openingSkip=createOpeningSkip({video,button:q('[data-opening-skip]'),load:o.loadOpening,onSkip:()=>{save();showControls();},onFocus:()=>{if(document.activeElement===q('[data-opening-skip]'))screen.focus();}});
+  const openingSkip=createOpeningSkip({video,button:q('[data-opening-skip]'),load:async args=>{const intro=sources[selected]?.chapters?.find(x=>String(x.type).toLowerCase()==='intro');
+    if(intro&&intro.start>=0&&intro.end<args.duration)return {opening:{start:intro.start,end:intro.end,episodeLength:args.duration}};
+    return o.loadOpening?.(args);},onSkip:()=>{save();showControls();},onFocus:()=>{if(document.activeElement===q('[data-opening-skip]'))screen.focus();}});
   const watchdog=createPlaybackWatchdog(()=>{if(!dead&&!engineSwitching)failure('Nenhuma versão conseguiu iniciar a reprodução. Tente novamente em instantes.');},{idleMs:8000,totalMs:24000});
   const recovery=createPlaybackRecovery({
     onAttempt:({fresh,signal,attempt,timeoutMs})=>load(fresh,signal,attempt,timeoutMs),
@@ -116,7 +118,7 @@ export function mountWatchPlayer(host, options) {
     const panel=q('[data-diagnostic]'),out=q('[data-diagnostic-text]');if(!panel||!out)return;
     const providers=providerReport.map(p=>`${p.name}: ${p.available?'fonte recebida':p.reason||'sem fonte web'}`);
     const attempts=failureLog.map((row,i)=>`Tentativa ${i+1} · ${row.source}: ${row.message}`);
-    const lines=[`Players EmbedMovies encontrados: ${sources.length}`,`Versões tentadas: ${attempted.size}`,...providers,...attempts];
+    const lines=[`Fontes de vídeo encontradas: ${sources.length}`,`Versões tentadas: ${attempted.size}`,...providers,...attempts];
     out.textContent=lines.join('\n');panel.hidden=false;
   }
   function failure(message) {
@@ -124,7 +126,7 @@ export function mountWatchPlayer(host, options) {
     if(current){const row={source:playbackSourceLabel(current,selected),message:String(message||'falha de reprodução')};const last=failureLog.at(-1);if(!last||last.source!==row.source||last.message!==row.message)failureLog.push(row);}
     const alternative=sources.findIndex((s,i)=>i!==selected&&!attempted.has(sourceId(s)));
     if(alternative>=0){status.textContent='Abrindo outra versão do vídeo…';void selectSource(alternative);return;}
-    if(!providersComplete){note('Preparando episódio','Aguardando resposta do EmbedMovies…');return;}
+    if(!providersComplete){note('Preparando episódio','Aguardando as fontes de vídeo…');return;}
     recovery.retry(message);
   }
   function save() {if(started&&Number.isFinite(video.currentTime)&&video.currentTime>0){try{Promise.resolve(o.onProgress(video.currentTime,Number.isFinite(video.duration)?video.duration:0)).catch(()=>{});}catch{}}}
@@ -231,7 +233,7 @@ export function mountWatchPlayer(host, options) {
       try{mountExternalEmbed(source);}catch(error){failure(error.message);}
       return;
     }
-    const badge=q('.watch-direct-label');badge.textContent='▶ Player próprio';badge.title='Reprodução direta sem anúncios inseridos pelo AnimeDragon.';
+    const badge=q('.watch-direct-label');badge.textContent=source.providerId==='animefire'?'▶ AnimeFire · '+(source.audio==='dublado'?'Dublado':'Legendado'):'▶ Player próprio';badge.title='Reprodução direta sem anúncios inseridos pelo AnimeDragon.';
     watchdog.start();
     note('Abrindo episódio','Conectando ao vídeo…');status.textContent='';q('[data-play]').disabled=false;
     try{
@@ -261,13 +263,13 @@ export function mountWatchPlayer(host, options) {
   }
   async function load(fresh=false,signal,attempt=1,timeoutMs=12000){
     const requestVersion=++loadGeneration;attempted.clear();shakaTried.clear();providersComplete=false;providerReport=[];const diagnostic=q('[data-diagnostic]');if(diagnostic)diagnostic.hidden=true;
-    const version=++generation;save();if(video.currentTime>0)resume=video.currentTime;resetMedia();started=false;sources=[];q('[data-play]').disabled=true;seek.disabled=true;host.querySelectorAll('[data-skip]').forEach(b=>b.disabled=true);note('Preparando seu episódio',`Preparando a incorporação EmbedMovies. Tentativa ${attempt} de 3…`);
+    const version=++generation;save();if(video.currentTime>0)resume=video.currentTime;resetMedia();started=false;sources=[];q('[data-play]').disabled=true;seek.disabled=true;host.querySelectorAll('[data-skip]').forEach(b=>b.disabled=true);note('Preparando seu episódio',`Buscando áudio dublado e vídeo compatível. Tentativa ${attempt} de 3…`);
     function update(result){
       if(dead||requestVersion!==loadGeneration||signal?.aborted)return;
       providersComplete=result.complete!==false;providerReport=Array.isArray(result.providers)?result.providers:providerReport;
       const current=sourceId(sources[selected]),hadSources=sources.length>0;
       sources=(result.streams?.length?result.streams:result.url?[result]:[]).filter(s=>s.url);
-      if(!sources.length){if(result.complete!==false)failure(result.reason||'O EmbedMovies não retornou um player válido para este episódio.');return;}
+      if(!sources.length){if(result.complete!==false)failure(result.reason||'Nenhuma fonte compatível para este episódio.');return;}
       selected=Math.max(0,sources.findIndex(s=>sourceId(s)===current));renderOptions();
       if(!hadSources)void selectSource(selected,false);
       else if(sourceFailed&&(providersComplete||sources.some(s=>!attempted.has(sourceId(s)))))failure(playbackError(video.error?.code));

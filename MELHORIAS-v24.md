@@ -1,3 +1,5 @@
+> **Histórico:** o ranking descrito nesta versão foi substituído pelo sistema de atividade da v25. Consulte `MELHORIAS-v25.md`.
+
 # AnimeDragon v24 — alterações e limitações reais
 
 - **Continuar assistindo:** registra localmente os episódios abertos. Para o iframe do EmbedMovies, não há acesso aos minutos ou ao estado real da reprodução; não há promessa de retomada no segundo exato. Vídeos no player próprio ainda podem registrar o tempo.

@@ -1,55 +1,20 @@
-/* AnimeDragon v24: assinatura viva de fogo azul (somente CSS, sem recursos externos). */
-.site-header .brand-bluefire {
-  position:relative; isolation:isolate; overflow:visible; padding-right:10px;
-  text-decoration:none; filter:drop-shadow(0 0 8px rgba(1,136,255,.2));
+/* AnimeDragon v25: brilho RGB suave aplicado APENAS às letras; sem fogo ou fundo colorido. */
+.site-header .brand-rgb-glow{position:relative;isolation:isolate;text-decoration:none;}
+.site-header .brand-rgb-glow::before,.site-header .brand-rgb-glow::after,
+.site-header .brand-rgb-glow .brand-wordmark::before,
+.site-header .brand-rgb-glow .brand-wordmark::after{content:none!important;display:none!important;}
+.site-header .brand-rgb-glow img{filter:none;}
+.site-header .brand-rgb-glow .brand-wordmark{display:inline-flex;gap:0;align-items:baseline;font-weight:850;white-space:nowrap;letter-spacing:-.6px;line-height:1.25;text-shadow:none;}
+.site-header .brand-rgb-glow .brand-anime,.site-header .brand-rgb-glow .brand-dragon{
+ display:inline-block;color:transparent!important;-webkit-text-fill-color:transparent;
+ background-clip:text;-webkit-background-clip:text;background-size:240% 100%;
+ animation:brand-rgb-shimmer 9s ease-in-out infinite alternate;
+ filter:drop-shadow(0 0 2px rgba(98,186,255,.16));
 }
-.site-header .brand-bluefire::before {
-  content:""; position:absolute;pointer-events:none;z-index:-1;
-  inset:-10px -13px -2px 28%; opacity:.42;
-  background:radial-gradient(ellipse at 18% 86%,#0666fa99 0,transparent 29%),radial-gradient(ellipse at 52% 57%,#00baff99 0,transparent 36%),radial-gradient(ellipse at 80% 80%,#66dcff87 0,transparent 38%);
-  filter:blur(7px);
-  clip-path:polygon(0 100%,5% 76%,12% 32%,22% 72%,30% 11%,42% 73%,52% 18%,62% 67%,76% 8%,83% 68%,91% 30%,100% 90%,100% 100%);
-  animation:brand-blue-flare 3.1s ease-in-out infinite alternate;
-}
-.site-header .brand-bluefire::after {
-  content:""; position:absolute; pointer-events:none; z-index:-1;
-  inset:35% 1% -6px 39%; border-radius:50%;
-  background:radial-gradient(ellipse at center,rgba(0,174,255,.22),rgba(19,82,222,.06) 55%,transparent 76%);
-  filter:blur(9px); animation:brand-blue-heat 4s ease-in-out infinite alternate;
-}
-.site-header .brand-bluefire img {filter:drop-shadow(0 0 4px rgba(0,199,255,.72)) drop-shadow(0 0 12px rgba(34,81,255,.27));}
-.site-header .brand-bluefire .brand-wordmark {
-  position:relative; display:inline-flex; align-items:baseline; gap:0;
-  line-height:1.25; font-weight:850; letter-spacing:-.6px; white-space:nowrap;
-  text-shadow:0 1px 1px #001328,0 0 9px rgba(23,151,255,.5),0 0 24px rgba(1,78,209,.3);
-}
-.site-header .brand-bluefire .brand-anime,
-.site-header .brand-bluefire .brand-dragon {
-  display:inline-block; color:transparent!important;
-  background-clip:text; -webkit-background-clip:text;
-  -webkit-text-fill-color:transparent;
-  background-size:180% 250%;
-  animation:brand-blue-flame 5s ease-in-out infinite alternate;
-}
-.site-header .brand-bluefire .brand-anime {
-  background-image:linear-gradient(118deg,#f3fcff 9%,#80e8ff 29%,#ffffff 43%,#b0e5ff 62%,#44aeff 88%);
-}
-.site-header .brand-bluefire .brand-dragon {
-  background-image:linear-gradient(109deg,#53a4ff 8%,#6ae7ff 25%,#e9ffff 40%,#36b3ff 60%,#587fff 80%,#28ccff 100%);
-  animation-delay:-1.7s;
-}
-.site-header .brand-bluefire .brand-wordmark::after {
-  content:""; position:absolute; left:12%; right:0; bottom:-5px; height:2px;
-  border-radius:50%; opacity:.85;
-  background:linear-gradient(90deg,transparent,#16c7ff 22%,#d3fbff 49%,#2985ff 74%,transparent);
-  box-shadow:0 0 6px #25c8ff,0 0 14px #1269eb;
-  transform-origin:center; animation:brand-blue-pulse 3.2s ease-in-out infinite;
-}
-.site-header .brand-bluefire:hover .brand-wordmark {text-shadow:0 0 10px rgba(86,207,255,.72),0 0 22px rgba(47,131,255,.59),0 0 38px rgba(0,144,255,.35);}
-@keyframes brand-blue-flare{from{opacity:.23;transform:translateY(3px) scaleY(.86)}to{opacity:.65;transform:translateY(-3px) scaleY(1.13)}}
-@keyframes brand-blue-flame {0%{background-position:0% 82%;filter:brightness(.99)}48%{background-position:84% 30%;filter:brightness(1.2)}100%{background-position:18% 4%;filter:brightness(1.06)}}
-@keyframes brand-blue-pulse{0%,100%{opacity:.55;transform:scaleX(.91)}50%{opacity:1;transform:scaleX(1.03)}}
-@keyframes brand-blue-heat{from{opacity:.46;transform:translateY(3px) scale(.9)}to{opacity:.98;transform:translateY(-3px) scale(1.12)}}
+.site-header .brand-rgb-glow .brand-anime{background-image:linear-gradient(107deg,#f5fcff 4%,#d7e9ff 28%,#a6ddff 47%,#fdf9ff 70%,#e5f6ff 97%);}
+.site-header .brand-rgb-glow .brand-dragon{background-image:linear-gradient(105deg,#9bc7ff 3%,#79f0e6 24%,#b6a2ff 49%,#efb6ea 72%,#a9deff 99%);animation-delay:-2.2s;}
+.site-header .brand-rgb-glow:hover .brand-wordmark{filter:drop-shadow(0 0 3px rgba(110,185,255,.3));}
+@keyframes brand-rgb-shimmer{0%{background-position:0% 50%}100%{background-position:100% 50%}}
 
 /* Popover compacto ao lado de Sair: top 4, coroas únicas para 1º e 2º. */
 .header-account .ranking-anchor{position:relative;flex-shrink:0;}
@@ -85,7 +50,7 @@
 .ranking-empty,.ranking-loading{color:#b7cbe0;font-size:12px;line-height:1.6;padding:13px 4px;}
 .resume-progress-unavailable{display:block;color:#82d7ff;font-size:11px;margin-top:10px;}
 @media(max-width:720px){.header-account .ranking-toggle{width:32px;min-width:32px;height:32px;font-size:17px;padding:2px;}.header-account .ranking-popover{position:fixed;top:var(--header-space,68px);right:12px;width:min(345px,calc(100vw - 24px));}}
-@media(prefers-reduced-motion:reduce){.site-header .brand-bluefire *, .site-header .brand-bluefire::after{animation:none!important;transition:none!important;}}
-html.reduce-motion .site-header .brand-bluefire *,html.reduce-motion .site-header .brand-bluefire::after{animation:none!important;transition:none!important;}
+@media(prefers-reduced-motion:reduce){ .site-header .brand-rgb-glow *,  .site-header .brand-rgb-glow::after{animation:none!important;transition:none!important;}}
+html.reduce-motion  .site-header .brand-rgb-glow *,html.reduce-motion  .site-header .brand-rgb-glow::after{animation:none!important;transition:none!important;}
 
 .history-rail{flex-wrap:wrap;overflow-x:visible;}.history-rail .continue-card{flex:1 1 270px;max-width:340px;}

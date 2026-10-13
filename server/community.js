@@ -76,15 +76,60 @@ export async function community(request, env, validateAnime) {
 
  }
 
+ if(u.pathname==='/api/community/leaderboard/activity'){
+   if(request.method!=='POST')throw fail(405,'Método não permitido.');
+   if(!user)throw fail(401,'Faça login para registrar sua atividade.');
+   if(request.headers.get('Origin')!==u.origin)throw fail(403,'Origem inválida.');
+   if(!request.headers.get('Content-Type')?.includes('application/json'))throw fail(415,'Formato inválido.');
+   const raw=await request.text();if(raw.length>600)throw fail(413,'Dados muito longos.');
+   let data;try{data=JSON.parse(raw);}catch{throw fail(400,'Dados inválidos.');}
+   if(!['start','pulse'].includes(data?.action))throw fail(400,'Ação inválida.');
+   const member=await env.DB.prepare('SELECT user_id FROM leaderboard_optin WHERE user_id=?').bind(user.id).first();
+   if(!member)return json({ok:true,participating:false});
+   if(data.action==='start'){
+     const animeId=Number(data.animeId),season=Number(data.season),episode=Number(data.episode);
+     if(!Number.isSafeInteger(animeId)||animeId<1||!Number.isSafeInteger(season)||season<0||season>1000||!Number.isSafeInteger(episode)||episode<1||episode>100000)throw fail(400,'Episódio inválido.');
+     const now=Date.now();
+     const prev=await env.DB.prepare('SELECT session_key,anime_id,season,episode,last_ping_at FROM leaderboard_sessions WHERE user_id=?').bind(user.id).first();
+     // Repetir a abertura do mesmo episódio não reinicia nem multiplica pontos.
+     if(prev&&Number(prev.anime_id)===animeId&&Number(prev.season)===season&&Number(prev.episode)===episode&&now-Number(prev.last_ping_at)<120000)
+       return json({ok:true,participating:true,token:prev.session_key});
+     const token=crypto.randomUUID();
+     await env.DB.prepare(`INSERT INTO leaderboard_sessions(user_id,session_key,anime_id,season,episode,started_at,last_ping_at,active_ms)
+       VALUES(?,?,?,?,?,?,?,0) ON CONFLICT(user_id) DO UPDATE SET session_key=excluded.session_key,anime_id=excluded.anime_id,
+       season=excluded.season,episode=excluded.episode,started_at=excluded.started_at,last_ping_at=excluded.last_ping_at,active_ms=0`)
+       .bind(user.id,token,animeId,season,episode,now,now).run();
+     return json({ok:true,participating:true,token});
+   }
+   if(typeof data.token!=='string'||!/^[a-f0-9-]{36}$/i.test(data.token))throw fail(400,'Sessão inválida.');
+   const row=await env.DB.prepare('SELECT session_key,started_at,last_ping_at,active_ms FROM leaderboard_sessions WHERE user_id=?').bind(user.id).first();
+   if(!row||row.session_key!==data.token)return json({ok:true,participating:true,expired:true});
+   const now=Date.now(),gap=now-Number(row.last_ping_at);
+   // Batidas rápidas, múltiplas abas e saltos de tempo não acumulam atividade.
+   if(gap<45000)return json({ok:true,participating:true,credited:false});
+   if(gap>110000)return json({ok:true,participating:true,expired:true});
+   const active=Number(row.active_ms)+Math.min(gap,90000);
+   const updated=await env.DB.prepare('UPDATE leaderboard_sessions SET last_ping_at=?,active_ms=? WHERE user_id=? AND session_key=? AND last_ping_at=?')
+     .bind(now,active,user.id,data.token,row.last_ping_at).run();
+   if((updated.meta?.changes??updated.changes??0)===0)return json({ok:true,participating:true,credited:false});
+   if(active>=480000&&now-Number(row.started_at)>=480000){
+     const day=new Date(now).toISOString().slice(0,10);
+     await env.DB.prepare('INSERT OR IGNORE INTO leaderboard_daily_activity(user_id,day,created_at) VALUES(?,?,?)')
+       .bind(user.id,day,new Date(now).toISOString()).run();
+   }
+   return json({ok:true,participating:true,credited:active>=480000,activeSeconds:Math.floor(active/1000)});
+ }
+
  if(u.pathname==='/api/community/leaderboard'){
    if(request.method==='GET'){
+     const since=new Date(Date.now()-29*86400000).toISOString().slice(0,10);
      const [leaders,me]=await Promise.all([
-       env.DB.prepare(`SELECT u.id,u.username name,u.avatar_url avatar,COUNT(ep.anime_id) episodes
+       env.DB.prepare(`SELECT u.id,u.username name,u.avatar_url avatar,COUNT(d.day) active_days
          FROM leaderboard_optin opt
          JOIN users u ON u.id=opt.user_id
-         JOIN episode_progress ep ON ep.user_id=u.id AND ep.watched=1
+         JOIN leaderboard_daily_activity d ON d.user_id=u.id AND d.day>=?
          GROUP BY u.id,u.username,u.avatar_url
-         ORDER BY episodes DESC, opt.joined_at ASC,u.id ASC LIMIT 4`).all(),
+         ORDER BY active_days DESC,MIN(d.created_at) ASC,u.id ASC LIMIT 4`).bind(since).all(),
        user?env.DB.prepare('SELECT user_id FROM leaderboard_optin WHERE user_id=?').bind(user.id).first():null
      ]);
      return json({ok:true,leaders:leaders.results||[],participating:!!me});
@@ -97,7 +142,11 @@ export async function community(request, env, validateAnime) {
    let payload;try{payload=JSON.parse(data)}catch{throw fail(400,'Dados inválidos.');}
    if(typeof payload?.participate!=='boolean')throw fail(400,'Escolha participar ou sair do ranking.');
    if(payload.participate)await env.DB.prepare('INSERT OR IGNORE INTO leaderboard_optin(user_id,joined_at) VALUES(?,?)').bind(user.id,new Date().toISOString()).run();
-   else await env.DB.prepare('DELETE FROM leaderboard_optin WHERE user_id=?').bind(user.id).run();
+   else await env.DB.batch([
+     env.DB.prepare('DELETE FROM leaderboard_sessions WHERE user_id=?').bind(user.id),
+     env.DB.prepare('DELETE FROM leaderboard_daily_activity WHERE user_id=?').bind(user.id),
+     env.DB.prepare('DELETE FROM leaderboard_optin WHERE user_id=?').bind(user.id)
+   ]);
    return json({ok:true,participating:payload.participate});
  }
 

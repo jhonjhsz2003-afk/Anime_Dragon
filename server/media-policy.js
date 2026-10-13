@@ -13,8 +13,8 @@ export function contentSecurityPolicy(){
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' https: data: blob:",
     "font-src 'self' data:",
-    "media-src 'self' blob:",
-    "connect-src 'self' https://api.giphy.com https://*.giphy.com https://*.giphyusercontent.com",
+    "media-src 'self' blob: https://akumast.net",
+    "connect-src 'self' https://akumast.net https://api.giphy.com https://*.giphy.com https://*.giphyusercontent.com",
     "worker-src 'self' blob:",
     "manifest-src 'self'"
   ].join('; ');

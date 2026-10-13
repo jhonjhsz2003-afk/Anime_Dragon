@@ -85,6 +85,9 @@ export const schema = [
  `CREATE TABLE IF NOT EXISTS profile_privacy(user_id TEXT PRIMARY KEY,visibility TEXT NOT NULL DEFAULT 'private' CHECK(visibility IN ('private','public')))`,
 
  `CREATE TABLE IF NOT EXISTS leaderboard_optin(user_id TEXT PRIMARY KEY, joined_at TEXT NOT NULL)`,
+ `CREATE TABLE IF NOT EXISTS leaderboard_sessions(user_id TEXT PRIMARY KEY,session_key TEXT NOT NULL,anime_id INTEGER NOT NULL,season INTEGER NOT NULL,episode INTEGER NOT NULL,started_at INTEGER NOT NULL,last_ping_at INTEGER NOT NULL,active_ms INTEGER NOT NULL DEFAULT 0)`,
+ `CREATE TABLE IF NOT EXISTS leaderboard_daily_activity(user_id TEXT NOT NULL,day TEXT NOT NULL,created_at TEXT NOT NULL,PRIMARY KEY(user_id,day))`,
+ `CREATE INDEX IF NOT EXISTS ranking_recent_days ON leaderboard_daily_activity(day)`,
 
  `CREATE TABLE IF NOT EXISTS playback_activity(user_id TEXT NOT NULL,anime_id INTEGER NOT NULL,season INTEGER NOT NULL,episode INTEGER NOT NULL,updated_at TEXT NOT NULL,PRIMARY KEY(user_id,anime_id))`,
 

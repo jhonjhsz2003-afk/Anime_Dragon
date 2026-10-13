@@ -6,8 +6,8 @@ import {mountDiscussion} from './discussion.js?v=14.1.0';
 import {bindLiveSearch,rankSearchResults} from './live-search.js?v=11.0.0';
 import {preferredCaptionLocale} from './caption-language.js?v=9.6.1';
 import {createCatalogCache,createIntentPreloader} from './navigation.js?v=14.1.0';
-import { mountWatchPlayer } from './player.js?v=23.0.0';
-import {createSourceLoader} from './sources.js?v=23.0.0';
+import { mountWatchPlayer } from './player.js?v=26.0.0';
+import {createSourceLoader} from './sources.js?v=26.0.0';
 import {createAccountDialog} from './account-dialog.js?v=14.1.0';
 const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
 const esc=(s='')=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -100,8 +100,8 @@ function upcomingRailCard(p){
 function rankedCard(p,index){
  return `<button type="button" class="card ranked-card" data-id="${p.id}" aria-label="${index+1}. Ver ${esc(p.title)}"><span class="rank-number" aria-hidden="true">${index+1}</span><div class="poster-wrap">${imageTag(p)}<span class="card-play">▶</span></div><div class="card-body"><div class="card-title">${esc(p.title)}</div><div class="card-sub">★ ${rating(p)} · ${year(p)}</div></div></button>`;
 }
-function brand(){return `<a class="brand brand-bluefire" href="#home" aria-label="AnimeDragon, início"><img src="/assets/dragon-mark.webp?v=14.1.0" alt="" width="45" height="45"><strong class="brand-wordmark"><span class="brand-anime">Anime</span><span class="brand-dragon">Dragon</span></strong></a>`}
-function accountMarkup(){if(state.user)return `<div class="ranking-anchor"><button class="icon-btn ranking-toggle" type="button" data-ranking-toggle aria-expanded="false" aria-controls="ranking-panel" aria-label="Ranking de fãs de anime" title="Ranking de fãs">♛</button><section id="ranking-panel" class="ranking-popover" aria-label="Ranking de fãs" hidden></section></div><a class="profile-chip identity-ring-${identityOf().frame}" href="#profile" aria-label="Meu perfil">${avatarView(state.avatar,state.user?.avatarFrame,'avatar','','Meu perfil')}<b class="${nameClass(state.user.nameColor)}">${esc(state.user.name)}</b></a><button class="icon-btn" data-logout aria-label="Sair da conta">${icon('logout')}</button>`;if(state.authStatus!=='ready')return '<span class="account-restoring" role="status">Conectando sua conta…</span>';return `<a href="#entrar" class="login-link">Entrar ${icon('profile')}</a>`;}
+function brand(){return `<a class="brand brand-rgb-glow" href="#home" aria-label="AnimeDragon, início"><img src="/assets/dragon-mark.webp?v=14.1.0" alt="" width="45" height="45"><strong class="brand-wordmark"><span class="brand-anime">Anime</span><span class="brand-dragon">Dragon</span></strong></a>`}
+function accountMarkup(){if(state.user)return `<a class="profile-chip identity-ring-${identityOf().frame}" href="#profile" aria-label="Meu perfil">${avatarView(state.avatar,state.user?.avatarFrame,'avatar','','Meu perfil')}<b class="${nameClass(state.user.nameColor)}">${esc(state.user.name)}</b></a><div class="ranking-anchor"><button class="icon-btn ranking-toggle" type="button" data-ranking-toggle aria-expanded="false" aria-controls="ranking-panel" aria-label="Ranking de fãs de anime" title="Ranking de fãs">♛</button><section id="ranking-panel" class="ranking-popover" aria-label="Ranking de fãs" hidden></section></div><button class="icon-btn" data-logout aria-label="Sair da conta">${icon('logout')}</button>`;if(state.authStatus!=='ready')return '<span class="account-restoring" role="status">Conectando sua conta…</span>';return `<a href="#entrar" class="login-link">Entrar ${icon('profile')}</a>`;}
 function updateAccount(){const account=$('.header-account');if(account){account.innerHTML=accountMarkup();bindLogout(account);bindRanking(account);}}
 function bindLogout(root=document){$$('[data-logout]',root).forEach(b=>b.onclick=async()=>{b.disabled=true;try{await post('/api/auth/logout',{});authSession.clear();nav('home');toast('Você saiu da conta.')}catch(e){toast(e.message,'err');b.disabled=false}});}
 function bindRanking(root=document){
@@ -114,7 +114,7 @@ function bindRanking(root=document){
    const data=await api('/api/community/leaderboard');
    if(!panel.isConnected||panel.hidden)return;
    const rows=(data.leaders||[]).slice(0,4);
-   panel.innerHTML=`<header class="ranking-head"><span class="ranking-glint">✦</span><div><b>Trono dos Otakus</b><small>Top 4 · episódios marcados como assistidos</small></div><button type="button" class="ranking-close" aria-label="Fechar ranking">×</button></header><div class="ranking-entries">${rows.map((x,i)=>`<a href="#profile?user=${encodeURIComponent(x.id)}" class="ranking-entry ranking-pos-${i+1}"><span class="ranking-position">${i===0?'👑':i===1?'♛':`#${i+1}`}</span>${avatarView(x.avatar,{},'ranking-avatar','','Avatar de '+x.name)}<span class="ranking-person"><b>${esc(x.name)}</b><small>${i+1}º lugar · ${x.episodes} ${x.episodes===1?'episódio':'episódios'}</small></span></a>`).join('')||'<p class="ranking-empty">Ainda não há participantes com episódios marcados como assistidos.</p>'}</div><div class="ranking-consent"><p>Participação voluntária. Contamos episódios marcados como assistidos, não minutos reproduzidos.</p><label><input type="checkbox" id="ranking-optin" ${data.participating?'checked':''}> Aparecer no ranking com meu nome e avatar</label><span id="ranking-feedback" role="status"></span></div>`;
+   panel.innerHTML=`<header class="ranking-head"><span class="ranking-glint">✦</span><div><b>Trono dos Otakus</b><small>Top 4 · dias ativos nos últimos 30 dias</small></div><button type="button" class="ranking-close" aria-label="Fechar ranking">×</button></header><div class="ranking-entries">${rows.map((x,i)=>`<a href="#profile?user=${encodeURIComponent(x.id)}" class="ranking-entry ranking-pos-${i+1}"><span class="ranking-position">${i===0?'👑':i===1?'♛':`#${i+1}`}</span>${avatarView(x.avatar,{},'ranking-avatar','','Avatar de '+x.name)}<span class="ranking-person"><b>${esc(x.name)}</b><small>${i+1}º lugar · ${x.active_days} ${x.active_days===1?'dia ativo':'dias ativos'}</small></span></a>`).join('')||'<p class="ranking-empty">Ainda não há dias de atividade registrados. Abra um episódio e mantenha a aba ativa para pontuar.</p>'}</div><div class="ranking-consent"><p>Ranking mais justo: 1 ponto por dia, após 8 minutos de sessão ativa no player. Marcar episódios manualmente não vale pontos. Isso não comprova o vídeo assistido.</p><label><input type="checkbox" id="ranking-optin" ${data.participating?'checked':''}> Aparecer no ranking com meu nome e avatar</label><span id="ranking-feedback" role="status"></span></div>`;
    panel.querySelector('.ranking-close')?.addEventListener('click',close);
    const checkbox=panel.querySelector('#ranking-optin');checkbox?.addEventListener('change',async()=>{checkbox.disabled=true;try{await post('/api/community/leaderboard',{participate:checkbox.checked});if(panel.isConnected&&!panel.hidden)await draw();}catch(e){const message=panel.querySelector('#ranking-feedback');if(message)message.textContent=e.message;checkbox.checked=!checkbox.checked;checkbox.disabled=false;}});
    panel.querySelectorAll('.ranking-entry').forEach(el=>el.addEventListener('click',close));
@@ -124,6 +124,30 @@ function bindRanking(root=document){
  document.addEventListener('pointerdown',event=>{if(!root.contains(event.target))close();},{signal:rankingListener.signal});
  document.addEventListener('keydown',event=>{if(event.key==='Escape'&&!panel.hidden){close();toggle.focus();}},{signal:rankingListener.signal});
 }
+let rankingPresenceStop=()=>{};
+function stopRankingPresence(){rankingPresenceStop();rankingPresenceStop=()=>{};}
+function startRankingPresence(animeId,season,episode){
+ stopRankingPresence();
+ if(!state.user)return;
+ let token=null,stopped=false,busy=false;
+ const controller=new AbortController();
+ const visible=()=>!stopped&&!document.hidden&&!!document.querySelector('#playback-body .watch-layout');
+ const beat=async()=>{
+  if(busy||!visible())return;
+  busy=true;
+  try{
+   const payload=token?{action:'pulse',token}:{action:'start',animeId,season,episode};
+   const answer=await post('/api/community/leaderboard/activity',payload);
+   if(stopped)return;
+   token=answer?.participating?(answer.expired?null:(answer.token||token)):null;
+  }catch{token=null;}finally{busy=false;}
+ };
+ const onVisibility=()=>{if(document.hidden)token=null;else void beat();};
+ document.addEventListener('visibilitychange',onVisibility,{signal:controller.signal});
+ const timer=setInterval(()=>{void beat();},60000);
+ rankingPresenceStop=()=>{stopped=true;clearInterval(timer);controller.abort();};
+ void beat();
+}
 let rankingListener=new AbortController();
 
 function layout(inner){
@@ -131,7 +155,7 @@ function layout(inner){
  const navs=[['home','Início','#home'],['anime','Animes','#anime'],['calendar','Lançamentos','#releases'],['library','Minha lista','#library']];
  const active=index=>index===2?releases:index===1?current==='anime'&&!releases:current===navs[index][0];
  const searchOpen=current==='search';
- return `<div class="shell ${current==='home'?'home-view':''}"><header class="site-header ${searchOpen?'search-open':''}"><div class="masthead"><button class="icon-btn menu-toggle" id="mobile-menu-toggle" type="button" aria-label="Abrir menu" aria-expanded="false" aria-controls="main-navigation">${icon('menu')}</button>${brand()}<nav class="top-nav" id="main-navigation" aria-label="Navegação principal">${navs.map(([id,name,href],index)=>`<a href="${href}" class="${active(index)?'active':''}" ${active(index)?'aria-current="page"':''}>${icon(id)}<span>${name}</span></a>`).join('')}<details class="header-more"><summary aria-label="Mais opções">${icon('menu')}<span>Explorar</span></summary><div><a href="#genres">${icon('genres')} Gêneros e temas</a><a href="#gifs">${icon('spark')} Galeria de GIFs</a><a href="#calendar">${icon('calendar')} Minha agenda</a><a href="#history">${icon('history')} Histórico</a><a href="#settings">${icon('settings')} Preferências</a></div></details></nav><div class="header-tools"><button class="icon-btn" id="header-surprise" data-surprise type="button" aria-label="Escolher um anime aleatório">${icon('shuffle')}</button><button class="icon-btn" id="header-search-toggle" type="button" aria-label="Buscar anime" aria-expanded="${searchOpen}" aria-controls="header-search">${icon('search')}</button></div><div class="header-account">${accountMarkup()}</div></div><div class="topbar" id="header-search"><form class="search" id="search-form" role="search"><label class="sr-only" for="global-search">Buscar anime</label>${icon('search')}<input id="global-search" type="search" aria-controls="page-content" autocomplete="off" name="q" placeholder="Buscar por nome do anime…" maxlength="120" value="${esc(params.get('q')||'')}"></form><button class="icon-btn" id="header-search-close" type="button" aria-label="Fechar busca">${icon('close')}</button></div></header><main class="main"><div class="content">${current!=='home'?'<button class="page-back" id="page-back">← Voltar</button>':''}<div id="page-content">${inner}</div><footer class="site-footer"><div><a class="footer-brand" href="#home">Anime<span>Dragon</span></a><p>Uma nova história a cada capítulo.</p><small>© ${new Date().getFullYear()} AnimeDragon</small></div><div class="footer-credit"><span>Catálogo atualizado automaticamente</span><small>AnimeDragon v24.0.0</small></div></footer></div></main></div>`;
+ return `<div class="shell ${current==='home'?'home-view':''}"><header class="site-header ${searchOpen?'search-open':''}"><div class="masthead"><button class="icon-btn menu-toggle" id="mobile-menu-toggle" type="button" aria-label="Abrir menu" aria-expanded="false" aria-controls="main-navigation">${icon('menu')}</button>${brand()}<nav class="top-nav" id="main-navigation" aria-label="Navegação principal">${navs.map(([id,name,href],index)=>`<a href="${href}" class="${active(index)?'active':''}" ${active(index)?'aria-current="page"':''}>${icon(id)}<span>${name}</span></a>`).join('')}<details class="header-more"><summary aria-label="Mais opções">${icon('menu')}<span>Explorar</span></summary><div><a href="#genres">${icon('genres')} Gêneros e temas</a><a href="#gifs">${icon('spark')} Galeria de GIFs</a><a href="#calendar">${icon('calendar')} Minha agenda</a><a href="#history">${icon('history')} Histórico</a><a href="#settings">${icon('settings')} Preferências</a></div></details></nav><div class="header-tools"><button class="icon-btn" id="header-surprise" data-surprise type="button" aria-label="Escolher um anime aleatório">${icon('shuffle')}</button><button class="icon-btn" id="header-search-toggle" type="button" aria-label="Buscar anime" aria-expanded="${searchOpen}" aria-controls="header-search">${icon('search')}</button></div><div class="header-account">${accountMarkup()}</div></div><div class="topbar" id="header-search"><form class="search" id="search-form" role="search"><label class="sr-only" for="global-search">Buscar anime</label>${icon('search')}<input id="global-search" type="search" aria-controls="page-content" autocomplete="off" name="q" placeholder="Buscar por nome do anime…" maxlength="120" value="${esc(params.get('q')||'')}"></form><button class="icon-btn" id="header-search-close" type="button" aria-label="Fechar busca">${icon('close')}</button></div></header><main class="main"><div class="content">${current!=='home'?'<button class="page-back" id="page-back">← Voltar</button>':''}<div id="page-content">${inner}</div><footer class="site-footer"><div><a class="footer-brand" href="#home">Anime<span>Dragon</span></a><p>Uma nova história a cada capítulo.</p><small>© ${new Date().getFullYear()} AnimeDragon</small></div><div class="footer-credit"><span>Catálogo atualizado automaticamente</span><small>AnimeDragon v26.0.0</small></div></footer></div></main></div>`;
 }
 function home(){
  const d=state.home,hero=(d.featured||d.trending)[0];
@@ -369,6 +393,7 @@ function renderEpisodes(options={}){
  else if(focusedWatched)$$('[data-watched]',host).find(button=>button.dataset.watched===focusedWatched)?.focus();
 }
 function closeModal(){
+ stopRankingPresence();
  discussionController?.destroy();discussionController=null;detailHeaderObserver?.disconnect();detailHeaderObserver=null;
  clearDetailHeaderBack();
  if(watchController){watchController.destroy();watchController=null;}++modalVersion;++seasonVersion;const had=!!$('#modal-root').innerHTML;$('#modal-root').innerHTML='';document.body.classList.remove('modal-open','detail-open');$('#app').inert=false;const main=$('#app .main');if(main)main.inert=false;refreshHeaderScroll();
@@ -411,6 +436,7 @@ async function openPlayer(episode,fromHistory=false){
   onEnded:()=>state.user?post(`/api/community/${p.id}`,{action:'progress',season,episode,watched:true}):Promise.resolve()
  });
  void mountCommunity(p.id,{season,episode});
+ startRankingPresence(Number(p.id),Number(season),Number(episode));
 }
 
 function heroMarkup(){

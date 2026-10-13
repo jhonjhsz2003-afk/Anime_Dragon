@@ -1,6 +1,6 @@
 import {sourcePriority} from './playback-watchdog.js?v=16.0.0';
 
-const PROVIDER={id:'embedmovies',name:'EmbedMovies',role:'stream'};
+const PROVIDERS=[{id:'animefire',name:'AnimeFire',role:'stream'},{id:'embedmovies',name:'EmbedMovies',role:'stream'}];
 export function isEmbedMoviesEmbed(source){
   try{
     const u=new URL(source?.url||'');
@@ -10,7 +10,18 @@ export function isEmbedMoviesEmbed(source){
       Number(u.pathname.split('/')[3])<=1000 && Number(u.pathname.split('/')[4])<=10000;
   }catch{return false;}
 }
-export function sourceKey(source){return isEmbedMoviesEmbed(source)?source.url:'';}
+
+/** URLs HLS diretas: somente origem contratada, sem redirecionamentos arbitrários. */
+export function isAnimeFireStream(source){
+ try{
+  const url=new URL(source?.url||'');
+  return source?.kind==='direct' && source?.providerId==='animefire' &&
+   source?.type==='application/vnd.apple.mpegurl' && ['dublado','legendado'].includes(source?.audio) &&
+   url.protocol==='https:' && url.hostname==='akumast.net' && !url.username && !url.password && !url.port &&
+   url.pathname.startsWith('/i/') && url.pathname.length<400;
+ }catch{return false;}
+}
+export function sourceKey(source){return isEmbedMoviesEmbed(source)||isAnimeFireStream(source)?source.url:'';}
 function resultTtl(data){return data?.available?120000:2500;}
 export function createSourceLoader(request,now=Date.now,{schedule=setTimeout,cancel=clearTimeout}={}){
   const cache=new Map(),pending=new Map();
@@ -38,22 +49,25 @@ export function createSourceLoader(request,now=Date.now,{schedule=setTimeout,can
   }
   const load=async(id,season,episode,{fresh=false,onUpdate=()=>{},signal,timeoutMs=12000}={})=>{
     const deadline=new AbortController();
-    const timer=schedule(()=>deadline.abort(Object.assign(new Error('EmbedMovies não respondeu dentro do prazo.'),{name:'TimeoutError'})),Math.max(1,Math.min(12000,timeoutMs)));
+    const timer=schedule(()=>deadline.abort(Object.assign(new Error('A busca de fontes não respondeu dentro do prazo.'),{name:'TimeoutError'})),Math.max(1,Math.min(12000,timeoutMs)));
     const current=signal?AbortSignal.any([signal,deadline.signal]):deadline.signal;
     try{
       if(current.aborted)throw current.reason;
-      const result=await source(`/api/playback?id=${encodeURIComponent(id)}&season=${encodeURIComponent(season)}&episode=${encodeURIComponent(episode)}&provider=embedmovies`,fresh,current);
+      const result=await source(`/api/playback?id=${encodeURIComponent(id)}&season=${encodeURIComponent(season)}&episode=${encodeURIComponent(episode)}&provider=auto`,fresh,current);
       const candidates=result.streams?.length?result.streams:result.embed?[result.embed]:[];
       const unique=new Map();
-      for(const item of candidates){if(!isEmbedMoviesEmbed(item))continue;const key=sourceKey(item);if(key&&!unique.has(key))unique.set(key,{...item,key});}
-      const streams=[...unique.values()].sort((a,b)=>sourcePriority(b)-sourcePriority(a));
+      for(const item of candidates){if(!isEmbedMoviesEmbed(item)&&!isAnimeFireStream(item))continue;const key=sourceKey(item);if(key&&!unique.has(key))unique.set(key,{...item,key});}
+      const streams=[...unique.values()].sort((a,b)=>{
+        const score=x=>x.providerId==='animefire'?(x.audio==='dublado'?30:20):10;
+        return score(b)-score(a)||sourcePriority(b)-sourcePriority(a);
+      });
       const response={ok:true,available:!!streams.length,streams,externalStreams:[],complete:true,pending:[],
-        providers:[{name:PROVIDER.name,complete:true,available:!!streams.length,reason:result.reason||''}],
-        reason:streams.length?'':result.reason||'Não foi possível preparar o player do EmbedMovies.'};
+        providers:PROVIDERS.map(p=>({name:p.name,complete:true,available:streams.some(s=>s.providerId===p.id||p.id==='embedmovies'&&isEmbedMoviesEmbed(s)),reason:p.id==='animefire'?result.animefireReason||'':''})),
+        reason:streams.length?'':result.reason||'Não foi possível preparar uma fonte de vídeo.'};
       if(!current.aborted)onUpdate(response);
       return response;
     }finally{cancel(timer);}
   };
-  load.prepare=async()=>[PROVIDER];
+  load.prepare=async()=>PROVIDERS;
   return load;
 }

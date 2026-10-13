@@ -18,7 +18,7 @@ test('v23: selects internos não aparecem para iframe e são restaurados no play
   assert.match(player,/frame\.setAttribute\('fetchpriority','high'\)/);
   assert.ok(!player.includes('autoselectDubbed')); // Não prometer controle que o provedor não documenta.
 });
-test('v24: recursos de interface usam nova versão e evitam cache de CSS antigo',()=>{
+test('v26: recursos de interface usam nova versão e evitam cache de CSS antigo',()=>{
   assert.match(html,/\/css\/player\.css\?v=23\.0\.0/);
-  assert.match(html,/\/js\/app\.js\?v=24\.0\.0/);
+  assert.match(html,/\/js\/app\.js\?v=26\.0\.0/);
 });
