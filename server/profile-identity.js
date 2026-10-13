@@ -1,4 +1,4 @@
-const covers = new Set(['aurora','inferno','nebula','moon']);
+const covers = new Set(['aurora', 'inferno', 'nebula', 'moon', 'sakura', 'cosmos', 'sunset', 'emerald', 'royal', 'ocean', 'crimson', 'prism']);
 const frames = new Set(["stardust", "azure-dragon", "sakura", "nebula", "golden-comet", "frost-nova", "eclipse", "emerald-rune", "crimson-moon", "ocean-pearl", "amethyst", "thunder", "aurora", "koi", "solar", "lunar-tide", "rose-quartz", "arcane", "onyx", "jade", "cosmic", "meteor", "cherry", "coral", "ice-lotus", "tempest", "midnight", "prism", "autumn", "iridescent"]);
 const legacyFrames={flame:'azure-dragon',crystal:'amethyst',halo:'golden-comet',plain:'onyx'};
 const nameSegments = typeof Intl.Segmenter==='function'?new Intl.Segmenter('pt-BR',{granularity:'grapheme'}):null;
@@ -15,9 +15,20 @@ export function validateDisplayName(value){
  return name;
 }
 
-export const identityColumns = "COALESCE(pi28.cover,pi.cover,'aurora') profile_cover,COALESCE(pi28.frame,pi.frame,'stardust') profile_frame,COALESCE(pi28.title,pi.title,'Explorador de universos') profile_title";
-export const identityJoin = 'LEFT JOIN profile_identity pi ON pi.user_id=users.id LEFT JOIN profile_identity_v28 pi28 ON pi28.user_id=users.id';
-export const profileIdentity = u => ({cover:covers.has(u.profile_cover)?u.profile_cover:'aurora',frame:frames.has(u.profile_frame)?u.profile_frame:(legacyFrames[u.profile_frame]||'stardust'),title:u.profile_title||'Explorador de universos'});
+export const identityColumns = "COALESCE(pi28.cover,pi.cover,'aurora') profile_cover,COALESCE(pi28.frame,pi.frame,'stardust') profile_frame,COALESCE(pi28.title,pi.title,'Explorador de universos') profile_title,COALESCE(pstick.stickers,'[]') profile_stickers";
+export const identityJoin = 'LEFT JOIN profile_identity pi ON pi.user_id=users.id LEFT JOIN profile_identity_v28 pi28 ON pi28.user_id=users.id LEFT JOIN profile_stickers_v29 pstick ON pstick.user_id=users.id';
+const validateStickers=value=>{
+ if(!Array.isArray(value)||value.length>6)throw Object.assign(new Error('Escolha até seis stickers.'),{status:400});
+ const ids=new Set();return value.map(row=>{
+  if(!row||typeof row!=='object'||! /^[a-zA-Z0-9]{1,80}$/.test(row.id||'')||ids.has(row.id))throw Object.assign(new Error('Sticker inválido ou repetido.'),{status:400});
+  ids.add(row.id);
+  const x=Number(row.x),y=Number(row.y),size=Number(row.size??17);
+  if(!Number.isFinite(x)||!Number.isFinite(y)||!Number.isFinite(size)||x<0||x>100||y<0||y>100||size<10||size>28)throw Object.assign(new Error('Posição ou tamanho do sticker inválidos.'),{status:400});
+  return {id:row.id,x:Math.round(x*10)/10,y:Math.round(y*10)/10,size:Math.round(size)};
+ });
+};
+const parseStickers=value=>{try{return validateStickers(JSON.parse(value||'[]'))}catch{return []}};
+export const profileIdentity = u => ({stickers:parseStickers(u.profile_stickers),cover:covers.has(u.profile_cover)?u.profile_cover:'aurora',frame:frames.has(u.profile_frame)?u.profile_frame:(legacyFrames[u.profile_frame]||'stardust'),title:u.profile_title||'Explorador de universos'});
 
 export function validateIdentity(value,current){
  if(value===undefined)return profileIdentity(current);
@@ -25,5 +36,6 @@ export function validateIdentity(value,current){
  const prior=profileIdentity(current),cover=value.cover??prior.cover,frame=value.frame??prior.frame;
  const title=String(value.title??prior.title).trim();
  if(!covers.has(cover)||!frames.has(frame)||title.length<2||title.length>40||/[<>\u0000-\u001f]/u.test(title))throw Object.assign(new Error('Escolha uma capa e uma moldura disponíveis e um título de 2 a 40 caracteres.'),{status:400});
- return {cover,frame,title};
+ const stickers=value.stickers===undefined?prior.stickers:validateStickers(value.stickers);
+ return {cover,frame,title,stickers};
 }

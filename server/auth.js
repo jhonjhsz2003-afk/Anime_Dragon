@@ -160,11 +160,11 @@ export async function auth(request,env) {
 
     if(env.AUTH_LAYOUT.legacyNames&&await env.DB.prepare('SELECT id FROM users WHERE username=? AND id<>? LIMIT 1').bind(name,u.id).first())throw error(409,'Esse nome já está em uso.');
 
-    try {await env.DB.batch([env.DB.prepare('UPDATE users SET username=?,bio=?,avatar_url=?,updated_at=? WHERE id=?').bind(name,bio,avatar(u.avatar_url),new Date().toISOString(),u.id),env.DB.prepare('INSERT INTO user_appearance_v28 VALUES(?,?) ON CONFLICT(user_id) DO UPDATE SET name_color=excluded.name_color').bind(u.id,nameColor),env.DB.prepare('INSERT INTO profile_identity_v28(user_id,cover,frame,title) VALUES(?,?,?,?) ON CONFLICT(user_id) DO UPDATE SET cover=excluded.cover,frame=excluded.frame,title=excluded.title').bind(u.id,identity.cover,identity.frame,identity.title)]);}
+    try {await env.DB.batch([env.DB.prepare('UPDATE users SET username=?,bio=?,avatar_url=?,updated_at=? WHERE id=?').bind(name,bio,avatar(u.avatar_url),new Date().toISOString(),u.id),env.DB.prepare('INSERT INTO user_appearance_v28 VALUES(?,?) ON CONFLICT(user_id) DO UPDATE SET name_color=excluded.name_color').bind(u.id,nameColor),env.DB.prepare('INSERT INTO profile_identity_v28(user_id,cover,frame,title) VALUES(?,?,?,?) ON CONFLICT(user_id) DO UPDATE SET cover=excluded.cover,frame=excluded.frame,title=excluded.title').bind(u.id,identity.cover,identity.frame,identity.title),env.DB.prepare('INSERT INTO profile_stickers_v29(user_id,stickers) VALUES(?,?) ON CONFLICT(user_id) DO UPDATE SET stickers=excluded.stickers').bind(u.id,JSON.stringify(identity.stickers))]);}
 
     catch(e){if(String(e.message).includes('UNIQUE'))throw error(409,'Esse nome já está em uso.');throw e;}
 
-    return reply({ok:true,user:publicUser({...u,username:name,bio,avatar_url:avatar(u.avatar_url),name_color:nameColor,profile_cover:identity.cover,profile_frame:identity.frame,profile_title:identity.title})});
+    return reply({ok:true,user:publicUser({...u,username:name,bio,avatar_url:avatar(u.avatar_url),name_color:nameColor,profile_cover:identity.cover,profile_frame:identity.frame,profile_title:identity.title,profile_stickers:JSON.stringify(identity.stickers)})});
 
   }
 

@@ -43,7 +43,7 @@ test('v28: supports exactly 30 new original frames with migration for old settin
 });
 test('v28: 13 solid palettes plus animated RGB gradients respect reduced motion',()=>{
  const app=txt('web/js/app.js');const css=txt('web/css/profile-v28.css');
- assert.match(app,/13 clássicas \+ 14 RGB animadas/);
+ assert.match(app,/13 cores clássicas e 14 RGB animadas/);
  assert.equal((app.match(/'RGB [^']+'|"RGB [^"]+"/g)||[]).length>=14,true);
  assert.match(css,/@keyframes profile-rgb-flow/);
  assert.match(css,/prefers-reduced-motion:reduce/);

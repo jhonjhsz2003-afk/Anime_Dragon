@@ -253,7 +253,7 @@ test('episode-only labels retain the selected season in updated cards, resume hi
  t.context.recentItem={...fixture,last_episode_to_air:{season_number:2,episode_number:3,air_date:'2026-01-01'}};t.context.resumeItem={...fixture,season:2,episode:3,progress:140,duration:1200};
  t.run('state.home.updated=[recentItem];state.history=[resumeItem]');await t.run('render()');
  const updated=t.document.querySelector('#updated [data-id]');assert.equal(updated.dataset.season,'2');assert.equal(updated.querySelector('.release-tag').textContent,'EP.3');
- assert.match(t.document.querySelector('.continue-card small').textContent,/^EP\.3/);assert.doesNotMatch(t.document.querySelector('.continue-card small').textContent,/\bT2\b/);assert.equal(t.document.querySelector('.continue-rail').getAttribute('tabindex'),'0');
+ assert.equal(t.document.querySelector('.continue-card').dataset.season,'2');assert.match(t.document.querySelector('.continue-card small').textContent,/\bT2\s*·\s*EP\.3\b/);assert.equal(t.document.querySelector('.continue-rail').getAttribute('tabindex'),'0');
  await updated.onclick();await settle();assert.equal(t.run('state.season'),2);assert.ok(t.calls.some(call=>call.path==='/api/catalog/tv/1/season/2'));assert.doesNotMatch(t.document.querySelector('#detail-watch').textContent,/\bT2\b/);
  t.context.agendaItem={...fixture,next_episode_to_air:{season_number:2,episode_number:4,air_date:'2099-01-02'}};t.run('closeModal();document.querySelector("#page-content").innerHTML=calendarItems([agendaItem]);');
  const agenda=t.document.querySelector('.schedule-card');assert.equal(agenda.dataset.season,'2');assert.match(agenda.textContent,/EP\.4/);assert.doesNotMatch(agenda.textContent,/\bT2\b/);t.run('authSession.destroy()');

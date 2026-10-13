@@ -1,3 +1,15 @@
+# AnimeDragon v29 — Personalização do perfil
+
+- 12 atmosferas, 30 molduras e editor de stickers GIPHY (até 6 stickers por perfil).
+- Coleção como primeira aba; Aparência, Foto e Conta em abas próprias.
+- Nome RGB aplicado somente às letras; emojis/coroas mantêm as cores originais.
+- Capas maiores no perfil compartilhável.
+- Stickers armazenados como IDs do GIPHY e coordenadas no D1, não como arquivos ou URLs externos.
+
+**Migração D1:** o Worker cria a tabela `profile_stickers_v29` automaticamente no primeiro acesso ao banco, sem apagar tabelas antigas. Confira credenciais e backup antes de publicar. A chave `GIPHY_API_KEY` já configurada no Worker continua necessária para pesquisar stickers.
+
+**Limitações:** stickers são resolvidos no navegador via GIPHY e podem ficar indisponíveis se o GIF for removido, a API atingir os limites ou a chave deixar de funcionar. Sem chave configurada, as demais opções visuais continuam funcionando.
+
 # AnimeDragon v28 — EmbedMovies e perfil renovado
 
 Site exclusivo para animes. O TMDB fornece metadados, capas, episódios e datas previstas. O EmbedMovies é a única fonte de incorporação de vídeo no projeto.

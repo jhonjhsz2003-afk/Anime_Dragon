@@ -195,3 +195,6 @@ CREATE TABLE IF NOT EXISTS profile_media(user_id TEXT PRIMARY KEY,mime TEXT NOT 
 -- Novas preferências visuais: tabelas independentes evitam alterar CHECK constraints legados.
 CREATE TABLE IF NOT EXISTS profile_identity_v28(user_id TEXT PRIMARY KEY,cover TEXT NOT NULL,frame TEXT NOT NULL,title TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS user_appearance_v28(user_id TEXT PRIMARY KEY,name_color TEXT NOT NULL);
+
+-- Decorações do perfil v29, mantidas separadas das tabelas legadas
+CREATE TABLE IF NOT EXISTS profile_stickers_v29(user_id TEXT PRIMARY KEY,stickers TEXT NOT NULL DEFAULT '[]');

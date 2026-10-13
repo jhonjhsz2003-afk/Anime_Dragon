@@ -2,9 +2,9 @@ const escapeHTML=(s='')=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;
 const idPattern=/^[a-zA-Z0-9]{1,80}$/;
 export function giphyId(value){return /^giphy:([a-zA-Z0-9]{1,80})(?:\?x=\d+(?:\.\d+)?&y=\d+(?:\.\d+)?&zoom=\d+(?:\.\d+)?)?$/.exec(value||'')?.[1]||null;}
 export function giphyMedia(value){try{const u=new URL(value);return u.protocol==='https:'&&!u.username&&!u.password&&(!u.port||u.port==='443')&&(u.hostname==='giphy.com'||u.hostname.endsWith('.giphy.com'))?value:null}catch{return null}}
-export function giphyRequest(key,{query='anime',trending=false,offset=0,id}={}){
+export function giphyRequest(key,{query='anime',trending=false,offset=0,id,kind='gifs'}={}){
  if(id&&!idPattern.test(id))throw new Error('GIF inválido.');
- const url=new URL('https://api.giphy.com/v1/gifs/'+(id?id:trending?'trending':'search'));
+ const url=new URL('https://api.giphy.com/v1/'+(kind==='stickers'?'stickers':'gifs')+'/'+(id?id:trending?'trending':'search'));
  url.searchParams.set('api_key',key);
  if(!id){url.searchParams.set('limit','24');url.searchParams.set('offset',String(Math.max(0,Math.min(trending?499:4999,offset))));url.searchParams.set('rating','pg-13');if(!trending){url.searchParams.set('q',String(query).slice(0,50));url.searchParams.set('lang','pt')}}
  return url.toString();

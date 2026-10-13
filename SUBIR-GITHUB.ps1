@@ -1,4 +1,4 @@
-# AnimeDragon v28 - publica por clone limpo, preservando histórico e evitando git push --force.
+# AnimeDragon v29 - publica por clone limpo, preservando histórico e evitando git push --force.
 $ErrorActionPreference = 'Stop'
 $repo = 'https://github.com/jhonjhsz2003-afk/Anime_Dragon.git'
 $source = $PSScriptRoot
@@ -17,7 +17,7 @@ try {
     if ($LASTEXITCODE -ne 0) {
         throw 'Nao foi possivel clonar o GitHub. Verifique a conexao, a URL e o login/permissoes da sua conta GitHub.'
     }
-    Write-Host 'Preparando arquivos do AnimeDragon v28...' -ForegroundColor Cyan
+    Write-Host 'Preparando arquivos do AnimeDragon v29...' -ForegroundColor Cyan
     Get-ChildItem -LiteralPath $stage -Force | Where-Object { $_.Name -ne '.git' } | Remove-Item -Recurse -Force
     $ignore = @('.git', 'node_modules', '.wrangler', '.dev.vars', '.env', '.env.local', '.local', 'test-results', 'coverage', 'playwright-report', '.wrangler-build')
     Get-ChildItem -LiteralPath $source -Force | Where-Object { ($ignore -notcontains $_.Name) -and ($_.Name -notlike '.env.*') -and ($_.Name -notlike '.dev.vars.*' -or $_.Name -eq '.dev.vars.example') } |
@@ -42,7 +42,7 @@ try {
     if ($LASTEXITCODE -ne 0) {
         throw 'Falha no git push. Se aparecer rejected/non-fast-forward, houve alteracoes simultaneas no GitHub; execute o script novamente. Se aparecer Authentication failed/403, confira o login e as permissoes.'
     }
-    Write-Host 'AnimeDragon v28 publicado no GitHub com sucesso!' -ForegroundColor Green
+    Write-Host 'AnimeDragon v29 publicado no GitHub com sucesso!' -ForegroundColor Green
 }
 finally {
     if (Test-Path -LiteralPath $stage) { Remove-Item -LiteralPath $stage -Recurse -Force -ErrorAction SilentlyContinue }

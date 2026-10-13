@@ -231,7 +231,7 @@ export default {
       if (url.pathname.startsWith('/api/auth/')) return await auth(request,env);
       if (request.method !== 'GET') return json({ok:false,error:'Método não permitido.'},405,{Allow:'GET'});
       if(url.pathname==='/api/giphy/config')return json(giphyConfig(env),200,{'Cache-Control':'no-store'});
-      if (url.pathname === '/api/health') return json({ok:true,service:'AnimeDragon',version:'28.0.0',catalogVersion:CATALOG_VERSION});
+      if (url.pathname === '/api/health') return json({ok:true,service:'AnimeDragon',version:'29.0.0',catalogVersion:CATALOG_VERSION});
       if(url.pathname==='/api/opening'){
         const id=url.searchParams.get('id'),s=url.searchParams.get('season'),ep=url.searchParams.get('episode'),duration=Number(url.searchParams.get('duration'));
         if(!/^\d{1,10}$/.test(id||'')||Number(id)<1||!/^\d{1,4}$/.test(s||'')||!/^\d{1,4}$/.test(ep||'')||Number(ep)<1||!Number.isFinite(duration)||duration<=0||duration>21600)throw fail(400,'Episódio ou duração inválidos.');

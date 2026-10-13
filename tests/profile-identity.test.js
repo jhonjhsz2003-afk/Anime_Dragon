@@ -17,7 +17,7 @@ test('profile identity persists through restart and login while credentials rema
  const registration=await t.call('/api/auth/register',details);assert.equal(registration.status,200);
  const user=(await registration.json()).user,cookie=registration.headers.get('Set-Cookie');
  const original=t.DB.sqlite.prepare('SELECT password_hash,password_salt FROM users WHERE id=?').get(user.id);
- const identity={cover:'nebula',frame:'golden-comet',title:'Guardião das madrugadas'};
+ const identity={cover:'nebula',frame:'golden-comet',title:'Guardião das madrugadas',stickers:[]};
  const displayName='꧁✨𝓓𝓻𝓪𝓰𝓸𝓷🔥꧂';
  const save=await t.call('/api/auth/profile',{name:displayName,bio:'Cada episódio, um universo.',nameColor:'violet',identity},cookie);
  assert.equal(save.status,200);assert.deepEqual((await save.json()).user.identity,identity);
@@ -55,4 +55,34 @@ test('profile identity rejects unknown styles and markup atomically and never ch
  for(const identity of [{cover:'red;position:fixed',frame:'flame',title:'Teste'},{cover:'aurora',frame:'javascript:evil',title:'Teste'},{cover:'aurora',frame:'flame',title:'<script>Teste</script>'},{cover:'aurora',frame:'flame',title:'x'}])assert.equal((await t.call('/api/auth/profile',{name:'Nome alterado',bio:'Alterada',identity},cookie)).status,400);
  const me=(await(await t.call('/api/auth/me',null,cookie)).json()).user;assert.equal(me.name,data.name);assert.equal(me.bio,'');assert.equal(me.identity.cover,'aurora');
  assert.equal((await t.call('/api/auth/profile',{name:data.name,bio:'',identity:{cover:'moon',frame:'onyx',title:'Sem conexão'}})).status,401);
+});
+
+test('v29: atmospheres, stickers and their coordinates persist across sessions',async()=>{
+ const t=fixture(),details={name:'Teste v29',email:'v29@example.test',password:'senha-teste-segura-123'};
+ const registered=await t.call('/api/auth/register',details);assert.equal(registered.status,200);
+ const u=(await registered.json()).user,cookie=registered.headers.get('Set-Cookie');
+ const stickers=[{id:'ABC123',x:12.5,y:78.2,size:18},{id:'XYZ999',x:95,y:15,size:22}];
+ const r=await t.call('/api/auth/profile',{name:u.name,bio:'Um universo',nameColor:'rgb-ocean',identity:{cover:'sakura',frame:'azure-dragon',title:'Otaku',stickers}},cookie);
+ assert.equal(r.status,200,await r.text());
+ const user=(await(await t.call('/api/auth/me',null,cookie)).json()).user;
+ assert.deepEqual(user.identity.stickers,stickers);assert.equal(user.identity.cover,'sakura');
+ await t.call('/api/auth/privacy',{visibility:'public'},cookie);
+ const shared=(await(await t.call('/api/community/profile/'+u.id)).json()).profile;
+ assert.deepEqual(shared.identity.stickers,stickers);assert.equal(shared.nameColor,'rgb-ocean');
+});
+
+test('v29: invalid or excessive GIPHY stickers cannot modify saved decorations',async()=>{
+ const t=fixture(),d={name:'Teste',email:'sticker@example.test',password:'senha-teste-segura-123'};
+ const registration=await t.call('/api/auth/register',d),u=(await registration.json()).user,cookie=registration.headers.get('Set-Cookie');
+ const base={name:u.name,bio:'',nameColor:'ice',identity:{cover:'aurora',frame:'stardust',title:'Explorador',stickers:[{id:'FIRST',x:0,y:100,size:15}]}};
+ assert.equal((await t.call('/api/auth/profile',base,cookie)).status,200);
+ for(const bad of [
+  [{id:'https://attacker.test/sticker',x:5,y:10,size:17}],
+  [{id:'ABC',x:-10,y:40,size:17}],
+  [{id:'ABC',x:30,y:50,size:999}],
+  Array.from({length:7},(_,i)=>({id:'TEST'+i,x:50,y:50,size:17})),
+  [{id:'ABC',x:10,y:10,size:17},{id:'ABC',x:20,y:30,size:17}]
+ ]){const r=await t.call('/api/auth/profile',{...base,identity:{...base.identity,stickers:bad}},cookie);assert.equal(r.status,400)}
+ const final=(await(await t.call('/api/auth/me',null,cookie)).json()).user;
+ assert.deepEqual(final.identity.stickers,base.identity.stickers);
 });

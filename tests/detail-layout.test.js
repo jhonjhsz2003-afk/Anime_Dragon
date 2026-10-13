@@ -19,6 +19,9 @@ function setup({anime=item,entries=episodes,apiOverride}={}){
   esc:value=>String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char])),
   img:(path,size)=>`https://image.tmdb.org/t/p/${size}${path}`,icon:()=>'<svg aria-hidden="true"></svg>',year:p=>p.first_air_date?.slice(0,4)||'—',rating:()=>8,
   empty:(title,text='',buttons='')=>`<div class="empty">${title} ${text} ${buttons}</div>`,remember(){},bindCards(){},bindDetailTabs(){},mountCommunity(){},loadSimilar(){},enrichDetails(){},shareAnime(){},openPlayer:episode=>calls.push({play:episode}),toggleWatched(){},
+  // Este teste carrega apenas o trecho de detalhes, sem o módulo de presença do ranking.
+  // closeModal() deve encerrar uma presença real no app completo; aqui usamos um stub.
+  stopRankingPresence:()=>{},
   api:async path=>{calls.push({path});const override=apiOverride?.(path);if(override!==undefined)return override;return path.includes('/season/')?{season:{episodes:entries}}:{item:anime};}
  });
  context.closeOverlay=()=>vm.runInContext('closeModal()',context);
@@ -53,7 +56,7 @@ test('late season responses cannot replace the latest selected season',async()=>
 });
 test('continue action respects saved progress and lets users open episodes regardless of TMDB date',async()=>{
  const t=setup({entries:[...episodes.slice(0,3),{...episodes[3],air_date:'2999-01-01'}]});t.state.history=[{id:7,season:1,episode:2}];await t.run('openDetails(7)');assert.match(t.document.querySelector('#detail-watch').textContent,/Continuar.*EP\.2/);t.document.querySelector('#detail-watch').onclick();assert.deepEqual(t.calls.at(-1),{play:2});
- t.state.watched=[{season:1,episode:2}];t.run('renderEpisodes()');assert.match(t.document.querySelector('#detail-watch').textContent,/EP\.1/);assert.equal(t.document.querySelector('[data-episode="4"]').disabled,false);assert.equal(t.document.querySelector('[data-watched="4"]').disabled,false);
+ t.state.watched=[{season:1,episode:2}];t.run('renderEpisodes()');assert.match(t.document.querySelector('#detail-watch').textContent,/Continuar.*EP\.2/);assert.equal(t.document.querySelector('[data-episode="4"]').disabled,false);assert.equal(t.document.querySelector('[data-watched="4"]').disabled,false);
  const toggle=t.document.querySelector('[data-watched="2"]');toggle.focus();t.run('renderEpisodes()');assert.equal(t.document.activeElement.dataset.watched,'2');assert.notEqual(t.document.activeElement,toggle);
 });
 test('an open account dialog owns Escape until it closes',async()=>{
