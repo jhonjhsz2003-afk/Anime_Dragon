@@ -13,9 +13,9 @@ export async function dragonFetch(env,path){
  const base=dragonBase(env),endpoint=base+path;
  let resp;
  try{resp=await fetch(endpoint,{headers:{Accept:'application/json'},redirect:'error',signal:AbortSignal.timeout(9000)});}
- catch{throw err(503,'DragonGIF indisponível na URL pública. Confira DRAGONGIF_PUBLIC_URL e o funcionamento de /api/v1/health.');}
+ catch{throw err(503,'Conexão Worker→DragonGIF falhou. Confirme se o DragonGIF está publicado e se o AnimeDragon usa global_fetch_strictly_public no wrangler.toml.');}
  const data=await resp.json().catch(()=>null);
- if(!resp.ok||!data?.ok)throw err(resp.status===404?404:resp.status===429?429:503,data?.error||'DragonGIF não respondeu corretamente.');
+ if(!resp.ok||!data?.ok)throw err(resp.status===404?404:resp.status===429?429:503,data?.error||`DragonGIF retornou HTTP ${resp.status} sem JSON válido. Verifique o acesso Worker→Worker e a compatibilidade global_fetch_strictly_public.`);
  return data;
 }
 export async function validateDragonItem(env,id,kind){

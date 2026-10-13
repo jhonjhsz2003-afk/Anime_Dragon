@@ -23,6 +23,7 @@ test('Cloudflare usa API pública HTTPS sem Service Binding obrigatório',async(
  const url=new URL('../wrangler.toml',import.meta.url);
  const cfg=await fs.readFile(url,'utf8');
  assert.doesNotMatch(cfg,/\[\[services\]\]/);
+ assert.match(cfg,/compatibility_flags\s*=\s*\[\s*"global_fetch_strictly_public"\s*\]/);
  assert.match(cfg,/DRAGONGIF_PUBLIC_URL\s*=\s*"https:\/\/dragongif-api\.jhonjhszgame2003\.workers\.dev"/);
  assert.ok(hit.some(s=>String(s).startsWith(base+'/api/v1/')));
 });
