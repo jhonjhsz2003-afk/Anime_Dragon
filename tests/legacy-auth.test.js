@@ -18,7 +18,8 @@ function fixture(){
 test('registration and sessions support the exact legacy D1 schema while preserving rows and foreign keys',async()=>{
  const t=fixture(),r=await t.call('/api/auth/register',t.details),body=await r.json();
  assert.equal(r.status,200,JSON.stringify(body));assert.equal(body.user.id,'13');
- assert.ok(t.db.queries<=50,`registration used ${t.db.queries} queries`);
+ // V28 cria duas tabelas visuais novas uma única vez para preservar os dados antigos.
+ assert.ok(t.db.queries<=52,`registration used ${t.db.queries} queries`);
  const cookie=r.headers.get('Set-Cookie');assert.match(cookie,/HttpOnly/);
  assert.equal((await(await t.call('/api/auth/me',null,cookie)).json()).user.name,t.details.name);
  const old=t.db.sqlite.prepare('SELECT * FROM users WHERE id=12').get();

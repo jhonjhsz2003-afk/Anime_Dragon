@@ -80,7 +80,7 @@ test('player exposes real comments count, close callback and a collapsed episode
     f.fire('[data-episodes-toggle]');
     assert.equal(f.q('#watch-episode-panel').hidden,false);
     assert.equal(f.q('[data-episodes-toggle]').getAttribute('aria-expanded'),'true');
-    assert.equal(f.q('[data-episode="3"]').disabled,true);
+    assert.equal(f.q('[data-episode="3"]').disabled,false);
     f.fire('[data-next]');assert.deepEqual(f.calls.episodes,[2]);
     assert.equal(f.q('[data-comment-count]').textContent,'12');
     assert.equal(f.q('#discussion').hidden,true);

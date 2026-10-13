@@ -9,7 +9,7 @@ const fail=(status,message)=>Object.assign(new Error(message),{status});
 const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{'Content-Type':'application/json','Cache-Control':'no-store'}});
 
 const commentFields=`c.*,u.username,u.avatar_url,pm.x avatar_x,pm.y avatar_y,pm.zoom avatar_zoom,
- COALESCE((SELECT name_color FROM user_appearance WHERE user_id=u.id),'ice') name_color,
+ COALESCE((SELECT name_color FROM user_appearance_v28 WHERE user_id=u.id),(SELECT name_color FROM user_appearance WHERE user_id=u.id),'ice') name_color,
  (SELECT COALESCE(SUM(value),0) FROM comment_reactions WHERE comment_id=c.id) comment_score,
  (SELECT COUNT(*) FROM comment_reactions WHERE comment_id=c.id AND value=1) likes,
  (SELECT COUNT(*) FROM comment_reactions WHERE comment_id=c.id AND value=-1) dislikes,
@@ -29,6 +29,8 @@ function publicComment(c,user){
   mine:!deleted&&String(c.user_id)===user?.id};
 }
 
+let leaderboardSnapshot={until:0,day:'',leaders:[],pending:null};
+export function invalidateLeaderboard(){leaderboardSnapshot.until=0;leaderboardSnapshot.pending=null;}
 export async function community(request, env, validateAnime) {
 
  env=await database(env);
@@ -41,7 +43,7 @@ export async function community(request, env, validateAnime) {
 
    if(request.method!=='GET')throw fail(405,'Método não permitido.');
 
-   const target=await env.DB.prepare(`SELECT users.id,users.username,users.avatar_url,users.bio,COALESCE(user_appearance.name_color,'ice') name_color,COALESCE(profile_privacy.visibility,'private') visibility,${identityColumns},pm.x avatar_x,pm.y avatar_y,pm.zoom avatar_zoom FROM users LEFT JOIN profile_privacy ON profile_privacy.user_id=users.id LEFT JOIN user_appearance ON user_appearance.user_id=users.id ${identityJoin} LEFT JOIN profile_media pm ON pm.user_id=users.id WHERE users.id=?`).bind(profileMatch[1]).first();
+   const target=await env.DB.prepare(`SELECT users.id,users.username,users.avatar_url,users.bio,COALESCE(uav28.name_color,user_appearance.name_color,'ice') name_color,COALESCE(profile_privacy.visibility,'private') visibility,${identityColumns},pm.x avatar_x,pm.y avatar_y,pm.zoom avatar_zoom FROM users LEFT JOIN profile_privacy ON profile_privacy.user_id=users.id LEFT JOIN user_appearance ON user_appearance.user_id=users.id LEFT JOIN user_appearance_v28 uav28 ON uav28.user_id=users.id ${identityJoin} LEFT JOIN profile_media pm ON pm.user_id=users.id WHERE users.id=?`).bind(profileMatch[1]).first();
 
    if(!target)throw fail(404,'Perfil não encontrado.');
 
@@ -116,6 +118,7 @@ export async function community(request, env, validateAnime) {
      const day=new Date(now).toISOString().slice(0,10);
      await env.DB.prepare('INSERT OR IGNORE INTO leaderboard_daily_activity(user_id,day,created_at) VALUES(?,?,?)')
        .bind(user.id,day,new Date(now).toISOString()).run();
+     invalidateLeaderboard();
    }
    return json({ok:true,participating:true,credited:active>=480000,activeSeconds:Math.floor(active/1000)});
  }
@@ -123,16 +126,26 @@ export async function community(request, env, validateAnime) {
  if(u.pathname==='/api/community/leaderboard'){
    if(request.method==='GET'){
      const since=new Date(Date.now()-29*86400000).toISOString().slice(0,10);
+     // Evita repetir agregação pesada em cada clique; a participação continua individual.
+     const now=Date.now();
+     if(leaderboardSnapshot.until<=now||leaderboardSnapshot.day!==since){
+       if(!leaderboardSnapshot.pending){
+         leaderboardSnapshot.pending=env.DB.prepare(`SELECT u.id,u.username name,u.avatar_url avatar,COUNT(d.day) active_days
+           FROM leaderboard_optin opt
+           JOIN users u ON u.id=opt.user_id
+           JOIN leaderboard_daily_activity d ON d.user_id=u.id AND d.day>=?
+           GROUP BY u.id,u.username,u.avatar_url
+           ORDER BY active_days DESC,MIN(d.created_at) ASC,u.id ASC LIMIT 4`).bind(since).all().then(rows=>{
+             leaderboardSnapshot={until:Date.now()+30000,day:since,leaders:rows.results||[],pending:null};
+             return leaderboardSnapshot.leaders;
+           }).catch(err=>{leaderboardSnapshot.pending=null;throw err;});
+       }
+     }
      const [leaders,me]=await Promise.all([
-       env.DB.prepare(`SELECT u.id,u.username name,u.avatar_url avatar,COUNT(d.day) active_days
-         FROM leaderboard_optin opt
-         JOIN users u ON u.id=opt.user_id
-         JOIN leaderboard_daily_activity d ON d.user_id=u.id AND d.day>=?
-         GROUP BY u.id,u.username,u.avatar_url
-         ORDER BY active_days DESC,MIN(d.created_at) ASC,u.id ASC LIMIT 4`).bind(since).all(),
+       leaderboardSnapshot.pending||Promise.resolve(leaderboardSnapshot.leaders),
        user?env.DB.prepare('SELECT user_id FROM leaderboard_optin WHERE user_id=?').bind(user.id).first():null
      ]);
-     return json({ok:true,leaders:leaders.results||[],participating:!!me});
+     return json({ok:true,leaders,participating:!!me});
    }
    if(request.method!=='POST')throw fail(405,'Método não permitido.');
    if(!user)throw fail(401,'Entre para participar do ranking.');
@@ -147,6 +160,7 @@ export async function community(request, env, validateAnime) {
      env.DB.prepare('DELETE FROM leaderboard_daily_activity WHERE user_id=?').bind(user.id),
      env.DB.prepare('DELETE FROM leaderboard_optin WHERE user_id=?').bind(user.id)
    ]);
+   invalidateLeaderboard();
    return json({ok:true,participating:payload.participate});
  }
 

@@ -18,8 +18,3 @@ crons = ["0 */6 * * *"]
 
 [observability]
 enabled = true
-
-[vars]
-# Habilite somente quando possuir autorização de uso das fontes nos dois sites.
-ANIMEFIRE_ENABLED = "true"
-

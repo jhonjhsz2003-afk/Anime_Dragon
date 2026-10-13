@@ -31,10 +31,6 @@
 .identity-cover-inferno{--identity-a:#007dff;--identity-b:#1631ac}
 .identity-cover-nebula{--identity-a:#8c39c7;--identity-b:#213488}
 .identity-cover-moon{--identity-a:#788cae;--identity-b:#172230}
-.identity-ring-flame .big-avatar,.profile-chip.identity-ring-flame .avatar{border:3px solid #48caff;box-shadow:0 0 0 5px #0769a81b,0 0 30px #078fe838}
-.identity-ring-crystal .big-avatar,.profile-chip.identity-ring-crystal .avatar{border:3px solid #aaa0ff;box-shadow:0 0 0 5px #8273d522}
-.identity-ring-halo .big-avatar,.profile-chip.identity-ring-halo .avatar{border:3px solid #ffe09d;box-shadow:0 0 0 5px #bda55220,0 0 23px #f0c85e28}
-.identity-ring-plain .big-avatar,.profile-chip.identity-ring-plain .avatar{border:2px solid #637587;box-shadow:none}
 .identity-title{max-width:100%;overflow-wrap:anywhere;font-size:11px;letter-spacing:1.1px;text-transform:uppercase}
 .identity-editor{margin:24px 0;padding:22px 0;border-top:1px solid #ffffff0c;border-bottom:1px solid #ffffff0c}
 .identity-editor h3{margin:0 0 7px;font-size:19px}.identity-editor>p{color:#9aafc3;font-size:13px;line-height:1.65;margin:0 0 22px}
@@ -45,7 +41,6 @@
 .identity-choice[aria-pressed=true]{border-color:#47c0ff;background:#0c2b46;box-shadow:0 0 0 2px #1584c628}
 .identity-sample{display:block;border-radius:8px;height:42px;background:radial-gradient(ellipse at 70% 0%,var(--identity-a),transparent 70%),linear-gradient(140deg,var(--identity-b),#07101e)}
 .identity-frame-sample{height:40px;width:40px;display:grid;place-items:center;border-radius:50%;margin:auto;background:#183247;border:2px solid #48caff;color:#bbebff;font-size:22px}
-.identity-choice[data-identity-frame=crystal] .identity-frame-sample{border-color:#ada3ff;color:#ada3ff}.identity-choice[data-identity-frame=halo] .identity-frame-sample{border-color:#ffe09d;color:#ffe09d}.identity-choice[data-identity-frame=plain] .identity-frame-sample{border-color:#637587;color:#b6c5d5}
 .identity-editor .field{margin-top:6px}.profile-cover .big-avatar{transition:border-color .2s,box-shadow .2s}
 @keyframes blue-flame{0%,100%{transform:translateY(0) rotate(-42deg) scale(.94);opacity:.68}50%{transform:translateY(-4px) rotate(-38deg) scale(1.05);opacity:.9}}
 @keyframes account-enter{from{opacity:0;transform:translateY(14px) scale(.97)}to{opacity:1;transform:none}}

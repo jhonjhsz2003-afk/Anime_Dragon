@@ -1,5 +1,6 @@
 const covers = new Set(['aurora','inferno','nebula','moon']);
-const frames = new Set(['flame','crystal','halo','plain']);
+const frames = new Set(["stardust", "azure-dragon", "sakura", "nebula", "golden-comet", "frost-nova", "eclipse", "emerald-rune", "crimson-moon", "ocean-pearl", "amethyst", "thunder", "aurora", "koi", "solar", "lunar-tide", "rose-quartz", "arcane", "onyx", "jade", "cosmic", "meteor", "cherry", "coral", "ice-lotus", "tempest", "midnight", "prism", "autumn", "iridescent"]);
+const legacyFrames={flame:'azure-dragon',crystal:'amethyst',halo:'golden-comet',plain:'onyx'};
 const nameSegments = typeof Intl.Segmenter==='function'?new Intl.Segmenter('pt-BR',{granularity:'grapheme'}):null;
 
 export function validateDisplayName(value){
@@ -14,9 +15,9 @@ export function validateDisplayName(value){
  return name;
 }
 
-export const identityColumns = "COALESCE(pi.cover,'aurora') profile_cover,COALESCE(pi.frame,'flame') profile_frame,COALESCE(pi.title,'Explorador de universos') profile_title";
-export const identityJoin = 'LEFT JOIN profile_identity pi ON pi.user_id=users.id';
-export const profileIdentity = u => ({cover:covers.has(u.profile_cover)?u.profile_cover:'aurora',frame:frames.has(u.profile_frame)?u.profile_frame:'flame',title:u.profile_title||'Explorador de universos'});
+export const identityColumns = "COALESCE(pi28.cover,pi.cover,'aurora') profile_cover,COALESCE(pi28.frame,pi.frame,'stardust') profile_frame,COALESCE(pi28.title,pi.title,'Explorador de universos') profile_title";
+export const identityJoin = 'LEFT JOIN profile_identity pi ON pi.user_id=users.id LEFT JOIN profile_identity_v28 pi28 ON pi28.user_id=users.id';
+export const profileIdentity = u => ({cover:covers.has(u.profile_cover)?u.profile_cover:'aurora',frame:frames.has(u.profile_frame)?u.profile_frame:(legacyFrames[u.profile_frame]||'stardust'),title:u.profile_title||'Explorador de universos'});
 
 export function validateIdentity(value,current){
  if(value===undefined)return profileIdentity(current);

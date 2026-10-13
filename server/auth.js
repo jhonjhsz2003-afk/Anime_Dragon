@@ -67,7 +67,7 @@ export async function getUser(r,env) {
 
   const token=tokenFrom(r);if(!token)return null;
 
-  const user=await env.DB.prepare(`SELECT users.*,sessions.expires_at session_expires_at,COALESCE(profile_privacy.visibility,'private') visibility,COALESCE(user_appearance.name_color,'ice') name_color,${identityColumns},pm.x avatar_x,pm.y avatar_y,pm.zoom avatar_zoom FROM sessions JOIN users ON users.id=sessions.user_id LEFT JOIN profile_privacy ON profile_privacy.user_id=users.id LEFT JOIN user_appearance ON user_appearance.user_id=users.id ${identityJoin} LEFT JOIN profile_media pm ON pm.user_id=users.id WHERE sessions.${env.AUTH_LAYOUT.sessionKey}=? AND sessions.expires_at>?`).bind(await digest(token),new Date().toISOString()).first();
+  const user=await env.DB.prepare(`SELECT users.*,sessions.expires_at session_expires_at,COALESCE(profile_privacy.visibility,'private') visibility,COALESCE(uav28.name_color,user_appearance.name_color,'ice') name_color,${identityColumns},pm.x avatar_x,pm.y avatar_y,pm.zoom avatar_zoom FROM sessions JOIN users ON users.id=sessions.user_id LEFT JOIN profile_privacy ON profile_privacy.user_id=users.id LEFT JOIN user_appearance ON user_appearance.user_id=users.id LEFT JOIN user_appearance_v28 uav28 ON uav28.user_id=users.id ${identityJoin} LEFT JOIN profile_media pm ON pm.user_id=users.id WHERE sessions.${env.AUTH_LAYOUT.sessionKey}=? AND sessions.expires_at>?`).bind(await digest(token),new Date().toISOString()).first();
   return user&&!user.blocked?{...user,id:String(user.id)}:null;
 
 }
@@ -156,11 +156,11 @@ export async function auth(request,env) {
     const nameColor=data.nameColor??u.name_color??'ice';
     const identity=validateIdentity(data.identity,u);
 
-    if(!['ice','blue','cyan','green','gold','orange','pink','violet'].includes(nameColor))throw error(400,'Escolha uma das cores disponíveis.');
+    if(!["ice", "blue", "cyan", "green", "gold", "orange", "pink", "violet", "ruby", "mint", "silver", "peach", "lavender", "rgb-aurora", "rgb-candy", "rgb-dragon", "rgb-inferno", "rgb-sakura", "rgb-neon", "rgb-cosmic", "rgb-ice", "rgb-gold", "rgb-rainbow", "rgb-mystic", "rgb-ocean", "rgb-eclipse", "rgb-stellar"].includes(nameColor))throw error(400,'Escolha uma das cores disponíveis.');
 
     if(env.AUTH_LAYOUT.legacyNames&&await env.DB.prepare('SELECT id FROM users WHERE username=? AND id<>? LIMIT 1').bind(name,u.id).first())throw error(409,'Esse nome já está em uso.');
 
-    try {await env.DB.batch([env.DB.prepare('UPDATE users SET username=?,bio=?,avatar_url=?,updated_at=? WHERE id=?').bind(name,bio,avatar(u.avatar_url),new Date().toISOString(),u.id),env.DB.prepare('INSERT INTO user_appearance VALUES(?,?) ON CONFLICT(user_id) DO UPDATE SET name_color=excluded.name_color').bind(u.id,nameColor),env.DB.prepare('INSERT INTO profile_identity(user_id,cover,frame,title) VALUES(?,?,?,?) ON CONFLICT(user_id) DO UPDATE SET cover=excluded.cover,frame=excluded.frame,title=excluded.title').bind(u.id,identity.cover,identity.frame,identity.title)]);}
+    try {await env.DB.batch([env.DB.prepare('UPDATE users SET username=?,bio=?,avatar_url=?,updated_at=? WHERE id=?').bind(name,bio,avatar(u.avatar_url),new Date().toISOString(),u.id),env.DB.prepare('INSERT INTO user_appearance_v28 VALUES(?,?) ON CONFLICT(user_id) DO UPDATE SET name_color=excluded.name_color').bind(u.id,nameColor),env.DB.prepare('INSERT INTO profile_identity_v28(user_id,cover,frame,title) VALUES(?,?,?,?) ON CONFLICT(user_id) DO UPDATE SET cover=excluded.cover,frame=excluded.frame,title=excluded.title').bind(u.id,identity.cover,identity.frame,identity.title)]);}
 
     catch(e){if(String(e.message).includes('UNIQUE'))throw error(409,'Esse nome já está em uso.');throw e;}
 
@@ -180,7 +180,7 @@ export async function auth(request,env) {
 
   if(path==='/api/auth/login') {
 
-    const u=await env.DB.prepare(`SELECT users.*,COALESCE(profile_privacy.visibility,'private') visibility,COALESCE(user_appearance.name_color,'ice') name_color,${identityColumns},pm.x avatar_x,pm.y avatar_y,pm.zoom avatar_zoom FROM users LEFT JOIN profile_privacy ON profile_privacy.user_id=users.id LEFT JOIN user_appearance ON user_appearance.user_id=users.id ${identityJoin} LEFT JOIN profile_media pm ON pm.user_id=users.id WHERE email=?`).bind(email).first();
+    const u=await env.DB.prepare(`SELECT users.*,COALESCE(profile_privacy.visibility,'private') visibility,COALESCE(uav28.name_color,user_appearance.name_color,'ice') name_color,${identityColumns},pm.x avatar_x,pm.y avatar_y,pm.zoom avatar_zoom FROM users LEFT JOIN profile_privacy ON profile_privacy.user_id=users.id LEFT JOIN user_appearance ON user_appearance.user_id=users.id LEFT JOIN user_appearance_v28 uav28 ON uav28.user_id=users.id ${identityJoin} LEFT JOIN profile_media pm ON pm.user_id=users.id WHERE email=?`).bind(email).first();
 
     const hash=await passwordHash(password,u?.password_salt || 'unknown-account-salt',env.AUTH_SECRET);
 

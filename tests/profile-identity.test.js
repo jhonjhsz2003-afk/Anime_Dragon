@@ -17,7 +17,7 @@ test('profile identity persists through restart and login while credentials rema
  const registration=await t.call('/api/auth/register',details);assert.equal(registration.status,200);
  const user=(await registration.json()).user,cookie=registration.headers.get('Set-Cookie');
  const original=t.DB.sqlite.prepare('SELECT password_hash,password_salt FROM users WHERE id=?').get(user.id);
- const identity={cover:'nebula',frame:'halo',title:'Guardião das madrugadas'};
+ const identity={cover:'nebula',frame:'golden-comet',title:'Guardião das madrugadas'};
  const displayName='꧁✨𝓓𝓻𝓪𝓰𝓸𝓷🔥꧂';
  const save=await t.call('/api/auth/profile',{name:displayName,bio:'Cada episódio, um universo.',nameColor:'violet',identity},cookie);
  assert.equal(save.status,200);assert.deepEqual((await save.json()).user.identity,identity);
@@ -54,5 +54,5 @@ test('profile identity rejects unknown styles and markup atomically and never ch
  const registration=await t.call('/api/auth/register',data),cookie=registration.headers.get('Set-Cookie');
  for(const identity of [{cover:'red;position:fixed',frame:'flame',title:'Teste'},{cover:'aurora',frame:'javascript:evil',title:'Teste'},{cover:'aurora',frame:'flame',title:'<script>Teste</script>'},{cover:'aurora',frame:'flame',title:'x'}])assert.equal((await t.call('/api/auth/profile',{name:'Nome alterado',bio:'Alterada',identity},cookie)).status,400);
  const me=(await(await t.call('/api/auth/me',null,cookie)).json()).user;assert.equal(me.name,data.name);assert.equal(me.bio,'');assert.equal(me.identity.cover,'aurora');
- assert.equal((await t.call('/api/auth/profile',{name:data.name,bio:'',identity:{cover:'moon',frame:'plain',title:'Sem conexão'}})).status,401);
+ assert.equal((await t.call('/api/auth/profile',{name:data.name,bio:'',identity:{cover:'moon',frame:'onyx',title:'Sem conexão'}})).status,401);
 });

@@ -1,6 +1,5 @@
-import {sourcePriority} from './playback-watchdog.js?v=16.0.0';
 
-const PROVIDERS=[{id:'animefire',name:'AnimeFire',role:'stream'},{id:'embedmovies',name:'EmbedMovies',role:'stream'}];
+const PROVIDERS=[{id:'embedmovies',name:'EmbedMovies',role:'stream'}];
 export function isEmbedMoviesEmbed(source){
   try{
     const u=new URL(source?.url||'');
@@ -11,18 +10,8 @@ export function isEmbedMoviesEmbed(source){
   }catch{return false;}
 }
 
-/** URLs HLS diretas: somente origem contratada, sem redirecionamentos arbitrários. */
-export function isAnimeFireStream(source){
- try{
-  const url=new URL(source?.url||'');
-  return source?.kind==='direct' && source?.providerId==='animefire' &&
-   source?.type==='application/vnd.apple.mpegurl' && ['dublado','legendado'].includes(source?.audio) &&
-   url.protocol==='https:' && url.hostname==='akumast.net' && !url.username && !url.password && !url.port &&
-   url.pathname.startsWith('/i/') && url.pathname.length<400;
- }catch{return false;}
-}
-export function sourceKey(source){return isEmbedMoviesEmbed(source)||isAnimeFireStream(source)?source.url:'';}
-function resultTtl(data){return data?.available?120000:2500;}
+export function sourceKey(source){return isEmbedMoviesEmbed(source)?source.url:'';}
+function resultTtl(data){return data?.available?60000:5000;}
 export function createSourceLoader(request,now=Date.now,{schedule=setTimeout,cancel=clearTimeout}={}){
   const cache=new Map(),pending=new Map();
   async function source(path,fresh,signal){
@@ -56,13 +45,10 @@ export function createSourceLoader(request,now=Date.now,{schedule=setTimeout,can
       const result=await source(`/api/playback?id=${encodeURIComponent(id)}&season=${encodeURIComponent(season)}&episode=${encodeURIComponent(episode)}&provider=auto`,fresh,current);
       const candidates=result.streams?.length?result.streams:result.embed?[result.embed]:[];
       const unique=new Map();
-      for(const item of candidates){if(!isEmbedMoviesEmbed(item)&&!isAnimeFireStream(item))continue;const key=sourceKey(item);if(key&&!unique.has(key))unique.set(key,{...item,key});}
-      const streams=[...unique.values()].sort((a,b)=>{
-        const score=x=>x.providerId==='animefire'?(x.audio==='dublado'?30:20):10;
-        return score(b)-score(a)||sourcePriority(b)-sourcePriority(a);
-      });
+      for(const item of candidates){if(!isEmbedMoviesEmbed(item))continue;const key=sourceKey(item);if(key&&!unique.has(key))unique.set(key,{...item,key});}
+      const streams=[...unique.values()];
       const response={ok:true,available:!!streams.length,streams,externalStreams:[],complete:true,pending:[],
-        providers:PROVIDERS.map(p=>({name:p.name,complete:true,available:streams.some(s=>s.providerId===p.id||p.id==='embedmovies'&&isEmbedMoviesEmbed(s)),reason:p.id==='animefire'?result.animefireReason||'':''})),
+        providers:PROVIDERS.map(p=>({name:p.name,complete:true,available:streams.some(s=>s.providerId===p.id||p.id==='embedmovies'&&isEmbedMoviesEmbed(s)),reason:''})),
         reason:streams.length?'':result.reason||'Não foi possível preparar uma fonte de vídeo.'};
       if(!current.aborted)onUpdate(response);
       return response;

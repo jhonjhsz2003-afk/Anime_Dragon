@@ -8,7 +8,6 @@ import {providers} from './server/providers.js';
 import {media} from './server/media.js';
 import { community } from './server/community.js';
 import {embedMoviesPlayback} from './server/embedmovies.js';
-import {animefirePlayback,animefireEnabled} from './server/animefire.js';
 import {contentSecurityPolicy} from './server/media-policy.js';
 import { auth, cleanupSessions } from './server/auth.js';
 
@@ -94,8 +93,8 @@ async function tmdb(path, params, env) {
   const headers = {Accept: 'application/json'};
   if (env.TMDB_API_KEY.includes('.')) headers.Authorization = `Bearer ${env.TMDB_API_KEY}`;
   else url.searchParams.set('api_key', env.TMDB_API_KEY);
-  return catalogCache.get(`${env.TMDB_API_KEY}:${url}`,300000,async()=>{
-  const response = await fetch(url, {headers, signal: AbortSignal.timeout(7000), cf: {cacheTtl: 300, cacheEverything: true}});
+  return catalogCache.get(`${env.TMDB_API_KEY}:${url}`,url.pathname.match(/\/season\/\d+$/)?60000:300000,async()=>{
+  const response = await fetch(url, {headers, signal: AbortSignal.timeout(7000), cf: {cacheTtl: url.pathname.match(/\/season\/\d+$/)?60:300, cacheEverything: true}});
   if (!response.ok) throw fail(response.status === 429 ? 429 : 502, response.status === 429 ? 'Muitas consultas. Aguarde um momento e tente novamente.' : 'Não foi possível consultar o catálogo agora.');
   return response.json();
   });
@@ -232,7 +231,7 @@ export default {
       if (url.pathname.startsWith('/api/auth/')) return await auth(request,env);
       if (request.method !== 'GET') return json({ok:false,error:'Método não permitido.'},405,{Allow:'GET'});
       if(url.pathname==='/api/giphy/config')return json(giphyConfig(env),200,{'Cache-Control':'no-store'});
-      if (url.pathname === '/api/health') return json({ok:true,service:'AnimeDragon',version:'27.0.0',catalogVersion:CATALOG_VERSION});
+      if (url.pathname === '/api/health') return json({ok:true,service:'AnimeDragon',version:'28.0.0',catalogVersion:CATALOG_VERSION});
       if(url.pathname==='/api/opening'){
         const id=url.searchParams.get('id'),s=url.searchParams.get('season'),ep=url.searchParams.get('episode'),duration=Number(url.searchParams.get('duration'));
         if(!/^\d{1,10}$/.test(id||'')||Number(id)<1||!/^\d{1,4}$/.test(s||'')||!/^\d{1,4}$/.test(ep||'')||Number(ep)<1||!Number.isFinite(duration)||duration<=0||duration>21600)throw fail(400,'Episódio ou duração inválidos.');
@@ -245,18 +244,10 @@ export default {
         const id=url.searchParams.get('id'),s=url.searchParams.get('season'),ep=url.searchParams.get('episode');
         if (![id,s,ep].every(x=>/^\d{1,10}$/.test(x||''))||Number(id)<1||Number(ep)<1||Number(s)>1000||Number(ep)>10000)
           throw fail(400,'Episódio inválido.');
-        if(url.searchParams.has('provider')&&!['auto','animefire','embedmovies'].includes(url.searchParams.get('provider')))throw fail(400,'Provedor não encontrado.');
+        if(url.searchParams.has('provider')&&!['auto','embedmovies'].includes(url.searchParams.get('provider')))throw fail(400,'Provedor não encontrado.');
+        // TMDB é usado para metadados; o iframe do EmbedMovies aceita o ID TMDB.
         const anime=await animeDetail(id,env,true);
-        const selected=url.searchParams.get('provider')||'auto';
-        const fallback=embedMoviesPlayback(anime,Number(s),Number(ep));
-        if(selected==='embedmovies')return json(fallback);
-        const external=await animefirePlayback(anime,Number(s),Number(ep),env);
-        if(selected==='animefire')return json({ok:true,...external});
-        const streams=[...external.streams,...fallback.streams];
-        return json({ok:true,available:streams.length>0,streams,embed:fallback.embed,
-          provider:external.available?'AnimeFire':'EmbedMovies',providerId:external.available?'animefire':'embedmovies',
-          primaryAvailable:external.available,animefireReason:external.reason||'',animefireReasonCode:external.reasonCode||'',
-          notice:external.available?'Prioridade: áudio dublado. Reprodução depende do CDN e do navegador.':fallback.notice});
+        return json(embedMoviesPlayback(anime,Number(s),Number(ep)));
       }
       if (!/^\/api\/(catalog|tmdb)\//.test(url.pathname)) throw fail(404,'Página não encontrada.');
       const cache=globalThis.caches?.default;
@@ -268,7 +259,7 @@ export default {
       const data=await catalog(request,env,ctx);
       const homeRequest=url.pathname==='/api/catalog/home'||url.pathname==='/api/tmdb/home';
       const releaseRequest=/\/api\/(catalog|tmdb)\/releases$/.test(url.pathname);
-      const response=json(data,200,{'Cache-Control':data.partial||data.summary?'public, max-age=15, s-maxage=15':homeRequest?'public, max-age=30, s-maxage=120':releaseRequest?'public, max-age=60, s-maxage=60':'public, max-age=60, s-maxage=300'});
+      const response=json(data,200,{'Cache-Control':data.partial||data.summary?'public, max-age=15, s-maxage=15':homeRequest?'public, max-age=30, s-maxage=120':releaseRequest?'public, max-age=60, s-maxage=60':'public, max-age=60, s-maxage=60'});
       if (cache) ctx.waitUntil(cache.put(key,response.clone()));
       return response;
     } catch(e) {

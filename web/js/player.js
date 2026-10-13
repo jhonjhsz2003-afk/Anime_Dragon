@@ -1,4 +1,4 @@
-import {isEmbedMoviesEmbed} from './sources.js?v=27.0.0';
+import {isEmbedMoviesEmbed} from './sources.js?v=28.0.0';
 import {chooseCaption} from './caption-language.js?v=9.6.1';
 import {disposeMedia} from './media-lifecycle.js?v=9.6.1';
 import {createPlaybackWatchdog,preferredAlternative,createPlaybackRecovery} from './playback-watchdog.js?v=14.0.0';
@@ -62,7 +62,7 @@ export function mountWatchPlayer(host, options) {
   let extraCaptions=[],captionList=[],captionChoice='',captionRequest=0,captionAbort=null,captionTried=new Set(),externalTrack=null;
   let controlsTimer=null,captionMode=o.autoCaptions===true?'auto':'off',commentCount=null,keyboardControls=false;const shakaTried=new Set();
   const sourceId=s=>s?.key||s?.url;
-  const availableEpisodes=o.episodes.filter(x=>!x.air_date||x.air_date<=new Date().toISOString().slice(0,10));
+  const availableEpisodes=o.episodes.filter(x=>Number(x.episode_number)>0);
   const previous=availableEpisodes.find(x=>x.episode_number===o.episode-1), next=availableEpisodes.find(x=>x.episode_number===o.episode+1);
   host.innerHTML=`<div class="watch-layout"><main class="watch-main"><div class="watch-screen controls-visible" tabindex="0" aria-label="Player de vídeo; espaço para reproduzir, setas para avançar ou retroceder">
     <video id="anime-video" playsinline autoplay preload="auto" disablepictureinpicture poster="${e(o.poster)}"></video>
@@ -133,7 +133,7 @@ export function mountWatchPlayer(host, options) {
   function renderEpisodes() {
     const query=q('.watch-search').value.trim().toLocaleLowerCase('pt-BR');
     const rows=o.episodes.filter(x=>!query||String(x.episode_number)===query||x.name?.toLocaleLowerCase('pt-BR').includes(query));
-    q('.watch-episodes').innerHTML=rows.map(x=>{const current=x.episode_number===o.episode,future=x.air_date&&x.air_date>new Date().toISOString().slice(0,10),watched=(community?.progress||[]).some(p=>p.season===o.season&&p.episode===x.episode_number);return `<button class="watch-episode ${current?'current':''}" data-episode="${x.episode_number}" ${current?'aria-current="true"':''} ${future?'disabled':''}><span>${String(x.episode_number).padStart(2,'0')}</span><div><b>${e(x.name||`Episódio ${x.episode_number}`)}</b><small>${future?'Em breve':current?'Você está aqui':watched?'✓ Assistido':x.runtime?`${x.runtime} min`:'Ver episódio'}</small></div><i>${current?'▶':watched?'✓':'›'}</i></button>`}).join('')||'<p>Nenhum episódio encontrado.</p>';
+    q('.watch-episodes').innerHTML=rows.map(x=>{const current=x.episode_number===o.episode,watched=(community?.progress||[]).some(p=>p.season===o.season&&p.episode===x.episode_number);return `<button class="watch-episode ${current?'current':''}" data-episode="${x.episode_number}" ${current?'aria-current="true"':''} ><span>${String(x.episode_number).padStart(2,'0')}</span><div><b>${e(x.name||`Episódio ${x.episode_number}`)}</b><small>${current?'Você está aqui':watched?'✓ Assistido':x.runtime?`${x.runtime} min`:'Ver episódio'}</small></div><i>${current?'▶':watched?'✓':'›'}</i></button>`}).join('')||'<p>Nenhum episódio encontrado.</p>';
   }
   function renderCommunity() {
     if(!community)return;
@@ -233,7 +233,7 @@ export function mountWatchPlayer(host, options) {
       try{mountExternalEmbed(source);}catch(error){failure(error.message);}
       return;
     }
-    const badge=q('.watch-direct-label');badge.textContent=source.providerId==='animefire'?'▶ AnimeFire · '+(source.audio==='dublado'?'Dublado':'Legendado'):'▶ Player próprio';badge.title='Reprodução direta sem anúncios inseridos pelo AnimeDragon.';
+    const badge=q('.watch-direct-label');badge.textContent='▶ Player próprio';badge.title='Reprodução direta sem anúncios inseridos pelo AnimeDragon.';
     watchdog.start();
     note('Abrindo episódio','Conectando ao vídeo…');status.textContent='';q('[data-play]').disabled=false;
     try{
