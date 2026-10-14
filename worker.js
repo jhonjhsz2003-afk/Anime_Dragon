@@ -1,4 +1,5 @@
 import {createCache} from './server/cache.js';
+import {diversifyHomeRails} from './server/home-variety.js';
 import {withinCatalogBudget} from './server/catalog-budget.js';
 import {daysSince,currentCatalogItem,mergeCatalogItems,rankDiverseCatalog} from './server/catalog-policy.js';
 import {getReleases,releaseToday} from './server/releases.js';
@@ -22,7 +23,7 @@ const THEMES = {
 const keywordCache=new Map();
 const catalogCache=createCache(240);
 const anilistCache=createCache(12);
-const CATALOG_VERSION='14.0-current-diverse';
+const CATALOG_VERSION='15.0-fresh-rails';
 const SORTS = new Set(['popularity.desc', 'vote_average.desc', 'first_air_date.desc']);
 export const json = (data, status = 200, headers = {}) => new Response(JSON.stringify(data), {
   status, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', ...headers }
@@ -99,6 +100,23 @@ async function tmdb(path, params, env) {
   return response.json();
   });
 }
+async function youtubeSearchTrailer(anime,env){
+  const title=String(anime.original_name||anime.name||'').slice(0,100).trim();
+  if(!title)return null;
+  const u=new URL('https://www.googleapis.com/youtube/v3/search');
+  for(const [key,value] of Object.entries({part:'snippet',type:'video',videoEmbeddable:'true',safeSearch:'strict',maxResults:'5',q:`${title} official anime trailer PV`,key:env.YOUTUBE_API_KEY}))u.searchParams.set(key,value);
+  const response=await fetch(u,{signal:AbortSignal.timeout(4000)});
+  if(!response.ok)return null;
+  const data=await response.json();
+  const normalizeTitle=value=>String(value||'').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^\p{L}\p{N}]+/gu,' ').trim();
+  const main=normalizeTitle(title),alt=normalizeTitle(anime.name),candidates=(data.items||[]).filter(x=>x.id?.kind==='youtube#video'&&/^[A-Za-z0-9_-]{11}$/.test(x.id.videoId||''));
+  const words=main.split(' ').filter(w=>w.length>=4).slice(0,4);
+  const result=candidates.find(x=>{
+    const name=normalizeTitle(x.snippet?.title),description=normalizeTitle(x.snippet?.description);
+    return /trailer|teaser|promo|\bpv\b/.test(name)&&((main.length>3&&name.includes(main))||(alt.length>3&&name.includes(alt))||(words.length>0&&words.every(w=>name.includes(w)||description.includes(w))));
+  });
+  return result?{key:result.id.videoId,name:result.snippet?.title||'Trailer',type:'Trailer'}:null;
+}
 async function discover(env, params = {}) {
   const d = await tmdb('/discover/tv', {...params, include_adult: 'false', with_origin_country: 'JP', with_genres: params.with_genres ? `16,${params.with_genres}` : '16'}, env);
   const now=new Date(),since=daysSince(params['air_date.gte'],now),until=daysSince(params['air_date.lte'],now),broadcast=since>=0&&since<=35&&until>=0&&until<=since;
@@ -137,11 +155,11 @@ async function catalog(request, env, ctx) {
     const weeklyTask=weeklyTrending(env);
     const varietyTask=Promise.all(['10759','10765','9648'].map(genre=>discover(env,{sort_by:'popularity.desc',with_genres:genre,'air_date.gte':activeDate,'air_date.lte':todayDate,'first_air_date.lte':todayDate}).catch(()=>({results:[]})))).then(rails=>rails.flatMap(rail=>rail.results));
     const siteTask=siteTrending(env,today),pulseTask=anilistPulse(today).catch(()=>new Map());
-    const detailsTask=airingTask.then(airing=>Promise.all(uniqueById(airing.results).slice(0,12).map(item=>animeDetail(item.id,env).then(catalogItem).catch(()=>null))));
+    const detailsTask=airingTask.then(airing=>Promise.all(uniqueById(airing.results).slice(0,18).map(item=>animeDetail(item.id,env).then(catalogItem).catch(()=>null))));
     const background=ctx?.waitUntil?task=>ctx.waitUntil(task):null;
     const optional=(task,fallback)=>withinCatalogBudget(task,2500,fallback,background);
     const emptyRail={results:[]},emptyDetails=[],emptySite=[],emptyVariety=[];
-    const [current,recent,ranked,popular,next,details,site,pulse,weekly,variety]=await Promise.all([
+    const [current,recent,ranked,popular,next,details,site,pulse,weekly,variety,moreCurrent,moreRecent]=await Promise.all([
       currentTask,recentTask,
       optional(discover(env,{sort_by:'vote_average.desc','vote_count.gte':'100','first_air_date.gte':popularDate,'first_air_date.lte':todayDate}),emptyRail),
       optional(discover(env,{sort_by:'popularity.desc','air_date.gte':recentDate,'air_date.lte':todayDate,'first_air_date.lte':todayDate}),emptyRail),
@@ -150,10 +168,12 @@ async function catalog(request, env, ctx) {
       optional(siteTask,emptySite),
       optional(pulseTask,new Map()),
       optional(weeklyTask,emptyRail),
-      optional(varietyTask,emptyVariety)
+      optional(varietyTask,emptyVariety),
+      optional(discover(env,{sort_by:'popularity.desc','air_date.gte':activeDate,'air_date.lte':todayDate,'first_air_date.lte':todayDate,page:2}),emptyRail),
+      optional(discover(env,{sort_by:'popularity.desc','first_air_date.gte':recentDate,'first_air_date.lte':todayDate,page:2}),emptyRail)
     ]);
-    const currentMarked=withExternalTrend(current.results.filter(item=>currentEnough(item,today)),pulse).map(item=>({...item,highlight_reason:item.external_trending?'Em alta na temporada':'Popular agora'}));
-    const recentMarked=withExternalTrend(recent.results.filter(item=>ageDays(item,today)>=0&&ageDays(item,today)<=180),pulse).map(item=>({...item,highlight_reason:item.external_trending?'Em alta na temporada':'Lançamento recente'}));
+    const currentMarked=withExternalTrend([...current.results,...moreCurrent.results].filter(item=>currentEnough(item,today)),pulse).map(item=>({...item,highlight_reason:item.external_trending?'Em alta na temporada':'Popular agora'}));
+    const recentMarked=withExternalTrend([...recent.results,...moreRecent.results].filter(item=>ageDays(item,today)>=0&&ageDays(item,today)<=180),pulse).map(item=>({...item,highlight_reason:item.external_trending?'Em alta na temporada':'Lançamento recente'}));
     const updated=withExternalTrend(details,pulse).filter(item=>item?.last_episode_to_air?.air_date>=weekDate&&item.last_episode_to_air.air_date<=todayDate)
       .sort((a,b)=>b.last_episode_to_air.air_date.localeCompare(a.last_episode_to_air.air_date))
       .map(item=>({...item,highlight_reason:'Novo episódio'}));
@@ -162,14 +182,15 @@ async function catalog(request, env, ctx) {
     const weeklyMarked=withExternalTrend(weekly.results,pulse).filter(item=>currentEnough(item,today));
     const rankedFresh=withExternalTrend(ranked.results,pulse).filter(item=>currentEnough(item,today,365));
     const candidates=uniqueById([...currentMarked,...recentMarked,...popularMarked,...siteFresh,...updated,...weeklyMarked]);
-    const featured=rankFresh(candidates,today,6);
-    const trending=rankFresh(candidates,today,20);
-    const top=rankFresh([...rankedFresh,...updated.filter(item=>item.vote_count>=100)],today,20,{quality:true});
-    const popularFresh=rankFresh([...siteFresh,...popularMarked,...updated,...weeklyMarked],today,20);
-    const recentSorted=uniqueById(recentMarked).sort((a,b)=>(b.first_air_date||'').localeCompare(a.first_air_date||'')).slice(0,20);
+    const featured=rankFresh(candidates,today,12);
+    const trending=rankFresh(candidates,today,30);
+    const top=rankFresh([...rankedFresh,...updated.filter(item=>item.vote_count>=100)],today,30,{quality:true});
+    const popularFresh=rankFresh([...siteFresh,...popularMarked,...updated,...weeklyMarked],today,30);
+    const recentSorted=uniqueById(recentMarked).sort((a,b)=>(b.first_air_date||'').localeCompare(a.first_air_date||'')).slice(0,30);
     const upcoming=uniqueById(next.results.filter(item=>item.first_air_date>=tomorrowDate&&item.first_air_date<=upcomingEnd)).sort((a,b)=>a.first_air_date.localeCompare(b.first_air_date)).slice(0,20);
-    const partial=[ranked,popular,next,weekly].includes(emptyRail)||details===emptyDetails||site===emptySite||variety===emptyVariety;
-    return {ok:true,catalogVersion:CATALOG_VERSION,trending,anime:trending,featured,updated,top,popular:popularFresh,upcoming,recent:recentSorted,trendingSource:weeklyMarked.length?'tmdb_week':'current_catalog',updatedAt:new Date().toISOString(),...(partial?{partial:true}:{})};
+    const distinct=diversifyHomeRails({updated,recent:recentSorted,top,popular:popularFresh,trending},20);
+    const partial=[ranked,popular,next,weekly,moreCurrent,moreRecent].includes(emptyRail)||details===emptyDetails||site===emptySite||variety===emptyVariety;
+    return {ok:true,catalogVersion:CATALOG_VERSION,trending:distinct.trending,anime:distinct.trending,featured,updated:distinct.updated,top:distinct.top,popular:distinct.popular,upcoming,recent:distinct.recent,trendingSource:weeklyMarked.length?'tmdb_week':'current_catalog',updatedAt:new Date().toISOString(),...(partial?{partial:true}:{})};
   }
   if (p === '/api/catalog/discover') {
     if (url.searchParams.get('type') === 'movie') throw fail(404, 'O catálogo contém somente animes em série.');
@@ -203,9 +224,18 @@ async function catalog(request, env, ctx) {
     const anime=await tmdb(`/tv/${videos[1]}`,{append_to_response:'videos',language:'pt-BR'},env);
     if(!isAnime(anime))throw fail(404,'Anime não encontrado.');
     const choose=payload=>(payload?.results||[]).filter(video=>video.site==='YouTube'&&/^[a-zA-Z0-9_-]{11}$/.test(video.key||'')&&['Trailer','Teaser'].includes(video.type)).sort((a,b)=>Number(b.official===true)-Number(a.official===true)||Number(a.type!=='Trailer')-Number(b.type!=='Trailer'))[0];
-    const first=choose(anime.videos);
-    const trailer=first||choose(await tmdb(`/tv/${videos[1]}/videos`,{language:'en-US'},env));
-    return {ok:true,trailer:trailer?{key:trailer.key,site:'YouTube',name:trailer.name||'Trailer oficial'}:null};
+    let trailer=choose(anime.videos),source=trailer?'tmdb-pt':null;
+    // Trailer original em japonês: muito comum em animes que não têm vídeo pt/en.
+    for(const language of ['en-US','ja-JP']){
+      if(trailer)break;
+      try{trailer=choose(await tmdb(`/tv/${videos[1]}/videos`,{language},env));if(trailer)source=`tmdb-${language}`;}catch{}
+    }
+    // YouTube Data API é opcional: só funciona quando há uma chave PRIVADA no Worker.
+    if(!trailer&&env.YOUTUBE_API_KEY){
+      const found=await youtubeSearchTrailer(anime,env).catch(()=>null);
+      if(found){trailer=found;source='youtube-data';}
+    }
+    return {ok:true,trailer:trailer?{key:trailer.key,site:'YouTube',name:trailer.name||'Trailer oficial',source}:null};
   }
   const detail = p.match(/^\/api\/catalog\/tv\/(\d+)$/);
   if (detail) {
@@ -240,7 +270,7 @@ export default {
       if (url.pathname.startsWith('/api/community/')) return await community(request,env,animeDetail);
       if (url.pathname.startsWith('/api/auth/')) return await auth(request,env);
       if (request.method !== 'GET') return json({ok:false,error:'Método não permitido.'},405,{Allow:'GET'});
-      if (url.pathname === '/api/health') return json({ok:true,service:'AnimeDragon',version:'34.0.0',catalogVersion:CATALOG_VERSION});
+      if (url.pathname === '/api/health') return json({ok:true,service:'AnimeDragon',version:'36.0.0',catalogVersion:CATALOG_VERSION,trailerSources:{tmdbConfigured:!!env.TMDB_API_KEY,youtubePlayer:true,youtubeDataConfigured:!!env.YOUTUBE_API_KEY}});
       if(url.pathname==='/api/opening'){
         const id=url.searchParams.get('id'),s=url.searchParams.get('season'),ep=url.searchParams.get('episode'),duration=Number(url.searchParams.get('duration'));
         if(!/^\d{1,10}$/.test(id||'')||Number(id)<1||!/^\d{1,4}$/.test(s||'')||!/^\d{1,4}$/.test(ep||'')||Number(ep)<1||!Number.isFinite(duration)||duration<=0||duration>21600)throw fail(400,'Episódio ou duração inválidos.');

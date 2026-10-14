@@ -38,11 +38,11 @@ test('home separates ranked, popular and future discoveries, limits details and 
   assert.deepEqual(data.top.map(p=>p.id),[77]);assert.deepEqual(data.popular.map(p=>p.id),[88,2,1]);assert.deepEqual(data.upcoming.map(p=>p.id),[99]);
   assert.deepEqual(data.trending.map(p=>p.id),[88,2,1]);assert.deepEqual(data.anime,data.trending);
   assert.deepEqual(data.updated.map(p=>p.id),[2,1]);assert.equal(data.featured[0].id,88);assert.equal(data.trendingSource,'tmdb_week');
-  assert.equal(calls.filter(u=>u.pathname==='/3/discover/tv').length,9);
+  assert.equal(calls.filter(u=>u.pathname==='/3/discover/tv').length,11);
   assert.equal(calls.filter(u=>u.pathname==='/3/trending/tv/week').length,1);
-  assert.equal(calls.filter(u=>u.pathname.startsWith('/3/tv/')).length,12);
-  assert.equal(calls.filter(u=>u.hostname==='api.themoviedb.org').length,22);
-  assert.ok(calls.length<=23);const initialReads=calls.length;
+  assert.equal(calls.filter(u=>u.pathname.startsWith('/3/tv/')).length,18);
+  assert.equal(calls.filter(u=>u.hostname==='api.themoviedb.org').length,30);
+  assert.ok(calls.length<=32);const initialReads=calls.length;
   for(const item of [...data.updated,...data.upcoming]){
     assert.equal(item.available,undefined);assert.equal(item.dubbed,undefined);assert.equal(item.uploaded_at,undefined);
   }
@@ -64,7 +64,7 @@ test('local illustrative fixtures keep future premieres distinct and episode dat
   t.mock.method(globalThis,'fetch',url=>new URL(url).hostname==='graphql.anilist.co'?Promise.resolve(Response.json({data:{Page:{media:[]}}})):Promise.resolve(demoResponse(url)));
   const response=await home('home-local-fixture'),data=await response.json();
   assert.equal(response.status,200);assert.equal(data.updated.length,demoItems.length);assert.equal(data.upcoming.length,demoUpcomingItems.length);
-  assert.equal(data.top.length,demoItems.length);
+  assert.ok(data.top.length>0&&data.top.length<=demoItems.length);
   const airedIds=new Set(data.updated.map(p=>p.id));
   for(const item of data.upcoming){
     assert.equal(airedIds.has(item.id),false);assert.match(item.poster_path,/^\/assets\/demo\//);

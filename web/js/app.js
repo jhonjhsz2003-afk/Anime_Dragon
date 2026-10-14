@@ -8,7 +8,7 @@ import {preferredCaptionLocale} from './caption-language.js?v=9.6.1';
 import {createCatalogCache,createIntentPreloader} from './navigation.js?v=14.1.0';
 import { mountWatchPlayer } from './player.js?v=28.0.0';
 import {createSourceLoader,directEpisodeEmbed} from './sources.js?v=33.0.0';
-import {mountHeroYouTubePreview,preloadYouTubeIframeAPI} from './hero-trailers.js?v=35.0.0';
+import {mountHeroYouTubePreview,preloadYouTubeIframeAPI} from './hero-trailers.js?v=36.0.0';
 import {createAccountDialog} from './account-dialog.js?v=14.1.0';
 const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
 const esc=(s='')=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -46,6 +46,7 @@ let lastPage=location.hash||'#home',handlingHistory=false;
 let renderVersion=0,modalVersion=0,seasonVersion=0,focusBeforeModal=null,heroTimer=null,watchController=null,searchController=null,discussionController=null,releasesController=null;
 let localGalleryController=null;
 const trailerPreviewCache=new Map();
+let trailerDialog=null;
 const trailerPreviewPending=new Map();
 let heroPreview=null;
 function stopHeroPreview(){heroPreview?.destroy();heroPreview=null;}
@@ -58,7 +59,7 @@ function trailerForAnime(id){
   const videoId=/^[a-zA-Z0-9_-]{11}$/.test(key||'')?key:null;
   trailerPreviewCache.set(id,videoId);
   return videoId;
- }).catch(()=>{trailerPreviewCache.set(id,null);return null}).finally(()=>trailerPreviewPending.delete(id));
+ }).catch(()=>null).finally(()=>trailerPreviewPending.delete(id));
  trailerPreviewPending.set(id,request);
  return request;
 }
@@ -387,7 +388,7 @@ const closeButton=()=>'';
 document.addEventListener('click',event=>{const link=event.target.closest?.('a[href="#entrar"],a[href="#cadastro"]');if(!link||event.ctrlKey||event.metaKey||event.shiftKey||event.altKey)return;event.preventDefault();openAccount(link.getAttribute('href')==='#entrar');},true);
 function detailHero(p){
  const seasons=(p.seasons||[]).filter(s=>s.season_number>0&&s.episode_count!==0),overview=esc(p.overview||'Sinopse ainda não disponível.');
- return `<section class="detail-hero">${p.backdrop_path?`<img class="detail-hero-art" src="${img(p.backdrop_path,state.prefs.economy?'w780':'w1280')}" ${state.prefs.economy?'':`srcset="${img(p.backdrop_path,'w780')} 780w, ${img(p.backdrop_path,'w1280')} 1280w, ${img(p.backdrop_path,'original')} 1920w" sizes="100vw"`} width="1920" height="1080" alt="" decoding="async" fetchpriority="high">`:''}<div class="detail-copy"><div class="detail-identity"><span class="eyebrow">ANIME · ${year(p)}</span><h2 id="detail-title">${esc(p.title)}</h2>${p.original_title&&p.original_title!==p.title?`<p class="detail-original-title">${esc(p.original_title)}</p>`:''}<div class="genre-tags">${(p.genres||[]).map(g=>`<span>${esc(g.name)}</span>`).join('')}</div><div class="detail-primary-actions"><button class="primary" id="detail-watch" disabled>▶ Assistir</button><button class="secondary" id="share-anime" aria-label="Compartilhar anime">${icon('share')}</button></div><div id="anime-actions" class="anime-actions"></div></div><div class="detail-context"><details class="detail-synopsis"><summary><span class="synopsis-excerpt">${overview}</span><span class="synopsis-expand">Ler sinopse completa ${icon('right')}</span><span class="synopsis-collapse">Recolher sinopse ${icon('left')}</span></summary><p class="synopsis">${overview}</p></details><div class="meta"><span class="detail-rating">★ ${rating(p)}</span><span>${year(p)}</span>${seasons.length>1?`<span>${seasons.length} temporadas</span>`:''}<span>${p.number_of_episodes||0} episódios</span></div></div></div></section>`;
+ return `<section class="detail-hero">${p.backdrop_path?`<img class="detail-hero-art" src="${img(p.backdrop_path,state.prefs.economy?'w780':'w1280')}" ${state.prefs.economy?'':`srcset="${img(p.backdrop_path,'w780')} 780w, ${img(p.backdrop_path,'w1280')} 1280w, ${img(p.backdrop_path,'original')} 1920w" sizes="100vw"`} width="1920" height="1080" alt="" decoding="async" fetchpriority="high">`:''}<div class="detail-copy"><div class="detail-identity"><span class="eyebrow">ANIME · ${year(p)}</span><h2 id="detail-title">${esc(p.title)}</h2>${p.original_title&&p.original_title!==p.title?`<p class="detail-original-title">${esc(p.original_title)}</p>`:''}<div class="genre-tags">${(p.genres||[]).map(g=>`<span>${esc(g.name)}</span>`).join('')}</div><div class="detail-primary-actions"><button class="primary" id="detail-watch" disabled>▶ Assistir</button><button class="secondary" id="share-anime" aria-label="Compartilhar anime">${icon('share')}</button><button class="secondary detail-trailer-button" id="watch-anime-trailer" type="button" aria-label="Assistir trailer do anime">${icon('anime')}<span>Trailer</span></button></div><div id="anime-actions" class="anime-actions"></div></div><div class="detail-context"><details class="detail-synopsis"><summary><span class="synopsis-excerpt">${overview}</span><span class="synopsis-expand">Ler sinopse completa ${icon('right')}</span><span class="synopsis-collapse">Recolher sinopse ${icon('left')}</span></summary><p class="synopsis">${overview}</p></details><div class="meta"><span class="detail-rating">★ ${rating(p)}</span><span>${year(p)}</span>${seasons.length>1?`<span>${seasons.length} temporadas</span>`:''}<span>${p.number_of_episodes||0} episódios</span></div></div></div></section>`;
 }
 async function openDetails(id,preferredSeason,discussionEpisode=null,fromBack=false){
  void loadPlayback.prepare().catch(()=>{});
@@ -408,6 +409,7 @@ async function openDetails(id,preferredSeason,discussionEpisode=null,fromBack=fa
   const specialControl=special&&regular.length===1?`<button type="button" class="season-chip" data-season-choice="${regular[0].season_number}" aria-pressed="${state.season===regular[0].season_number}">Episódios</button><button type="button" class="season-chip" data-season-choice="0" aria-pressed="${state.season===0}">Especiais</button>`:'';
   setModal(`${detailHero(p)}<div class="detail-tabs" role="tablist" aria-label="Informações do anime"><button id="detail-tab-episodes" role="tab" aria-selected="true" aria-controls="detail-panel-episodes">Episódios</button><button id="detail-tab-related" role="tab" tabindex="-1" aria-selected="false" aria-controls="similar-animes">Relacionados</button><button id="detail-tab-comments" role="tab" tabindex="-1" aria-selected="false" aria-controls="discussion">Comentários</button></div><section class="detail-episodes" id="detail-panel-episodes" role="tabpanel" aria-labelledby="detail-tab-episodes"><div class="episodes-heading"><div><span class="eyebrow">CONTINUE A HISTÓRIA</span><h3>Episódios</h3></div>${seasonControl||specialControl?`<div class="season-controls">${seasonControl}${specialControl}</div>`:''}</div><div class="episode-toolbar"><label class="episode-search">${icon('search')}<input id="episode-search" type="search" placeholder="Buscar episódio por número ou nome" aria-label="Buscar episódio" autocomplete="off"></label><button type="button" class="episode-sort" id="episode-order" value="asc" aria-pressed="false" aria-label="Inverter ordem dos episódios">↓ Do primeiro ao último</button></div><div id="episodes" aria-live="polite"></div></section><section id="similar-animes" class="similar-section" role="tabpanel" aria-labelledby="detail-tab-related" hidden></section><section id="discussion" class="discussion-section" role="tabpanel" aria-labelledby="detail-tab-comments" hidden></section>`);
   bindDetailTabs();mountCommunity(p.id,discussionEpisode===null?null:{season:state.season,episode:discussionEpisode});loadSimilar(p.id,version);void enrichDetails(p,version);bindCards();$('#share-anime').onclick=()=>shareAnime(p);
+  const trailerButton=$('#watch-anime-trailer');if(trailerButton)trailerButton.onclick=()=>void openAnimeTrailer(p,trailerButton);
   const select=$('#season-select');if(select)select.onchange=e=>loadSeason(p.id,Number(e.target.value));
   $$('[data-season-choice]').forEach(button=>button.onclick=()=>loadSeason(p.id,Number(button.dataset.seasonChoice)));
   let searchTimer;$('#episode-search').oninput=()=>{clearTimeout(searchTimer);searchTimer=setTimeout(()=>{if(version===modalVersion)renderEpisodes()},100)};
@@ -460,6 +462,7 @@ function renderEpisodes(options={}){
  else if(focusedWatched)$$('[data-watched]',host).find(button=>button.dataset.watched===focusedWatched)?.focus();
 }
 function closeModal(){
+ if(trailerDialog){trailerDialog.close();trailerDialog=null;}
  stopRankingPresence();
  discussionController?.destroy();discussionController=null;detailHeaderObserver?.disconnect();detailHeaderObserver=null;
  clearDetailHeaderBack();
@@ -516,14 +519,14 @@ function heroMarkup(){
  const items=state.home?.featured||state.home?.trending||[],p=items[state.heroIndex%items.length];
  if(!p)return '';
  const saved=state.list.some(item=>Number(item.id)===Number(p.id));
- return `<section class="hero rotating-hero" data-hero-anime="${Number(p.id)}" aria-label="Animes atuais em destaque">${p.backdrop_path?`<img class="hero-art" src="${img(p.backdrop_path,state.prefs.economy?'w780':'w1280')}" alt="" width="1280" height="720" fetchpriority="high">`:''}<div class="hero-content"><div class="hero-kicker"><span>${icon('spark')} ${esc(p.highlight_reason||'Em destaque agora')}</span><span>★ ${rating(p)}</span></div><h1>${esc(p.title)}</h1>${p.original_title&&p.original_title!==p.title?`<h2 class="hero-original-title">${esc(p.original_title)}</h2>`:''}<div class="meta"><span>${year(p)}</span><span>Série de anime</span></div><p>${esc(p.overview||'Conheça essa história e explore seus episódios.')}</p><div class="actions"><button class="primary" data-id="${p.id}">▶ Ver episódios</button><button class="secondary hero-save" data-list="${p.id}" aria-label="${saved?'Remover de assistir depois':'Salvar para assistir depois'}" aria-pressed="${saved}">${saved?'✓ Salvo':'＋ Minha lista'}</button><button class="secondary hero-info" data-id="${p.id}" aria-label="Detalhes de ${esc(p.title)}">${icon('info')}</button></div></div><div class="hero-switcher"><button class="icon-btn" data-hero-step="-1" aria-label="Destaque anterior">${icon('left')}</button><div class="hero-dots">${items.slice(0,6).map((x,i)=>`<button data-hero-index="${i}" aria-label="Mostrar ${esc(x.title)}" aria-pressed="${i===state.heroIndex}" class="${i===state.heroIndex?'active':''}"></button>`).join('')}</div><button class="icon-btn" data-hero-step="1" aria-label="Próximo destaque">${icon('right')}</button><button class="hero-pause" id="hero-pause" aria-label="${state.heroPaused?'Retomar':'Pausar'} destaques">${state.heroPaused?'▶':'Ⅱ'}</button></div></section>`;
+ return `<section class="hero rotating-hero" data-hero-anime="${Number(p.id)}" aria-label="Animes atuais em destaque">${p.backdrop_path?`<img class="hero-art" src="${img(p.backdrop_path,state.prefs.economy?'w780':'w1280')}" alt="" width="1280" height="720" fetchpriority="high">`:''}<div class="hero-content"><div class="hero-kicker"><span>${icon('spark')} ${esc(p.highlight_reason||'Em destaque agora')}</span><span>★ ${rating(p)}</span></div><h1>${esc(p.title)}</h1>${p.original_title&&p.original_title!==p.title?`<h2 class="hero-original-title">${esc(p.original_title)}</h2>`:''}<div class="meta"><span>${year(p)}</span><span>Série de anime</span></div><p>${esc(p.overview||'Conheça essa história e explore seus episódios.')}</p><div class="actions"><button class="primary" data-id="${p.id}">▶ Ver episódios</button><button class="secondary hero-save" data-list="${p.id}" aria-label="${saved?'Remover de assistir depois':'Salvar para assistir depois'}" aria-pressed="${saved}">${saved?'✓ Salvo':'＋ Minha lista'}</button><button class="secondary hero-info" data-id="${p.id}" aria-label="Detalhes de ${esc(p.title)}">${icon('info')}</button></div></div><div class="hero-switcher"><button class="icon-btn" data-hero-step="-1" aria-label="Destaque anterior">${icon('left')}</button><div class="hero-dots">${items.slice(0,12).map((x,i)=>`<button data-hero-index="${i}" aria-label="Mostrar ${esc(x.title)}" aria-pressed="${i===state.heroIndex}" class="${i===state.heroIndex?'active':''}"></button>`).join('')}</div><button class="icon-btn" data-hero-step="1" aria-label="Próximo destaque">${icon('right')}</button><button class="hero-pause" id="hero-pause" aria-label="${state.heroPaused?'Retomar':'Pausar'} destaques">${state.heroPaused?'▶':'Ⅱ'}</button></div></section>`;
 }
 function bindHero(){
  clearInterval(heroTimer);
  stopHeroPreview();
  const hero=$('.rotating-hero');
  if(!hero)return;
- const entries=(state.home?.featured||state.home?.trending||[]).slice(0,6);
+ const entries=(state.home?.featured||state.home?.trending||[]).slice(0,12);
  const animeId=Number(hero.dataset.heroAnime);
  const show=i=>{
   if(!entries.length)return;
@@ -546,7 +549,6 @@ function bindHero(){
  // Sem chave de API exposta: o TMDB fornece somente o ID do trailer,
  // enquanto o IFrame Player API oficial controla vídeo, mute e erros.
  if(!reducedMotion()&&!state.prefs.economy&&!state.heroPaused&&!document.hidden){
-  void preloadYouTubeIframeAPI();
   trailerForAnime(animeId).then(key=>{
    if(!key||!hero.isConnected||Number(hero.dataset.heroAnime)!==animeId||document.hidden||state.heroPaused)return;
    heroPreview=mountHeroYouTubePreview(hero,key);
@@ -633,6 +635,30 @@ function refreshContinueSection(){
 
 function bindExtras(){const back=$('#page-back');if(back)back.onclick=()=>{if(history.length>1)history.back();else nav('home')};$$('[data-surprise]').forEach(surprise=>surprise.onclick=()=>{const choices=[...new Map([...(state.home?.trending||[]),...(state.home?.top||[]),...(state.home?.recent||[])].map(p=>[p.id,p])).values()];if(choices.length)openDetails(choices[Math.floor(Math.random()*choices.length)].id);else{nav('home');toast('O catálogo está carregando. Tente novamente em instantes.');}});bindResumeCards();}
 function addCancelReply(cancel){const button=document.createElement('button');button.type='button';button.className='text-link';button.textContent='Cancelar';button.onclick=()=>{cancel();$('#reply-context').textContent='';$('#comment-body').value='';$('#comment-spoiler').checked=false};$('#reply-context').append(' ',button)}
+async function openAnimeTrailer(anime,button){
+ if(trailerDialog){trailerDialog.remove();trailerDialog=null;}
+ const initialLabel=button.innerHTML;button.disabled=true;button.textContent='Procurando trailer…';
+ try{
+  const id=await trailerForAnime(Number(anime.id));
+  if(!button.isConnected)return;
+  if(!id){toast('Ainda não encontramos um trailer oficial para este anime.');return;}
+  const dialog=document.createElement('dialog');
+  dialog.className='anime-trailer-dialog';
+  dialog.setAttribute('aria-label',`Trailer de ${anime.title}`);
+  const title=document.createElement('h3');title.textContent=`Trailer · ${anime.title}`;
+  const top=document.createElement('div');top.className='anime-trailer-heading';
+  const close=document.createElement('button');close.type='button';close.className='trailer-close';close.textContent='✕ Fechar';close.setAttribute('aria-label','Fechar trailer');
+  const frame=document.createElement('iframe');frame.title=`Trailer de ${anime.title}`;frame.allow='autoplay; encrypted-media; picture-in-picture; fullscreen';frame.allowFullscreen=true;frame.referrerPolicy='strict-origin-when-cross-origin';
+  frame.src=`https://www.youtube-nocookie.com/embed/${id}?autoplay=1&rel=0&playsinline=1`;
+  const viewport=document.createElement('div');viewport.className='anime-trailer-player';viewport.append(frame);
+  top.append(title,close);dialog.append(top,viewport);document.body.append(dialog);trailerDialog=dialog;
+  const dispose=()=>{frame.src='about:blank';dialog.remove();if(trailerDialog===dialog)trailerDialog=null;button.focus()};
+  close.onclick=()=>dialog.close();dialog.addEventListener('close',dispose,{once:true});
+  dialog.addEventListener('click',event=>{if(event.target===dialog)dialog.close()});
+  dialog.showModal();
+ }catch{toast('Não foi possível consultar o trailer agora.','err')}
+ finally{if(button.isConnected){button.disabled=false;button.innerHTML=initialLabel}}
+}
 async function shareAnime(p){const url=location.origin+location.pathname+'#home?anime='+p.id;try{await navigator.clipboard.writeText(url);toast('Link do anime copiado!')}catch{const field=document.createElement('input');field.value=url;field.readOnly=true;field.setAttribute('aria-label','Link para compartilhar');$('#share-anime').after(field);field.select();toast('Copie o link selecionado.')}}
 async function toggleWatched(episode,button){if(!state.user){toast('Entre para salvar seu progresso.');nav('entrar');return}const id=state.details.id,season=state.season,version=modalVersion;const watched=!state.watched.some(x=>x.season===season&&x.episode===episode);button.disabled=true;try{await post(`/api/community/${id}`,{action:'progress',season,episode,watched});if(version!==modalVersion)return;state.watched=state.watched.filter(x=>!(x.season===season&&x.episode===episode));if(watched)state.watched.push({season,episode});renderEpisodes()}catch(e){toast(e.message,'err');if(button.isConnected)button.disabled=false}}
 

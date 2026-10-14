@@ -42,7 +42,7 @@ export function preloadYouTubeIframeAPI(){
 }
 export function mountHeroYouTubePreview(hero,videoId){
  if(!hero||!validTrailerId(videoId))return {destroy(){}};
- let disposed=false,player=null,observer=null;
+ let disposed=false,player=null,observer=null,revealTimeout=null;
  const stage=document.createElement('div');
  stage.className='hero-video-stage';
  stage.setAttribute('aria-hidden','true');
@@ -61,6 +61,7 @@ export function mountHeroYouTubePreview(hero,videoId){
   observer.observe(hero);
  }else window.addEventListener('resize',resizeFrame,{passive:true});
  const hide=()=>{
+  clearTimeout(revealTimeout);
   hero.classList.remove('trailer-playing');
   // A imagem do anime continua visível se autoplay for bloqueado.
  };
@@ -88,8 +89,11 @@ export function mountHeroYouTubePreview(hero,videoId){
      onStateChange:event=>{
       if(disposed)return;
       if(event.data===YT.PlayerState.PLAYING){
-       hero.classList.add('trailer-playing');
-      }else if(event.data===YT.PlayerState.ENDED){hide();}
+       clearTimeout(revealTimeout);
+       // Só revelar após a reprodução começar: evita mostrar o botão central
+       // que o YouTube desenha na tela inicial do player.
+       revealTimeout=setTimeout(()=>{if(!disposed&&hero.isConnected&&event.target.getPlayerState?.()===YT.PlayerState.PLAYING)hero.classList.add('trailer-playing');},900);
+      }else{hide();}
      },
      onError:()=>clear(),
      onAutoplayBlocked:()=>clear()
