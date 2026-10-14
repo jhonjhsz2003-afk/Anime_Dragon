@@ -33,8 +33,8 @@ test('v34: editor replaces a sticker without saving first and keeps current tab'
 test('v34: official muted videos are allowed only from the specific YouTube embed host',()=>{
  const csp=contentSecurityPolicy();
  assert.match(csp,/frame-src https:\/\/myembed\.biz https:\/\/www\.youtube-nocookie\.com/);
- assert.match(read('web/js/app.js'),/youtube-nocookie\.com\/embed/);
- assert.match(read('web/js/app.js'),/mute=1/);
+ assert.match(read('web/js/hero-trailers.js'),/youtube\.com\/iframe_api/);
+ assert.match(read('web/js/hero-trailers.js'),/mute:1/);
  assert.match(read('web/js/app.js'),/state\.prefs\.economy/);
  assert.match(read('web/js/app.js'),/trailerPreviewCache/);
  assert.match(read('worker.js'),/tv\/\$\{videos\[1\]\}\/videos/);
@@ -43,7 +43,7 @@ test('v34: TMDB videos API only selects genuine YouTube trailers for anime',asyn
  const original=globalThis.fetch;
  globalThis.fetch=async url=>{
   const path=new URL(url).pathname;
-  if(path==='/3/tv/73223')return Response.json({id:73223,name:'Teste',adult:false,genres:[{id:16}],origin_country:['JP']});
+  if(path==='/3/tv/73223')return Response.json({id:73223,name:'Teste',adult:false,genres:[{id:16}],origin_country:['JP'],videos:{results:[]}});
   if(path==='/3/tv/73223/videos')return Response.json({results:[
    {site:'External',key:'AaBbCcDdE11',type:'Trailer'},
    {site:'YouTube',key:'bad$',type:'Trailer'},

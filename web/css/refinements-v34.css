@@ -10,8 +10,8 @@
 @media(min-width:761px) and (max-width:1100px){.site-header .header-account .profile-chip{max-width:49px!important;}}
 @media(max-width:760px){.site-header .header-account .profile-chip{max-width:38px!important;}}
 .home-view .hero .hero-trailer {position:absolute;inset:0;width:100%;height:100%;border:0;z-index:0;pointer-events:none;opacity:.70;transform:scale(1.18);transform-origin:center center;}
-.home-view .rotating-hero.has-trailer .hero-art {opacity:.18;}
-.home-view .rotating-hero .hero-content,.home-view .rotating-hero .hero-switcher {position:relative;z-index:3;}
+
+.home-view .rotating-hero .hero-content {position:relative;z-index:3;}
 @media(max-width:760px){.home-view .hero .hero-trailer{transform:scale(1.75);opacity:.50;}}
 @media(prefers-reduced-motion:reduce){.home-view .hero .hero-trailer{display:none;}}
 

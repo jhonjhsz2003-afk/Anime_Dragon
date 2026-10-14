@@ -200,10 +200,10 @@ async function catalog(request, env, ctx) {
   if(similar){await animeDetail(similar[1],env);const d=await tmdb(`/tv/${similar[1]}/recommendations`,{},env);return {ok:true,results:(d.results||[]).filter(isAnime).map(normalize)}}
   const videos=p.match(/^\/api\/catalog\/tv\/(\d+)\/videos$/);
   if(videos){
-    const anime=await animeDetail(videos[1],env);
+    const anime=await tmdb(`/tv/${videos[1]}`,{append_to_response:'videos',language:'pt-BR'},env);
     if(!isAnime(anime))throw fail(404,'Anime não encontrado.');
-    const choose=payload=>(payload.results||[]).filter(video=>video.site==='YouTube'&&/^[a-zA-Z0-9_-]{11}$/.test(video.key||'')&&['Trailer','Teaser'].includes(video.type)).sort((a,b)=>Number(b.official===true)-Number(a.official===true)||Number(a.type!=='Trailer')-Number(b.type!=='Trailer'))[0];
-    const first=choose(await tmdb(`/tv/${videos[1]}/videos`,{},env));
+    const choose=payload=>(payload?.results||[]).filter(video=>video.site==='YouTube'&&/^[a-zA-Z0-9_-]{11}$/.test(video.key||'')&&['Trailer','Teaser'].includes(video.type)).sort((a,b)=>Number(b.official===true)-Number(a.official===true)||Number(a.type!=='Trailer')-Number(b.type!=='Trailer'))[0];
+    const first=choose(anime.videos);
     const trailer=first||choose(await tmdb(`/tv/${videos[1]}/videos`,{language:'en-US'},env));
     return {ok:true,trailer:trailer?{key:trailer.key,site:'YouTube',name:trailer.name||'Trailer oficial'}:null};
   }

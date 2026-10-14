@@ -8,6 +8,7 @@ import {preferredCaptionLocale} from './caption-language.js?v=9.6.1';
 import {createCatalogCache,createIntentPreloader} from './navigation.js?v=14.1.0';
 import { mountWatchPlayer } from './player.js?v=28.0.0';
 import {createSourceLoader,directEpisodeEmbed} from './sources.js?v=33.0.0';
+import {mountHeroYouTubePreview,preloadYouTubeIframeAPI} from './hero-trailers.js?v=35.0.0';
 import {createAccountDialog} from './account-dialog.js?v=14.1.0';
 const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
 const esc=(s='')=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -45,6 +46,22 @@ let lastPage=location.hash||'#home',handlingHistory=false;
 let renderVersion=0,modalVersion=0,seasonVersion=0,focusBeforeModal=null,heroTimer=null,watchController=null,searchController=null,discussionController=null,releasesController=null;
 let localGalleryController=null;
 const trailerPreviewCache=new Map();
+const trailerPreviewPending=new Map();
+let heroPreview=null;
+function stopHeroPreview(){heroPreview?.destroy();heroPreview=null;}
+function trailerForAnime(id){
+ if(!Number.isSafeInteger(id)||id<1)return Promise.resolve(null);
+ if(trailerPreviewCache.has(id))return Promise.resolve(trailerPreviewCache.get(id));
+ if(trailerPreviewPending.has(id))return trailerPreviewPending.get(id);
+ const request=api(`/api/catalog/tv/${id}/videos`).then(result=>{
+  const key=result.trailer?.key;
+  const videoId=/^[a-zA-Z0-9_-]{11}$/.test(key||'')?key:null;
+  trailerPreviewCache.set(id,videoId);
+  return videoId;
+ }).catch(()=>{trailerPreviewCache.set(id,null);return null}).finally(()=>trailerPreviewPending.delete(id));
+ trailerPreviewPending.set(id,request);
+ return request;
+}
 if(state.prefs.captionPreferenceVersion!==1){state.prefs.autoCaptions=false;state.prefs.captionPreferenceVersion=1;store.set('ad_preferences',state.prefs);}
 state.heroIndex=0;state.favorites=[];state.library=[];state.watched=[];state.commentSort='recent';
 const pending=new Map(),cache=new Map();let catalogStorage;try{catalogStorage=sessionStorage;}catch{}const catalogMemory=createCatalogCache(catalogStorage);
@@ -203,14 +220,14 @@ function identityEditor(){const value=identityOf();return `<section class="ident
  </div>
  <section id="studio-atmosphere" class="studio-panel" role="tabpanel"><h4>Atmosfera do perfil · 24 opções (12 RGB animadas)</h4><input type="hidden" id="profile-cover" value="${value.cover}"><div class="identity-choices atmosphere-gallery">${Object.entries(profileCovers).map(([id,label])=>`<button type="button" class="identity-choice" data-identity-cover="${id}" aria-pressed="${value.cover===id}"><span class="identity-sample identity-cover-${id}" aria-hidden="true"></span>${label}</button>`).join('')}</div></section>
  <section id="studio-frames" class="studio-panel" role="tabpanel" hidden><h4>Moldura do avatar · 30 estilos</h4><input type="hidden" id="profile-frame" value="${value.frame}"><div class="identity-choices identity-frame-gallery">${Object.entries(profileFrames).map(([id,label])=>`<button type="button" class="identity-choice identity-frame-choice" data-identity-frame="${id}" aria-pressed="${value.frame===id}"><span class="identity-frame-sample identity-ring-${id}" aria-hidden="true"><span class="identity-frame-center">✦</span></span><span>${label}</span></button>`).join('')}</div></section>
- <section id="studio-names" class="studio-panel" role="tabpanel" hidden><h4>Nome e cor do perfil</h4><input type="hidden" id="profile-title" value="${esc(value.title)}"><div class="field"><p><strong id="identity-title-preview-editor">${esc(state.user.name)}</strong></p><p>Para alterar seu nome, abra a aba Conta e privacidade. Escolha abaixo a cor e o estilo do seu nome.</p></div><p class="name-color-label">13 cores clássicas e 14 RGB animadas. Emojis preservam suas cores originais.</p><div id="name-preview" class="name-preview">${styledName(state.user.name,state.user.nameColor)}</div><input type="hidden" id="profile-name-color" value="${Object.hasOwn(nameColors,state.user.nameColor)?state.user.nameColor:'ice'}"><div class="name-palette" role="group" aria-label="Cor do nome">${Object.entries(nameColors).map(([color,label])=>`<button type="button" class="name-swatch ${nameClass(color)}" data-name-color="${color}" aria-label="${label}" title="${label}" aria-pressed="${(state.user.nameColor||'ice')===color}"><span></span></button>`).join('')}</div></section>
+ <section id="studio-names" class="studio-panel" role="tabpanel" hidden><h4>Nome e cor do perfil</h4><input type="hidden" id="profile-title" value="${esc(value.title)}"><div class="field"><p>Para alterar seu nome, abra a aba Conta e privacidade. Escolha abaixo a cor e o estilo do seu nome.</p></div><p class="name-color-label">13 cores clássicas e 14 RGB animadas. Emojis preservam suas cores originais.</p><div id="name-preview" class="name-preview">${styledName(state.user.name,state.user.nameColor)}</div><input type="hidden" id="profile-name-color" value="${Object.hasOwn(nameColors,state.user.nameColor)?state.user.nameColor:'ice'}"><div class="name-palette" role="group" aria-label="Cor do nome">${Object.entries(nameColors).map(([color,label])=>`<button type="button" class="name-swatch ${nameClass(color)}" data-name-color="${color}" aria-label="${label}" title="${label}" aria-pressed="${(state.user.nameColor||'ice')===color}"><span></span></button>`).join('')}</div></section>
  <section id="studio-bio" class="studio-panel" role="tabpanel" hidden><h4>Minha bio, meu estilo</h4><p>Escreva sua bio com emojis e escolha uma cor fixa ou RGB em movimento. O texto ficará visível também no perfil compartilhável.</p><div class="field"><label for="pf-bio">Texto da bio · até 300 caracteres</label><textarea id="pf-bio" form="profile-form" rows="4" maxlength="300" placeholder="Seu anime favorito, frases, emojis…">${esc(state.user.bio||'')}</textarea></div><input type="hidden" id="profile-bio-style" value="${value.bioStyle}"><div class="bio-style-options" role="group" aria-label="Estilo da bio">${Object.entries(bioStyles).map(([id,label])=>`<button type="button" class="bio-style-option" data-bio-style="${id}" aria-pressed="${id===value.bioStyle}"><span class="bio-letters bio-style-${id}">Aa ✦</span><small>${label}</small></button>`).join('')}</div><p class="bio-preview-heading">Prévia da sua bio</p><p class="profile-bio bio-preview" id="bio-preview">${styledBio(state.user.bio||'Sua bio aparecerá aqui ✨',value.bioStyle)}</p></section>
  </section>`}
 function profile(){
  if(route().params.get('user'))return '<div id="public-profile">'+skeletons()+'</div>';
  if(!state.user)return `${heading('Seu perfil, sua identidade','Entre na sua conta para escolher um avatar e personalizar seu perfil.')}${empty('Faça parte do AnimeDragon','Sua conta está esperando por você.','<a href="#entrar" class="primary">Entrar</a> <a href="#cadastro" class="secondary">Criar conta</a>')}`;
  return `${heading('Meu universo anime','Sua coleção aparece primeiro. Personalizações e dados da conta ficam em abas separadas.')}
- <section class="profile-cover profile-hero ${identityClass()}"><div class="profile-cover-stickers">${stickerMarkup(identityOf())}</div>${avatarView(state.avatar,state.user?.avatarFrame,'big-avatar','profile-avatar','Sua foto')}<div class="profile-hero-info"><span class="badge identity-title" id="identity-title-preview">${esc(state.user.name)}</span><h2 class="profile-display-name">${styledName(state.user.name,state.user.nameColor)}</h2><p class="profile-bio">${styledBio(state.user.bio||'',identityOf().bioStyle)}</p><div class="profile-hero-actions"><a class="secondary" href="#profile?user=${encodeURIComponent(state.user.id)}">↗ Perfil compartilhável</a></div></div></section>
+ <section class="profile-cover profile-hero ${identityClass()}"><div class="profile-cover-stickers">${stickerMarkup(identityOf())}</div>${avatarView(state.avatar,state.user?.avatarFrame,'big-avatar','profile-avatar','Sua foto')}<div class="profile-hero-info"><h2 class="profile-display-name">${styledName(state.user.name,state.user.nameColor)}</h2><p class="profile-bio">${styledBio(state.user.bio||'',identityOf().bioStyle)}</p><div class="profile-hero-actions"><a class="secondary" href="#profile?user=${encodeURIComponent(state.user.id)}">↗ Perfil compartilhável</a></div></div></section>
  <nav class="profile-main-tabs" aria-label="Áreas do meu perfil" role="tablist">${[['universe','Minha coleção'],['appearance','Personalizar'],['photo','Foto e avatar'],['account','Conta e privacidade']].map(([id,label],i)=>`<button type="button" role="tab" data-profile-tab="${id}" aria-controls="profile-panel-${id}" aria-selected="${i===0}" tabindex="${i===0?0:-1}">${label}</button>`).join('')}</nav>
  <section id="profile-panel-universe" class="profile-main-panel" role="tabpanel"><section class="profile-universe"><div class="section-head"><div><h2>Meus animes</h2><p>Somente as escolhas que você salvou, sem misturar com o histórico.</p></div></div><div id="profile-library">${skeletons()}</div></section></section>
  <section id="profile-panel-appearance" class="profile-main-panel rail-card" role="tabpanel" hidden><form id="profile-form">${identityEditor()}<p id="profile-error" role="alert" class="form-error"></p><button class="primary" type="submit">Salvar alterações</button></form></section>
@@ -228,7 +245,7 @@ function openAccount(login=true){
 function closeAccount(){accountDialog?.close();}
 
 
-async function render(){const authPage=route().page;if(['entrar','cadastro'].includes(authPage)){const destination=/^#(entrar|cadastro)(?:\?|$)/.test(lastPage)?'#home':lastPage;replaceHistoryState(null,destination);lastPage=destination;if(!$('.shell'))void render();openAccount(authPage==='entrar');return}searchController?.destroy();searchController=null;releasesController?.destroy();releasesController=null;localGalleryController?.destroy();localGalleryController=null;if(avatarObjectUrl){URL.revokeObjectURL(avatarObjectUrl);avatarObjectUrl=null}clearInterval(heroTimer);const version=++renderVersion,{page,params}=route();closeModal();document.title=page==='cadastro'?'Criar conta · AnimeDragon':page==='entrar'?'Entrar · AnimeDragon':'AnimeDragon';let inner;
+async function render(){const authPage=route().page;if(['entrar','cadastro'].includes(authPage)){const destination=/^#(entrar|cadastro)(?:\?|$)/.test(lastPage)?'#home':lastPage;replaceHistoryState(null,destination);lastPage=destination;if(!$('.shell'))void render();openAccount(authPage==='entrar');return}searchController?.destroy();searchController=null;releasesController?.destroy();releasesController=null;localGalleryController?.destroy();localGalleryController=null;if(avatarObjectUrl){URL.revokeObjectURL(avatarObjectUrl);avatarObjectUrl=null}clearInterval(heroTimer);stopHeroPreview();const version=++renderVersion,{page,params}=route();closeModal();document.title=page==='cadastro'?'Criar conta · AnimeDragon':page==='entrar'?'Entrar · AnimeDragon':'AnimeDragon';let inner;
  if(page==='home')inner=state.home?home():skeletons();
  else if(page==='anime'||page==='search')inner=listing(page,params);
  else if(page==='genres')inner=heading('Escolha seu próximo universo.','Isekai, magia, light novels e muito mais. Encontre sua próxima maratona.')+genreTiles();
@@ -276,7 +293,7 @@ function bindCards(){$$('[data-id]').forEach(b=>b.onclick=()=>openDetails(b.data
 function beginCatalogSearch(q){
  releasesController?.destroy();releasesController=null;localGalleryController?.destroy();localGalleryController=null;
  closeModal();
- ++renderVersion;clearInterval(heroTimer);
+ ++renderVersion;clearInterval(heroTimer);stopHeroPreview();
  $('.shell')?.classList.remove('home-view');
  const hash=`#search?q=${encodeURIComponent(q)}`,entering=route().page!=='search';
  if(entering)window.scrollTo(0,0);
@@ -501,15 +518,48 @@ function heroMarkup(){
  const saved=state.list.some(item=>Number(item.id)===Number(p.id));
  return `<section class="hero rotating-hero" data-hero-anime="${Number(p.id)}" aria-label="Animes atuais em destaque">${p.backdrop_path?`<img class="hero-art" src="${img(p.backdrop_path,state.prefs.economy?'w780':'w1280')}" alt="" width="1280" height="720" fetchpriority="high">`:''}<div class="hero-content"><div class="hero-kicker"><span>${icon('spark')} ${esc(p.highlight_reason||'Em destaque agora')}</span><span>★ ${rating(p)}</span></div><h1>${esc(p.title)}</h1>${p.original_title&&p.original_title!==p.title?`<h2 class="hero-original-title">${esc(p.original_title)}</h2>`:''}<div class="meta"><span>${year(p)}</span><span>Série de anime</span></div><p>${esc(p.overview||'Conheça essa história e explore seus episódios.')}</p><div class="actions"><button class="primary" data-id="${p.id}">▶ Ver episódios</button><button class="secondary hero-save" data-list="${p.id}" aria-label="${saved?'Remover de assistir depois':'Salvar para assistir depois'}" aria-pressed="${saved}">${saved?'✓ Salvo':'＋ Minha lista'}</button><button class="secondary hero-info" data-id="${p.id}" aria-label="Detalhes de ${esc(p.title)}">${icon('info')}</button></div></div><div class="hero-switcher"><button class="icon-btn" data-hero-step="-1" aria-label="Destaque anterior">${icon('left')}</button><div class="hero-dots">${items.slice(0,6).map((x,i)=>`<button data-hero-index="${i}" aria-label="Mostrar ${esc(x.title)}" aria-pressed="${i===state.heroIndex}" class="${i===state.heroIndex?'active':''}"></button>`).join('')}</div><button class="icon-btn" data-hero-step="1" aria-label="Próximo destaque">${icon('right')}</button><button class="hero-pause" id="hero-pause" aria-label="${state.heroPaused?'Retomar':'Pausar'} destaques">${state.heroPaused?'▶':'Ⅱ'}</button></div></section>`;
 }
-function bindHero(){clearInterval(heroTimer);const hero=$('.rotating-hero');if(!hero)return;
- if(!reducedMotion()&&!state.prefs.economy&&!state.heroPaused&&!document.hidden){
-  const animeId=Number(hero.dataset.heroAnime);
-  const placeVideo=key=>{if(!/^[a-zA-Z0-9_-]{11}$/.test(key||'')||!hero.isConnected||Number(hero.dataset.heroAnime)!==animeId||document.hidden||state.heroPaused)return;
-   const frame=document.createElement('iframe');frame.className='hero-trailer';frame.title='Prévia oficial em vídeo (sem som)';frame.loading='lazy';frame.referrerPolicy='strict-origin-when-cross-origin';frame.setAttribute('allow','autoplay; encrypted-media; picture-in-picture');frame.setAttribute('aria-hidden','true');frame.tabIndex=-1;frame.src=`https://www.youtube-nocookie.com/embed/${key}?autoplay=1&mute=1&controls=0&playsinline=1&rel=0&disablekb=1&start=0&end=12&loop=1&playlist=${key}`;hero.prepend(frame);hero.classList.add('has-trailer');
-  };
-  if(trailerPreviewCache.has(animeId))placeVideo(trailerPreviewCache.get(animeId));else if(Number.isSafeInteger(animeId)&&animeId>0)api(`/api/catalog/tv/${animeId}/videos`).then(data=>{const key=data.trailer?.key||null;trailerPreviewCache.set(animeId,key);placeVideo(key);}).catch(()=>{trailerPreviewCache.set(animeId,null)});
+function bindHero(){
+ clearInterval(heroTimer);
+ stopHeroPreview();
+ const hero=$('.rotating-hero');
+ if(!hero)return;
+ const entries=(state.home?.featured||state.home?.trending||[]).slice(0,6);
+ const animeId=Number(hero.dataset.heroAnime);
+ const show=i=>{
+  if(!entries.length)return;
+  stopHeroPreview();
+  state.heroIndex=(i+entries.length)%entries.length;
+  hero.outerHTML=heroMarkup();
+  bindCards();
+  bindHero();
+ };
+ $$('[data-hero-index]',hero).forEach(b=>b.onclick=()=>show(Number(b.dataset.heroIndex)));
+ $$('[data-hero-step]',hero).forEach(b=>b.onclick=()=>show(state.heroIndex+Number(b.dataset.heroStep)));
+ const pause=$('#hero-pause',hero);
+ if(pause)pause.onclick=()=>{state.heroPaused=!state.heroPaused;show(state.heroIndex)};
+ // 9 segundos por destaque, independentemente de haver trailer disponível.
+ if(!reducedMotion()&&!state.heroPaused){
+  heroTimer=setInterval(()=>{
+   if(!document.hidden)show(state.heroIndex+1);
+  },9000);
  }
-const show=i=>{const length=Math.min(6,(state.home.featured||state.home.trending).length);state.heroIndex=(i+length)%length;hero.outerHTML=heroMarkup();bindCards();bindHero()};$$('[data-hero-index]').forEach(b=>b.onclick=()=>show(Number(b.dataset.heroIndex)));$$('[data-hero-step]').forEach(b=>b.onclick=()=>show(state.heroIndex+Number(b.dataset.heroStep)));$('#hero-pause').onclick=()=>{state.heroPaused=!state.heroPaused;show(state.heroIndex)};if(!reducedMotion()&&!state.heroPaused)heroTimer=setInterval(()=>{if(!document.hidden&&!hero.matches(':hover')&&!hero.contains(document.activeElement))show(state.heroIndex+1)},14000)}
+ // Sem chave de API exposta: o TMDB fornece somente o ID do trailer,
+ // enquanto o IFrame Player API oficial controla vídeo, mute e erros.
+ if(!reducedMotion()&&!state.prefs.economy&&!state.heroPaused&&!document.hidden){
+  void preloadYouTubeIframeAPI();
+  trailerForAnime(animeId).then(key=>{
+   if(!key||!hero.isConnected||Number(hero.dataset.heroAnime)!==animeId||document.hidden||state.heroPaused)return;
+   heroPreview=mountHeroYouTubePreview(hero,key);
+  });
+  const next=entries[(state.heroIndex+1)%entries.length];
+  if(next&&Number(next.id)!==animeId)void trailerForAnime(Number(next.id));
+ }
+}
+// Não deixar o vídeo reproduzindo quando o usuário muda de guia.
+document.addEventListener('visibilitychange',()=>{
+ if(document.hidden)stopHeroPreview();
+ else if($('.rotating-hero'))bindHero();
+});
 async function loadSimilar(id,version){const el=$('#similar-animes');if(!el)return;el.innerHTML='<h3>Se você gostou deste, explore também</h3><p>Buscando recomendações…</p>';try{const d=await api(`/api/catalog/tv/${id}/recommendations`);if(version!==modalVersion||!el.isConnected)return;d.results=d.results.filter(p=>Number(p.id)!==Number(id));remember(d.results);el.innerHTML=`<h3>Se você gostou deste, explore também</h3>${d.results.length?`<div class="similar-grid">${d.results.slice(0,6).map(card).join('')}</div>`:'<p>Ainda não há recomendações para este anime.</p>'}`;bindCards()}catch(e){if(el.isConnected)el.innerHTML='<h3>Animes parecidos</h3><p>As recomendações estão indisponíveis neste momento.</p>'}}
 async function syncCollectionCounts(){if(!state.user)return;const userId=state.user.id;const d=await api('/api/community/collections');if(state.user?.id!==userId)return;state.list=d.items.filter(x=>x.kind==='watchlater').map(x=>({id:x.anime_id}));state.favorites=d.items.filter(x=>x.kind==='favorite').map(x=>({id:x.anime_id}));state.library=d.items;$$('[data-list]').forEach(button=>{const saved=state.list.some(item=>Number(item.id)===Number(button.dataset.list));button.textContent=saved?'✓ Salvo':'＋ Minha lista';button.setAttribute('aria-pressed',String(saved));button.setAttribute('aria-label',saved?'Remover de assistir depois':'Salvar para assistir depois');});}
 async function loadRemoteCollection(page,version){
@@ -665,7 +715,7 @@ function bindStickerEditor(){
 }
 function bindIdentityEditor(){
  const cover=$('.profile-cover'),title=$('#profile-title');if(!cover||!title)return;
- const preview=()=>{cover.className='profile-cover profile-hero '+identityClass({identity:{cover:$('#profile-cover').value,frame:$('#profile-frame').value}});$('#identity-title-preview').textContent=$('#pf-name')?.value||state.user.name;const stage=$('#sticker-stage');if(stage)stage.className='sticker-preview identity-cover identity-cover-'+$('#profile-cover').value;};
+ const preview=()=>{cover.className='profile-cover profile-hero '+identityClass({identity:{cover:$('#profile-cover').value,frame:$('#profile-frame').value}});const stage=$('#sticker-stage');if(stage)stage.className='sticker-preview identity-cover identity-cover-'+$('#profile-cover').value;};
  for(const kind of ['cover','frame'])$$('[data-identity-'+kind+']').forEach(button=>button.onclick=()=>{$('#profile-'+kind).value=button.dataset['identity'+kind[0].toUpperCase()+kind.slice(1)];$$('[data-identity-'+kind+']').forEach(choice=>choice.setAttribute('aria-pressed',String(choice===button)));preview();});
  title.oninput=preview;
 }
@@ -674,7 +724,7 @@ async function loadProfileUniverse(userId,version,standalone){
  try{
   const d=await api('/api/community/profile/'+encodeURIComponent(userId));if(version!==renderVersion)return;
   const avatar=d.profile.avatar;
-  if(standalone){target.innerHTML=`<section class="public-profile-header ${identityClass(d.profile)}"><div class="profile-cover-stickers">${stickerMarkup(identityOf(d.profile))}</div>${avatarView(avatar,d.profile.avatarFrame,'big-avatar','','Foto de '+d.profile.name)}<div><span class="eyebrow">UNIVERSO OTAKU · ${d.profile.visibility==='public'?'PÚBLICO':'PRIVADO'}</span><p class="badge identity-title">${esc(d.profile.name)}</p><h1 class="profile-display-name">${styledName(d.profile.name,d.profile.nameColor)}</h1>${d.profile.bio?`<p class="profile-bio">${styledBio(d.profile.bio,identityOf(d.profile).bioStyle)}</p>`:''}<div class="actions">${!d.private?'<button class="secondary" id="copy-profile">↗ Copiar link do perfil</button>':''}${d.owner?'<a href="#profile" class="secondary">Editar meu perfil</a>':''}</div></div></section><div id="profile-library"></div>`;const copy=$('#copy-profile');if(copy)copy.onclick=async()=>{const url=location.origin+location.pathname+'#profile?user='+encodeURIComponent(d.profile.id);try{await navigator.clipboard.writeText(url);toast('Link do perfil copiado!')}catch{const input=document.createElement('input');input.value=url;input.readOnly=true;input.setAttribute('aria-label','Link do perfil');copy.after(input);input.select()}};}
+  if(standalone){target.innerHTML=`<section class="public-profile-header ${identityClass(d.profile)}"><div class="profile-cover-stickers">${stickerMarkup(identityOf(d.profile))}</div>${avatarView(avatar,d.profile.avatarFrame,'big-avatar','','Foto de '+d.profile.name)}<div><span class="eyebrow">UNIVERSO OTAKU · ${d.profile.visibility==='public'?'PÚBLICO':'PRIVADO'}</span><h1 class="profile-display-name">${styledName(d.profile.name,d.profile.nameColor)}</h1>${d.profile.bio?`<p class="profile-bio">${styledBio(d.profile.bio,identityOf(d.profile).bioStyle)}</p>`:''}<div class="actions">${!d.private?'<button class="secondary" id="copy-profile">↗ Copiar link do perfil</button>':''}${d.owner?'<a href="#profile" class="secondary">Editar meu perfil</a>':''}</div></div></section><div id="profile-library"></div>`;const copy=$('#copy-profile');if(copy)copy.onclick=async()=>{const url=location.origin+location.pathname+'#profile?user='+encodeURIComponent(d.profile.id);try{await navigator.clipboard.writeText(url);toast('Link do perfil copiado!')}catch{const input=document.createElement('input');input.value=url;input.readOnly=true;input.setAttribute('aria-label','Link do perfil');copy.after(input);input.select()}};}
   
   const body=$('#profile-library');if(d.private){body.innerHTML=empty('Este universo é privado.','Esta pessoa optou por não compartilhar suas listas e atividades.');return;}
   // Coleção = escolha explícita, nunca episódios abertos ou marcados.

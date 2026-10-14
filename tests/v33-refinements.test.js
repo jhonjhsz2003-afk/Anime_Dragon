@@ -21,7 +21,7 @@ test('v33: seis stickers com coordenadas validas e nome verdadeiro em vez de tit
  const js=read('web/js/app.js'),css=read('web/css/refinements-v33.css');
  assert.match(js,/const positions=\[\[18,28\],\[50,28\],\[82,28\],\[18,72\],\[50,72\],\[82,72\]\]/);
  assert.doesNotMatch(js,/Seu título pessoal/);
- assert.match(js,/id="identity-title-preview">\$\{esc\(state\.user\.name\)\}/);
+ assert.match(js,/<h2 class="profile-display-name">\$\{styledName\(state\.user\.name,state\.user\.nameColor\)\}/);
  assert.match(css,/\.home-view \.cards:not\(\.continue-cards\)/);
  assert.match(css,/\.home-view \.hero, \.home-view \.rotating-hero/);
  const ids=Array.from({length:6},(_,i)=>`/assets/profile-media/Stickers/v33-${i}.webp`);
