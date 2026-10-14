@@ -9,12 +9,12 @@ test('v31: sticker search uses DragonGIF API, without GIPHY',()=>{
  assert.doesNotMatch(js,/api\.giphy\.com/);
  assert.match(gallery,/api\/v1\/media/);
 });
-test('v29: separate profile tabs, 12 atmospheres, name segments and shared profile poster sizing',()=>{
+test('v32: 24 atmospheres, photo stickers, bio editing and responsive profile',()=>{
  const js=file('web/js/app.js'),css=file('web/css/profile-v29.css'),server=file('server/profile-identity.js');
  for(const tab of ['universe','appearance','photo','account'])assert.match(js,new RegExp(`profile-panel-${tab}`));
- for(const section of ['atmosphere','frames','stickers','names'])assert.match(js,new RegExp(`studio-${section}`));
+ for(const section of ['atmosphere','frames','bio','names'])assert.match(js,new RegExp(`studio-${section}`));
  assert.match(js,/function styledName/);assert.match(js,/name-emoji/);
  assert.match(js,/sticker-stage/);assert.match(js,/stickerMarkup/);
  assert.match(css,/#public-profile \.profile-minimal-grid/);
- assert.match(server,/const covers = new Set\(\['aurora'.*'prism'\]\)/);
+ assert.match(server,/const rgbCovers = \[/);assert.match(js,/rgb-aurora/);assert.match(js,/profile-bio-style/);assert.match(file('web/css/profile-v32.css'),/profile-main-tabs/);
 });

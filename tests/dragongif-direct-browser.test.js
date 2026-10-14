@@ -24,16 +24,16 @@ test('somente dominio DragonGIF e arquivos de mídia sob o tipo correto',()=>{
  assert.equal(localAvatarSrc(gif+'?x=40&y=50&zoom=150'),gif);
 });
 
-test('perfil mantém avatar GIF remoto e quatro stickers remotos',()=>{
+test('perfil mantém avatar GIF remoto e seis stickers remotos',()=>{
  assert.equal(localSticker(sticker),true);
  assert.equal(localSticker(gif),false);
  const avatar=localAvatarMarker(gif,{x:10,y:80,zoom:180});
  assert.deepEqual(localAvatar(avatar),{path:gif,frame:{x:10,y:80,zoom:180}});
  const v={profile_stickers:'[]',profile_cover:'aurora',profile_frame:'stardust'};
- const stickers=Array.from({length:4},(_,n)=>({id:origin+`/media/stickers/test/${n}.webp`,x:20+n*10,y:50,size:17}));
- assert.equal(validateIdentity({stickers},v).stickers.length,4);
+ const stickers=Array.from({length:6},(_,n)=>({id:origin+`/media/stickers/test/${n}.webp`,x:20+n*10,y:50,size:17}));
+ assert.equal(validateIdentity({stickers},v).stickers.length,6);
  assert.throws(()=>validateIdentity({stickers:[{id:gif,x:50,y:50,size:17}]},v),/inválido/);
- assert.throws(()=>validateIdentity({stickers:[...stickers,stickers[0]]},v),/quatro/);
+ assert.throws(()=>validateIdentity({stickers:[...stickers,stickers[0]]},v),/seis/);
 });
 
 test('pesquisa direta retorna somente mídias do domínio e elimina ids repetidos',async()=>{

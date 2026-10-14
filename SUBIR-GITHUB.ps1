@@ -1,7 +1,7 @@
 $ErrorActionPreference='Stop'
 $source=$PSScriptRoot
 $repo='https://github.com/jhonjhsz2003-afk/Anime_Dragon.git'
-$stage=Join-Path $env:TEMP ('AnimeDragon-v31-'+[guid]::NewGuid().ToString('N'))
+$stage=Join-Path $env:TEMP ('AnimeDragon-v32-'+[guid]::NewGuid().ToString('N'))
 foreach($item in @('worker.js','wrangler.toml','package.json','web','server')) {if(-not(Test-Path (Join-Path $source $item))){throw "Abra a pasta raiz AnimeDragon: ausente $item"}}
 if(-not(Get-Command git -ErrorAction SilentlyContinue)){throw 'Git nao instalado.'}
 Write-Host 'Atualizando AnimeDragon no GitHub; DragonGIF armazena midias em outro repositorio.' -ForegroundColor Cyan
@@ -11,7 +11,7 @@ try {
  Get-ChildItem -LiteralPath $stage -Force | Where-Object {$_.Name -ne '.git'} | Remove-Item -Recurse -Force
  $gifDir=Join-Path $source 'web\assets\profile-media\GIFs'
  $stickDir=Join-Path $source 'web\assets\profile-media\Stickers'
- & robocopy $source $stage /E /R:1 /W:1 /XD .git node_modules .wrangler coverage test-results $gifDir $stickDir /XF '.env' '.env.*' '.dev.vars' '.dev.vars.*' '*.pem' '*.key' '*.zip' 'rclone.conf' /NFL /NDL /NJH /NJS /NP
+ & robocopy $source $stage /E /R:1 /W:1 /XD .git node_modules .wrangler coverage test-results $gifDir $stickDir /XF '.env' '.env.*' '.dev.vars' '.dev.vars.*' '*.pem' '*.key' '*.zip' '*.p12' '*.pfx' '.npmrc' 'rclone.conf' /NFL /NDL /NJH /NJS /NP
  if($LASTEXITCODE -ge 8){throw 'Falha no robocopy.'}
  $ignored=@(git -C $stage status --porcelain)
  Write-Host ('Arquivos alterados: '+$ignored.Count) -ForegroundColor Cyan

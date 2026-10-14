@@ -18,7 +18,7 @@ test('profile identity persists through restart and login while credentials rema
  const registration=await t.call('/api/auth/register',details);assert.equal(registration.status,200);
  const user=(await registration.json()).user,cookie=registration.headers.get('Set-Cookie');
  const original=t.DB.sqlite.prepare('SELECT password_hash,password_salt FROM users WHERE id=?').get(user.id);
- const identity={cover:'nebula',frame:'golden-comet',title:'Guardião das madrugadas',stickers:[]};
+ const identity={cover:'nebula',frame:'golden-comet',title:'Guardião das madrugadas',stickers:[],bioStyle:'default'};
  const displayName='꧁✨𝓓𝓻𝓪𝓰𝓸𝓷🔥꧂';
  const save=await t.call('/api/auth/profile',{name:displayName,bio:'Cada episódio, um universo.',nameColor:'violet',identity},cookie);
  assert.equal(save.status,200);assert.deepEqual((await save.json()).user.identity,identity);
@@ -88,4 +88,26 @@ test('v30: invalid or excessive local stickers cannot modify saved decorations',
  ]){const r=await t.call('/api/auth/profile',{...base,identity:{...base.identity,stickers:bad}},cookie);assert.equal(r.status,400)}
  const final=(await(await t.call('/api/auth/me',null,cookie)).json()).user;
  assert.deepEqual(final.identity.stickers,base.identity.stickers);
+});
+
+test('v32: six unique stickers and RGB bio/cover persist in the public profile without DB migration',async()=>{
+ const t=fixture(),details={name:'Estilo RGB',email:'rgb-v32@example.test',password:'senha-segura-animedragon-v32'};
+ const registration=await t.call('/api/auth/register',details);assert.equal(registration.status,200);
+ const cookie=registration.headers.get('Set-Cookie'),user=(await registration.json()).user;
+ const paths=Array.from({length:7},(_,i)=>`/assets/profile-media/Stickers/v32-${i}.webp`);
+ paths.forEach(id=>localStickerPaths.add(id));
+ try{
+  const row=(id,i)=>({id,x:10+i*12,y:35+i*3,size:17});
+  const identity={cover:'rgb-aurora',frame:'stardust',title:'Universo RGB',bioStyle:'rgb-cyber',stickers:paths.slice(0,6).map(row)};
+  const saved=await t.call('/api/auth/profile',{name:details.name,bio:'Meus animes 💫✨',nameColor:'rgb-ocean',identity},cookie);
+  assert.equal(saved.status,200,await saved.clone().text());assert.deepEqual((await saved.json()).user.identity,identity);
+  const seven=await t.call('/api/auth/profile',{name:details.name,bio:'Tentativa inválida',identity:{...identity,stickers:paths.map(row)}},cookie);
+  assert.equal(seven.status,400);assert.match((await seven.json()).error,/seis/);
+  const me=(await(await t.call('/api/auth/me',null,cookie)).json()).user;
+  assert.equal(me.bio,'Meus animes 💫✨');assert.deepEqual(me.identity,identity);
+  await t.call('/api/auth/privacy',{visibility:'public'},cookie);
+  const publicProfile=(await(await t.call('/api/community/profile/'+user.id)).json()).profile;
+  assert.equal(publicProfile.identity.bioStyle,'rgb-cyber');assert.equal(publicProfile.identity.stickers.length,6);
+  assert.equal(publicProfile.identity.cover,'rgb-aurora');assert.equal(publicProfile.bio,'Meus animes 💫✨');
+ }finally{paths.forEach(id=>localStickerPaths.delete(id))}
 });

@@ -14,6 +14,11 @@ export function isDragonMediaUrl(value,kind){
  return /\.(gif|webp|png|apng|avif)$/i.test(url.pathname);
 }
 let latestResults=null;
+const resultCache=new Map();
+const pendingMedia=new Map();
+const CACHE_TTL=180000;
+function remember(key,value){resultCache.delete(key);resultCache.set(key,{value,expires:Date.now()+CACHE_TTL});if(resultCache.size>28)resultCache.delete(resultCache.keys().next().value)}
+export function warmDragonMedia(){return Promise.allSettled([searchDragonMedia({kind:'gif',limit:36}),searchDragonMedia({kind:'sticker',limit:60})]);}
 export function localAvatarSrc(value){
  if(typeof value!=='string')return null;
  const path=value.split('?')[0];
@@ -31,8 +36,10 @@ export function filterLocalMedia(rows,{query='',kind='gif'}={}){
 export async function searchDragonMedia({query='',kind='all',page=1,limit=36,fetcher=globalThis.fetch,signal}={}){
  const type=kind==='gif'?'gifs':kind==='sticker'?'stickers':'all';
  const params=new URLSearchParams({q:String(query).slice(0,100),type,page:String(page),limit:String(limit)});
- let response;
- try{response=await fetcher(DRAGONGIF_ORIGIN+'/api/v1/media?'+params,{signal,mode:'cors',cache:'no-store',credentials:'omit'});}
+ const key=params.toString(),useCache=fetcher===globalThis.fetch,cached=useCache?resultCache.get(key):null;if(cached?.expires>Date.now())return cached.value;
+ if(useCache&&!signal&&pendingMedia.has(key))return pendingMedia.get(key);
+ const task=async()=>{let response;
+ try{response=await fetcher(DRAGONGIF_ORIGIN+'/api/v1/media?'+params,{signal,mode:'cors',cache:'default',credentials:'omit'});}
  catch(error){if(error?.name==='AbortError')throw error;throw new Error('Falha na conexão direta com DragonGIF. Verifique a API e as permissões CORS no navegador.');}
  const data=await response.json().catch(()=>({}));
  if(!response.ok||data.ok!==true)throw new Error(data.error||'Falha ao consultar o DragonGIF.');
@@ -41,11 +48,12 @@ export async function searchDragonMedia({query='',kind='all',page=1,limit=36,fet
    if(!/^dg_[0-9a-f]{32}$/.test(x.id)||ids.has(x.id)||!['gifs','stickers'].includes(x.kind)||!isDragonMediaUrl(x.url,x.kind))return false;
    ids.add(x.id);return true;
  }).map(x=>({id:x.id,title:String(x.title||'Sem título').slice(0,120),kind:x.kind==='gifs'?'gif':'sticker',url:x.url,tags:Array.isArray(x.tags)?x.tags:[]}));
- return {...data,items};
+ const result={...data,items};if(useCache)remember(key,result);return result;};
+ const job=task();if(useCache&&!signal)pendingMedia.set(key,job);try{return await job}finally{if(pendingMedia.get(key)===job)pendingMedia.delete(key)}
 }
 export async function dragonStats({fetcher=globalThis.fetch}={}){
  let response;
- try{response=await fetcher(DRAGONGIF_ORIGIN+'/api/v1/stats',{mode:'cors',cache:'no-store',credentials:'omit'});}
+ try{response=await fetcher(DRAGONGIF_ORIGIN+'/api/v1/stats',{mode:'cors',cache:'default',credentials:'omit'});}
  catch{throw new Error('Não foi possível conectar à API pública do DragonGIF.');}
  const data=await response.json().catch(()=>({}));
  if(!response.ok||data.ok!==true)throw new Error(data.error||'API DragonGIF indisponível.');
@@ -72,7 +80,7 @@ export function localGalleryPage(){return `<section class="dragon-media-page loc
 export function mountLocalGallery(host,{onSelect,onLogin,user,loadMedia=searchDragonMedia}={}){
  let dead=false,kind='gif',query='',page=0,hasMore=false,busy=false,selected=null,items=[],serial=0,controller=null,timer=null;
  const grid=host.querySelector('#local-gallery-grid'),status=host.querySelector('#local-gallery-status'),more=host.querySelector('#local-gallery-more'),dialog=host.querySelector('dialog');
- const card=x=>`<button type="button" class="dragon-media-card local-media-card" data-local-open="${escapeHtml(x.id)}" aria-label="Visualizar ${escapeHtml(x.title)}"><img src="${escapeHtml(x.url)}" alt="${escapeHtml(x.title)}" loading="lazy" decoding="async"><span>${escapeHtml(x.title)}</span></button>`;
+ const card=(x,i)=>`<button type="button" class="dragon-media-card local-media-card" data-local-open="${escapeHtml(x.id)}" aria-label="Visualizar ${escapeHtml(x.title)}"><img src="${escapeHtml(x.url)}" alt="${escapeHtml(x.title)}" loading="${i<12?'eager':'lazy'}" decoding="async"><span>${escapeHtml(x.title)}</span></button>`;
  async function load(reset=false){
   if(reset){page=0;items=[];grid.replaceChildren();controller?.abort();serial++;}
   if(dead||busy&&!reset||!reset&&!hasMore&&page>0)return;
@@ -80,7 +88,7 @@ export function mountLocalGallery(host,{onSelect,onLogin,user,loadMedia=searchDr
   try{
    const result=await loadMedia({query,kind,page:page+1,limit:36,signal:abort.signal});
    if(dead||token!==serial)return;
-   page++;hasMore=!!result.hasMore;const ids=new Set(items.map(x=>x.id));const add=result.items.filter(x=>!ids.has(x.id));items.push(...add);grid.insertAdjacentHTML('beforeend',add.map(card).join(''));
+   page++;hasMore=!!result.hasMore;const ids=new Set(items.map(x=>x.id));const add=result.items.filter(x=>!ids.has(x.id));items.push(...add);grid.insertAdjacentHTML('beforeend',add.map((x,i)=>card(x,(page-1)*36+i)).join(''));
    host.querySelector('#local-gallery-results').textContent=`${items.length} ${kind==='gif'?'GIFs':kind==='sticker'?'stickers':'arquivos'} exibidos${hasMore?' · mais resultados disponíveis':''}`;
    status.textContent=items.length?'':query?'Nenhum resultado para esta pesquisa. Tente outro termo.':'Nenhum arquivo cadastrado ainda. Importe os arquivos no painel DragonGIF.';
    more.hidden=!hasMore;

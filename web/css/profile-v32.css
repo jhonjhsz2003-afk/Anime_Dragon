@@ -1,0 +1,47 @@
+/* AnimeDragon v32: responsive profile, RGB atmospheres and animated biography */
+/* Ensure navigation aligns to the hero/panels and never exceeds the page. */
+.profile-main-tabs{width:min(100%,1150px);max-width:1150px;min-width:0;margin:16px auto 24px!important;box-sizing:border-box;display:flex;align-items:center;justify-content:flex-start;gap:6px;overflow-x:auto;flex-wrap:nowrap;scrollbar-width:thin;}
+.profile-main-tabs button{flex:0 0 auto;white-space:nowrap;min-width:0;padding:10px clamp(10px,1.5vw,18px)}
+#profile-panel-universe,#profile-panel-photo,#profile-panel-appearance,#profile-panel-account{width:min(100%,1150px);max-width:1150px;box-sizing:border-box;margin-left:auto;margin-right:auto;min-width:0}
+#profile-panel-universe .profile-universe{width:100%;max-width:100%;}
+@media(max-width:700px){.profile-main-tabs{width:100%;padding:6px;justify-content:flex-start}.profile-main-tabs button{font-size:12px;padding:10px 12px}.profile-hero{width:min(100%,1150px)}}
+/* A preview uses identical colors to the published cover, but GIF and sticker media stay on top. */
+.identity-cover-rgb-aurora,.identity-cover-rgb-cyber,.identity-cover-rgb-sakura,.identity-cover-rgb-cosmic,.identity-cover-rgb-prism,.identity-cover-rgb-ocean,.identity-cover-rgb-sunset,.identity-cover-rgb-neon,.identity-cover-rgb-emerald,.identity-cover-rgb-dragon,.identity-cover-rgb-gold,.identity-cover-rgb-night{position:relative;isolation:isolate;overflow:hidden;background:linear-gradient(118deg,var(--rgb-a),var(--rgb-b),var(--rgb-c),var(--rgb-d),var(--rgb-a))!important;background-size:350% 350%!important;animation:ad-cover-flow 13s ease-in-out infinite;}
+.identity-cover[class*="identity-cover-rgb-"]::before{opacity:.28;background:radial-gradient(circle at 15% 25%,var(--rgb-b),transparent 65%);z-index:-1;}
+.identity-sample[class*="identity-cover-rgb-"]{display:block;min-height:45px;}
+@keyframes ad-cover-flow{0%,100%{background-position:0% 50%}50%{background-position:100% 50%}}
+.profile-stickers-inline{margin-top:26px;border-top:1px solid #508ab733;padding-top:20px}.profile-stickers-inline h4{margin-top:0}.sticker-save-row{display:flex;align-items:center;gap:15px;flex-wrap:wrap;margin-top:25px}.sticker-save-row p{margin:0;color:#add4ea}
+.profile-gif-gallery{margin:12px 0 24px;display:inline-flex}
+.profile-bio,.public-profile-header .profile-bio,.profile-hero-info .profile-bio{font-size:clamp(16px,1.3vw,19px)!important;line-height:1.68!important;letter-spacing:.12px;max-width:min(720px,100%);color:#eff6ff;white-space:pre-wrap;overflow-wrap:anywhere;}
+.profile-bio .bio-letters{white-space:pre-wrap;overflow-wrap:anywhere;display:inline;background-clip:text;-webkit-background-clip:text}
+.bio-emoji{color:initial!important;-webkit-text-fill-color:initial!important;background:none!important;animation:none!important;text-shadow:none!important;font-family:'Segoe UI Emoji','Apple Color Emoji',sans-serif}
+.bio-style-options{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin:16px 0 22px}
+.bio-style-option{display:flex;flex-direction:column;gap:8px;align-items:center;justify-content:center;border-radius:12px;padding:15px 8px;background:#11233a;border:1px solid #3b6688;cursor:pointer;color:#dcefff}
+.bio-style-option[aria-pressed="true"]{border-color:#62d8fa;background:#164365;box-shadow:0 0 0 2px #65cfff55}
+.bio-style-option .bio-letters{font-size:22px;font-weight:900}
+.bio-preview{min-height:80px;border:1px dashed #4e7b9f;padding:18px;border-radius:16px;background:#0b1b2c;}
+.bio-preview-heading{margin-top:20px;font-size:13px;color:#99c6e3}
+#pf-bio{font-size:16px;line-height:1.6;min-height:110px;width:100%;resize:vertical}
+.bio-editor-hint{font-size:14px;color:#a6c9e6}
+.bio-style-default{color:#f1f8ff}.bio-style-ice{color:#90deff}.bio-style-gold{color:#ffda83}.bio-style-pink{color:#ff9edb}.bio-style-green{color:#8bf2bb}.bio-style-violet{color:#c5abff}
+.bio-letters[class*="bio-style-rgb-"]{color:transparent!important;-webkit-text-fill-color:transparent!important;background-size:320% 100%;animation:ad-bio-flow 3s linear infinite}
+.bio-style-rgb-rainbow{background-image:linear-gradient(90deg,#ff83ad,#fff18c,#80f7dc,#96aaff,#ff83ad)}
+.bio-style-rgb-aurora{background-image:linear-gradient(90deg,#7cdbff,#bd91ff,#80ffc9,#7cdbff)}
+.bio-style-rgb-cyber{background-image:linear-gradient(90deg,#2cecf4,#f65cdb,#89f56f,#2cecf4)}
+.bio-style-rgb-sakura{background-image:linear-gradient(90deg,#f7a9d4,#dfa2ff,#fff1b1,#f7a9d4)}
+.bio-style-rgb-gold{background-image:linear-gradient(90deg,#ffefba,#f6ad67,#e5b2ff,#ffefba)}
+.bio-style-rgb-neon{background-image:linear-gradient(90deg,#8aff78,#4acbff,#fc81eb,#8aff78)}
+@keyframes ad-bio-flow{from{background-position:0% 50%}to{background-position:100% 50%}}
+@media(prefers-reduced-motion:reduce){.identity-cover[class*="identity-cover-rgb-"],.bio-letters[class*="bio-style-rgb-"]{animation:none!important}}
+ .identity-cover-rgb-aurora{--rgb-a:#173c70;--rgb-b:#13c7dd;--rgb-c:#984ffc;--rgb-d:#f283f0;}
+ .identity-cover-rgb-cyber{--rgb-a:#0d234f;--rgb-b:#0376f7;--rgb-c:#ff3fd9;--rgb-d:#15e7c9;}
+ .identity-cover-rgb-sakura{--rgb-a:#502260;--rgb-b:#ed4bbf;--rgb-c:#ff9fbf;--rgb-d:#844ae1;}
+ .identity-cover-rgb-cosmic{--rgb-a:#1e235d;--rgb-b:#653de0;--rgb-c:#53cfff;--rgb-d:#ca76fb;}
+ .identity-cover-rgb-prism{--rgb-a:#052b46;--rgb-b:#16d6bf;--rgb-c:#f5c65a;--rgb-d:#e46fea;}
+ .identity-cover-rgb-ocean{--rgb-a:#073b4f;--rgb-b:#14bbe9;--rgb-c:#3e74fe;--rgb-d:#1cdeb4;}
+ .identity-cover-rgb-sunset{--rgb-a:#63273b;--rgb-b:#fb6653;--rgb-c:#ffb657;--rgb-d:#a34dda;}
+ .identity-cover-rgb-neon{--rgb-a:#052c24;--rgb-b:#49e779;--rgb-c:#00bff4;--rgb-d:#fd37be;}
+ .identity-cover-rgb-emerald{--rgb-a:#06402c;--rgb-b:#2dce89;--rgb-c:#5c9cf9;--rgb-d:#dcff8b;}
+ .identity-cover-rgb-dragon{--rgb-a:#382b63;--rgb-b:#535dfc;--rgb-c:#f5448c;--rgb-d:#edb977;}
+ .identity-cover-rgb-gold{--rgb-a:#4b3713;--rgb-b:#d09e33;--rgb-c:#fff0a1;--rgb-d:#7e57d6;}
+ .identity-cover-rgb-night{--rgb-a:#071d43;--rgb-b:#3b56d4;--rgb-c:#923cf0;--rgb-d:#00d8ff;}

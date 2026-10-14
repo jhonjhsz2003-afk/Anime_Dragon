@@ -40,15 +40,15 @@ test('local GIF selection validates the catalog index and exact framing',()=>{
  }finally{localGifPaths.delete(gif)}
 });
 
-test('only indexed stickers can be placed, 4 at most, with no duplicates',()=>{
- const files=Array.from({length:5},(_,i)=>`/assets/profile-media/Stickers/element-${i}.gif`);
+test('only indexed stickers can be placed, 6 at most, with no duplicates',()=>{
+ const files=Array.from({length:7},(_,i)=>`/assets/profile-media/Stickers/element-${i}.gif`);
  files.forEach(x=>localStickerPaths.add(x));
  try{
   const base={profile_stickers:'[]',profile_cover:'aurora',profile_frame:'stardust'};
-  const items=files.slice(0,4).map((id,i)=>({id,x:10+i*10,y:60,size:17}));
+  const items=files.slice(0,6).map((id,i)=>({id,x:10+i*10,y:60,size:17}));
   assert.deepEqual(validateIdentity({cover:'aurora',frame:'stardust',title:'Meu mundo',stickers:items},base).stickers,items);
   assert.equal(localSticker(files[0]),true);
-  assert.throws(()=>validateIdentity({title:'Meu mundo',stickers:files.map(id=>({id,x:50,y:50,size:17}))},base),/quatro/);
+  assert.throws(()=>validateIdentity({title:'Meu mundo',stickers:files.map(id=>({id,x:50,y:50,size:17}))},base),/seis/);
   assert.throws(()=>validateIdentity({title:'Meu mundo',stickers:[items[0],items[0]]},base),/repetido/);
   assert.throws(()=>validateIdentity({title:'Meu mundo',stickers:[{id:'https://site.falso/sticker.gif',x:50,y:50,size:17}]},base),/inválido/);
  }finally{files.forEach(x=>localStickerPaths.delete(x))}

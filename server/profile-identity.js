@@ -1,5 +1,7 @@
 import {localSticker} from './local-avatar.js';
-const covers = new Set(['aurora', 'inferno', 'nebula', 'moon', 'sakura', 'cosmos', 'sunset', 'emerald', 'royal', 'ocean', 'crimson', 'prism']);
+const rgbCovers = ['rgb-aurora','rgb-cyber','rgb-sakura','rgb-cosmic','rgb-prism','rgb-ocean','rgb-sunset','rgb-neon','rgb-emerald','rgb-dragon','rgb-gold','rgb-night'];
+const covers = new Set(['aurora', 'inferno', 'nebula', 'moon', 'sakura', 'cosmos', 'sunset', 'emerald', 'royal', 'ocean', 'crimson', 'prism',...rgbCovers]);
+const bioStyles = new Set(['default','ice','gold','pink','green','violet','rgb-rainbow','rgb-aurora','rgb-cyber','rgb-sakura','rgb-gold','rgb-neon']);
 const frames = new Set(["stardust", "azure-dragon", "sakura", "nebula", "golden-comet", "frost-nova", "eclipse", "emerald-rune", "crimson-moon", "ocean-pearl", "amethyst", "thunder", "aurora", "koi", "solar", "lunar-tide", "rose-quartz", "arcane", "onyx", "jade", "cosmic", "meteor", "cherry", "coral", "ice-lotus", "tempest", "midnight", "prism", "autumn", "iridescent"]);
 const legacyFrames={flame:'azure-dragon',crystal:'amethyst',halo:'golden-comet',plain:'onyx'};
 const nameSegments = typeof Intl.Segmenter==='function'?new Intl.Segmenter('pt-BR',{granularity:'grapheme'}):null;
@@ -19,7 +21,7 @@ export function validateDisplayName(value){
 export const identityColumns = "COALESCE(pi28.cover,pi.cover,'aurora') profile_cover,COALESCE(pi28.frame,pi.frame,'stardust') profile_frame,COALESCE(pi28.title,pi.title,'Explorador de universos') profile_title,COALESCE(pstick.stickers,'[]') profile_stickers";
 export const identityJoin = 'LEFT JOIN profile_identity pi ON pi.user_id=users.id LEFT JOIN profile_identity_v28 pi28 ON pi28.user_id=users.id LEFT JOIN profile_stickers_v29 pstick ON pstick.user_id=users.id';
 const validateStickers=value=>{
- if(!Array.isArray(value)||value.length>4)throw Object.assign(new Error('Escolha até quatro stickers.'),{status:400});
+ if(!Array.isArray(value)||value.length>6)throw Object.assign(new Error('Escolha até seis stickers.'),{status:400});
  const ids=new Set();return value.map(row=>{
   if(!row||typeof row!=='object'||!localSticker(row.id)||ids.has(row.id))throw Object.assign(new Error('Sticker inválido ou repetido.'),{status:400});
   ids.add(row.id);
@@ -28,8 +30,9 @@ const validateStickers=value=>{
   return {id:row.id,x:Math.round(x*10)/10,y:Math.round(y*10)/10,size:Math.round(size)};
  });
 };
-const parseStickers=value=>{try{return validateStickers(JSON.parse(value||'[]'))}catch{return []}};
-export const profileIdentity = u => ({stickers:parseStickers(u.profile_stickers),cover:covers.has(u.profile_cover)?u.profile_cover:'aurora',frame:frames.has(u.profile_frame)?u.profile_frame:(legacyFrames[u.profile_frame]||'stardust'),title:u.profile_title||'Explorador de universos'});
+const readDecoration=value=>{try{const parsed=JSON.parse(value||'[]');return Array.isArray(parsed)?{stickers:validateStickers(parsed),bioStyle:'default'}:{stickers:validateStickers(parsed?.stickers??[]),bioStyle:bioStyles.has(parsed?.bioStyle)?parsed.bioStyle:'default'}}catch{return {stickers:[],bioStyle:'default'}}};
+export const profileIdentity = u => ({...readDecoration(u.profile_stickers),cover:covers.has(u.profile_cover)?u.profile_cover:'aurora',frame:frames.has(u.profile_frame)?u.profile_frame:(legacyFrames[u.profile_frame]||'stardust'),title:u.profile_title||'Explorador de universos'});
+export const serializeProfileDecorations = identity => JSON.stringify({stickers:identity.stickers,bioStyle:identity.bioStyle});
 
 export function validateIdentity(value,current){
  if(value===undefined)return profileIdentity(current);
@@ -38,5 +41,7 @@ export function validateIdentity(value,current){
  const title=String(value.title??prior.title).trim();
  if(!covers.has(cover)||!frames.has(frame)||title.length<2||title.length>40||/[<>\u0000-\u001f]/u.test(title))throw Object.assign(new Error('Escolha uma capa e uma moldura disponíveis e um título de 2 a 40 caracteres.'),{status:400});
  const stickers=value.stickers===undefined?prior.stickers:validateStickers(value.stickers);
- return {cover,frame,title,stickers};
+ const bioStyle=value.bioStyle??prior.bioStyle;
+ if(!bioStyles.has(bioStyle))throw Object.assign(new Error('Estilo de bio inválido.'),{status:400});
+ return {cover,frame,title,stickers,bioStyle};
 }
