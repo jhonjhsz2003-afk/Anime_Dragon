@@ -1,11 +1,10 @@
-/* v36: vídeo só visível em reprodução real, com fallback de capa. */
-.home-view .rotating-hero.trailer-playing .hero-video-stage {opacity:1!important;}
-.home-view .rotating-hero.trailer-playing .hero-art {opacity:0!important;}
-.home-view .rotating-hero .hero-video-stage{z-index:0;}
-.home-view .rotating-hero .hero-art{z-index:-1;transition:opacity .25s ease;}
-.home-view .rotating-hero .hero-switcher{z-index:7;}
-.home-view .rotating-hero .hero-dots{max-width:180px;flex-wrap:wrap;justify-content:center;}
-.home-view .rotating-hero .hero-dots button{flex:none;min-width:6px;}
+/* v37: banner simplificado, sem trailer no fundo e com indicadores limpos. */
+.home-view .rotating-hero .hero-video-stage{display:none!important;}
+.home-view .rotating-hero .hero-art{opacity:1!important;z-index:-1;transition:none;}
+.home-view .rotating-hero .hero-switcher{z-index:7;display:flex;align-items:center;gap:10px;}
+.home-view .rotating-hero .hero-dots{display:flex;align-items:center;justify-content:center;gap:7px;flex-wrap:nowrap!important;white-space:nowrap;overflow:hidden;max-width:none!important;}
+.home-view .rotating-hero .hero-dots button{flex:none;min-width:5px;width:5px;height:5px;border-radius:999px;background:#ffffff55;transition:all .2s ease;}
+.home-view .rotating-hero .hero-dots button.active{width:18px;background:#afd3f8;}
 .detail-modal .detail-copy .detail-primary-actions>.detail-trailer-button {display:flex;gap:7px;width:auto;padding:10px 18px;white-space:nowrap;border-radius:999px;align-items:center;justify-content:center;}
 .detail-trailer-button svg{width:19px;height:19px;flex-shrink:0;}
 .anime-trailer-dialog{position:fixed;z-index:9000;border:1px solid #ffffff24;border-radius:17px;padding:0;background:#0a0c13;color:#fff;width:min(92vw,1050px);max-width:1050px;max-height:90dvh;box-shadow:0 30px 100px #000b;overflow:hidden;}
@@ -15,4 +14,4 @@
 .anime-trailer-heading .trailer-close{min-height:40px;flex:none;padding:8px 14px;border:1px solid #ffffff38;border-radius:24px;color:#fff;background:#ffffff12;cursor:pointer;}
 .anime-trailer-player{width:100%;aspect-ratio:16/9;background:#000;}
 .anime-trailer-player iframe{display:block;width:100%;height:100%;border:0;}
-@media(max-width:600px){.detail-modal .detail-copy .detail-primary-actions>.detail-trailer-button{min-height:52px;padding:10px 12px;font-size:12px}.anime-trailer-dialog{width:100vw;max-width:100vw;border-radius:12px}.anime-trailer-heading{padding:12px}.anime-trailer-player{aspect-ratio:16/9}.home-view .rotating-hero .hero-dots{max-width:105px;gap:6px;}}
+@media(max-width:600px){.detail-modal .detail-copy .detail-primary-actions>.detail-trailer-button{min-height:52px;padding:10px 12px;font-size:12px}.anime-trailer-dialog{width:100vw;max-width:100vw;border-radius:12px}.anime-trailer-heading{padding:12px}.anime-trailer-player{aspect-ratio:16/9}.home-view .rotating-hero .hero-switcher{gap:8px}.home-view .rotating-hero .hero-dots{gap:5px}.home-view .rotating-hero .hero-dots button{width:4px;height:4px;min-width:4px}.home-view .rotating-hero .hero-dots button.active{width:14px;}}

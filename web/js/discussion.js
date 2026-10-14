@@ -14,9 +14,17 @@ export function relativeCommentTime(value,now=Date.now()) {
  return 'agora';
 }
 
+export const DISCUSSION_REFRESH_MS=4000;
+export function discussionIsVisible(host,doc=globalThis.document){
+ if(!host?.isConnected||doc?.hidden===true)return false;
+ // Se a aba de comentários ou o player estiver oculto, não consultar o servidor.
+ for(let node=host;node;node=node.parentElement)if(node.hidden)return false;
+ return true;
+}
+
 export function mountDiscussion(host,o) {
  const e=escapeHTML,abort=new AbortController(),signal=abort.signal,comments=new Map(),branches=new Map(),hostListeners=[],formListeners=new Map();
- let dead=false,roots=[...o.data.comments],data=o.data,sort=o.sort||'recent',offset=roots.length,generation=0;
+ let dead=false,roots=[...o.data.comments],data=o.data,sort=o.sort||'recent',offset=roots.length,generation=0,polling=false,mutations=0,failures=0,nextPoll=0;
  const user=()=>typeof o.user==='function'?o.user():o.user;
  const draftKey=`ad_draft_${user()?.id||'guest'}_${o.animeId}_${o.scope?`${o.scope.season}_${o.scope.episode}`:'all'}`;
  function request(extra={}){const query=new URLSearchParams({view:'threads',sort,...(o.scope||{}),...extra});return o.api(`/api/community/${o.animeId}?${query}`);}
@@ -34,11 +42,55 @@ export function mountDiscussion(host,o) {
   c={...c,likes:count(c.likes),dislikes:count(c.dislikes),replyCount:count(c.replyCount)};
   return `<div class="comment-thread" data-thread="${e(c.id)}"><article class="comment ${deleted?'comment-deleted':''}" data-comment="${e(c.id)}">${o.avatarView(deleted?null:c.avatar,c.avatarFrame)}<div class="comment-main"><div class="comment-byline">${deleted?'<b>Comentário excluído</b>':`<a href="#profile?user=${encodeURIComponent(c.userId||'')}" class="comment-author"><b class="profile-display-name">${o.styledName?o.styledName(c.name,c.nameColor):e(c.name)}</b></a>`}<time datetime="${e(c.createdAt)}" title="${e(new Date(c.createdAt).toLocaleString('pt-BR'))}">${relativeCommentTime(c.createdAt)}</time>${!deleted&&c.updatedAt!==c.createdAt?'<small>(editado)</small>':''}${!deleted?`<details class="comment-menu"><summary aria-label="Opções do comentário de ${e(c.name)}">⋮</summary><div>${c.mine?`<button data-action="edit">Editar</button><button data-action="delete">Excluir</button>`:'<button data-action="report">Denunciar</button>'}</div></details>`:''}</div>${c.episode&&!o.scope?`<small class="episode-label">EP.${c.episode}</small>`:''}${deleted?'<p class="comment-text">Este comentário foi excluído.</p>':c.spoiler?`<details class="spoiler"><summary>Contém spoiler · mostrar</summary><p>${e(c.body)}</p></details>`:`<p class="comment-text">${e(c.body)}</p>`}${!deleted?`<div class="comment-tools"><button data-action="vote" data-value="1" class="comment-vote ${c.reaction===1?'selected':''}" aria-label="Curti este comentário" aria-pressed="${c.reaction===1}">${thumbsUp}<span>${c.likes||''}</span></button><button data-action="vote" data-value="-1" class="comment-vote ${c.reaction===-1?'selected':''}" aria-label="Não curti este comentário" aria-pressed="${c.reaction===-1}">${thumbsDown}<span>${c.dislikes||''}</span></button><button data-action="reply">${replyIcon} Responder</button></div>`:''}<div class="inline-composer"></div>${c.replyCount?`<button class="thread-toggle" data-action="replies" aria-expanded="${!!open}">${chevron}<span>${open?'Ocultar respostas':`${c.replyCount} ${c.replyCount===1?'resposta':'respostas'}`}</span></button>`:''}</div></article><div class="thread-replies" ${open?'':'hidden'}>${open?(branch.rows||[]).map(r=>commentHTML(r,depth+1)).join(''):''}${open&&branch.hasMore?'<button class="thread-more" data-more-replies="'+e(c.id)+'">Mais respostas</button>':''}</div></div>`;
  }
- function render(){
+ function fingerprint(){
+  return JSON.stringify({roots,totals:[data.total,data.totalComments,data.hasMore],branches:[...branches.entries()].map(([id,b])=>[id,b.rows,b.open,b.hasMore])});
+ }
+ function snapshotEditorState(){
+  const active=host.ownerDocument?.activeElement;
+  return {
+   scrollTop:host.scrollTop,
+   spoilers:[...host.querySelectorAll('details.spoiler[open]')].map(el=>el.closest('[data-comment]')?.dataset.comment).filter(Boolean),
+   editors:[...host.querySelectorAll('.comment-composer')].map(form=>{
+    const field=form.querySelector('textarea');
+    return {parent:form.dataset.parent||'',edit:form.dataset.edit||'',value:field?.value||'',spoiler:!!form.querySelector('[name="spoiler"]')?.checked,
+     expanded:form.classList.contains('is-expanded'),focused:!!(active&&form.contains(active)),selectionStart:field?.selectionStart,selectionEnd:field?.selectionEnd};
+   })
+  };
+ }
+ function restoreEditorState(saved){
+  if(!saved)return;
+  for(const entry of saved.editors){
+   let form;
+   if(entry.parent||entry.edit){
+    const article=[...host.querySelectorAll('[data-comment]')].find(el=>el.dataset.comment===(entry.parent||entry.edit));
+    const target=article?.querySelector('.inline-composer');
+    if(!target)continue;
+    target.innerHTML=composer(entry.edit?{edit:comments.get(entry.edit)}:{parent:entry.parent});
+    form=target.querySelector('form');
+   }else form=host.querySelector('.discussion-editor .comment-composer');
+   if(!form)continue;
+   const field=form.querySelector('textarea'),spoiler=form.querySelector('[name="spoiler"]'),submit=form.querySelector('[type="submit"]');
+   field.value=entry.value;
+   spoiler.checked=entry.spoiler;
+   submit.disabled=entry.value.trim().length<2;
+   form.classList.toggle('is-expanded',entry.expanded);
+   if(entry.focused){
+    try{field.focus({preventScroll:true});if(Number.isInteger(entry.selectionStart)&&Number.isInteger(entry.selectionEnd))field.setSelectionRange(entry.selectionStart,entry.selectionEnd);}catch{field.focus();}
+   }
+  }
+  for(const id of saved.spoilers){
+   const article=[...host.querySelectorAll('[data-comment]')].find(el=>el.dataset.comment===id);
+   article?.querySelector('details.spoiler')?.setAttribute('open','');
+  }
+  host.scrollTop=saved.scrollTop;
+ }
+ function render({preserveEditors=false}={}){
   if(dead||!host.isConnected)return;
+  const saved=preserveEditors?snapshotEditorState():null;
   remember(roots);
   const total=count(data.totalComments??data.total);
   host.innerHTML=`<div class="discussion-heading"><h3>${total} ${total===1?'Comentário':'Comentários'}${o.scope?` <small>EP.${o.scope.episode}</small>`:''}</h3><label class="discussion-order"><span class="sr-only">Ordem dos comentários</span><select aria-label="Ordem dos comentários"><option value="recent" ${sort==='recent'?'selected':''}>↓ Mais recentes</option><option value="oldest" ${sort==='oldest'?'selected':''}>↑ Mais antigos</option><option value="popular" ${sort==='popular'?'selected':''}>Mais curtidos</option></select></label></div><div class="discussion-editor">${composer()}</div><div class="comment-list">${roots.map(c=>commentHTML(c)).join('')||'<p class="discussion-empty">Ainda não há comentários. Comece a conversa.</p>'}</div><p class="discussion-status" role="status"></p>${data.hasMore??offset<data.total?'<button class="secondary comments-more" data-more-comments>Mais comentários</button>':''}`;
+  restoreEditorState(saved);
   bindComposers();
  }
  function bindComposers(){
@@ -53,12 +105,12 @@ export function mountDiscussion(host,o) {
     ev.preventDefault();if(dead||sending||!requireLogin())return;
     const error=form.querySelector('[role="alert"]');error.textContent='';
     if(textarea.value.trim().length<2||textarea.value.length>2000){error.textContent='Escreva entre 2 e 2.000 caracteres.';return;}
-    sending=true;submit.disabled=true;textarea.disabled=true;spoiler.disabled=true;
+    sending=true;mutations++;submit.disabled=true;textarea.disabled=true;spoiler.disabled=true;
     const parentId=form.dataset.parent||null,editId=form.dataset.edit||null;
     let saved=false;
     try{await o.post(`/api/community/${o.animeId}`,{action:editId?'edit':'comment',id:editId,parentId,body:textarea.value,spoiler:spoiler.checked,...(o.scope||{})});saved=true;if(!parentId&&!editId)o.store?.set(draftKey,'');await refresh(parentId||comments.get(editId)?.parentId);}
     catch(err){if(form.isConnected){if(saved){textarea.value='';if(parentId||editId)form.remove();else form.classList.remove('is-expanded');o.toast?.('Comentário salvo. Não foi possível atualizar a conversa; tente recarregá-la.','err');}else error.textContent=err.message;}}
-    finally{sending=false;if(form.isConnected){textarea.disabled=false;spoiler.disabled=false;submit.disabled=textarea.value.trim().length<2;}}
+    finally{sending=false;mutations=Math.max(0,mutations-1);if(form.isConnected){textarea.disabled=false;spoiler.disabled=false;submit.disabled=textarea.value.trim().length<2;}}
    });
    on(form.querySelector('[data-cancel-composer]'),'click',()=>{if(sending)return;if(form.dataset.parent||form.dataset.edit)form.remove();else{form.classList.remove('is-expanded');textarea.value='';spoiler.checked=false;submit.disabled=true;o.store?.set(draftKey,'');}});
   }
@@ -72,7 +124,9 @@ export function mountDiscussion(host,o) {
   branch.rows=[...new Map(rows.map(row=>[row.id,row])).values()];branch.open=true;branch.hasMore=result.hasMore??branch.rows.length<result.total;
   branches.set(id,branch);remember(branch.rows);const c=comments.get(id);if(c)c.replyCount=result.total;
  }
- async function refresh(openParent){
+ async function refresh(openParent,{background=false}={}){
+  if(background&&mutations)return;
+  const previous=background?fingerprint():null;
   const version=++generation,wanted=Math.max(20,roots.length),first=await request({offset:0});if(dead||version!==generation)return;
   const rows=[...first.comments];let result=first;
   while((result.hasMore??rows.length<result.total)&&rows.length<wanted){result=await request({offset:result.nextOffset??rows.length});if(dead||version!==generation)return;if(!result.comments.length)break;rows.push(...result.comments);}
@@ -88,12 +142,23 @@ export function mountDiscussion(host,o) {
   }
   await updateBranches(roots);if(dead||version!==generation)return;
   for(const id of branches.keys())if(!visited.has(id))branches.delete(id);
-  render();o.onData?.(data);
+  // Não destruir textareas nem piscar a lista se a resposta for idêntica.
+  if(background&&previous===fingerprint())return;
+  if(background&&mutations)return;
+  render({preserveEditors:background});o.onData?.(data);
  }
- listen(host,'change',async ev=>{if(!ev.target.matches('.discussion-order select'))return;sort=ev.target.value;o.onSort?.(sort);branches.clear();try{await refresh();}catch(err){o.toast?.(err.message,'err');}});
+ async function liveRefresh(){
+  if(dead||polling||mutations||!discussionIsVisible(host)||Date.now()<nextPoll)return;
+  polling=true;
+  try{await refresh(null,{background:true});failures=0;nextPoll=0;}
+  catch{failures++;nextPoll=Date.now()+Math.min(60000,DISCUSSION_REFRESH_MS*2**Math.min(failures,4));}
+  finally{polling=false;}
+ }
+ listen(host,'change',async ev=>{if(!ev.target.matches('.discussion-order select'))return;mutations++;sort=ev.target.value;o.onSort?.(sort);branches.clear();try{await refresh();}catch(err){o.toast?.(err.message,'err');}finally{mutations=Math.max(0,mutations-1);}});
  listen(host,'click',async ev=>{
   const button=ev.target.closest('button');if(!button||button.disabled||!host.contains(button))return;
   const article=button.closest('[data-comment]'),thread=button.closest('[data-thread]'),id=article?.dataset.comment||thread?.dataset.thread,c=comments.get(id),action=button.dataset.action;
+  mutations++;
   try{
    if(button.hasAttribute('data-more-comments')){button.disabled=true;const version=generation,result=await request({offset});if(dead||version!==generation)return;roots=[...new Map([...roots,...result.comments].map(row=>[row.id,row])).values()];offset=roots.length;data={...data,total:result.total,totalComments:result.totalComments??data.totalComments,hasMore:result.hasMore??offset<result.total};render();return;}
    if(button.dataset.moreReplies){button.disabled=true;await loadBranch(button.dataset.moreReplies,true);render();return;}
@@ -104,8 +169,10 @@ export function mountDiscussion(host,o) {
    if(action==='vote'){const votes=[...article.querySelectorAll('[data-action="vote"]')];if(votes.some(vote=>vote!==button&&vote.disabled)){button.disabled=false;return;}votes.forEach(vote=>vote.disabled=true);const clicked=Number(button.dataset.value),value=c.reaction===clicked?0:clicked;try{await o.post(`/api/community/${o.animeId}`,{action:'commentReaction',id,value});if(dead||!article.isConnected)return;if(c.reaction===1)c.likes=Math.max(0,(c.likes||0)-1);if(c.reaction===-1)c.dislikes=Math.max(0,(c.dislikes||0)-1);if(value===1)c.likes=(c.likes||0)+1;if(value===-1)c.dislikes=(c.dislikes||0)+1;c.reaction=value;for(const vote of votes){const n=Number(vote.dataset.value);vote.classList.toggle('selected',n===value);vote.setAttribute('aria-pressed',String(n===value));vote.querySelector('span').textContent=(n===1?c.likes:c.dislikes)||'';}}finally{votes.forEach(vote=>vote.disabled=false);}}
    else if(action==='delete'){if(!button.dataset.confirmed){button.dataset.confirmed='1';button.textContent='Confirmar exclusão';button.disabled=false;return;}await o.post(`/api/community/${o.animeId}`,{action:'delete',id});await refresh(c.parentId);}
    else if(action==='report'){await o.post(`/api/community/${o.animeId}`,{action:'report',id});button.textContent='Denúncia registrada';}
-  }catch(err){o.toast?.(err.message,'err');if(button.isConnected)button.disabled=false;}
+  }catch(err){o.toast?.(err.message,'err');if(button.isConnected)button.disabled=false;}finally{mutations=Math.max(0,mutations-1);}
  });
  render();
- return {destroy(){dead=true;++generation;abort.abort();hostListeners.forEach(remove=>remove());for(const cleanup of formListeners.values())cleanup.forEach(remove=>remove());formListeners.clear();},refresh};
+ const pollTimer=setInterval(()=>{void liveRefresh();},DISCUSSION_REFRESH_MS);
+ listen(host.ownerDocument,'visibilitychange',()=>{if(!host.ownerDocument.hidden)void liveRefresh();});
+ return {destroy(){dead=true;++generation;clearInterval(pollTimer);abort.abort();hostListeners.forEach(remove=>remove());for(const cleanup of formListeners.values())cleanup.forEach(remove=>remove());formListeners.clear();},refresh,liveRefresh};
 }

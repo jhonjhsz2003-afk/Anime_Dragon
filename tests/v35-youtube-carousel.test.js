@@ -6,16 +6,16 @@ import {contentSecurityPolicy} from '../server/media-policy.js';
 import worker from '../worker.js';
 const read=path=>readFileSync(new URL('../'+path,import.meta.url),'utf8');
 
-test('v35: carrossel troca de anime a cada 9 segundos com prévia silenciosa',()=>{
+test('v37: carrossel troca capas a cada 9 segundos e mantém indicadores compactos',()=>{
  const js=read('web/js/app.js');
  assert.match(js,/heroTimer=setInterval\([\s\S]*?9000\)/);
- assert.match(js,/trailerForAnime\(animeId\)/);
- assert.match(js,/trailerForAnime\(Number\(next.id\)\)/);
+ assert.match(js,/function heroIndicatorIndices\(total,current,maxDots=6\)/);
+ assert.match(js,/heroIndicatorIndices\(items.length,state.heroIndex,6\)/);
+ assert.match(js,/class=\"hero-art\"/);
+ const home=js.slice(js.indexOf('function bindHero(){'),js.indexOf('async function loadSimilar'));
+ assert.doesNotMatch(home,/mountHeroYouTubePreview|trailerForAnime/);
  const player=read('web/js/hero-trailers.js');
- assert.match(player,/https:\/\/www\.youtube\.com\/iframe_api/);
- assert.match(player,/mute:1,controls:0/);
- assert.match(player,/onAutoplayBlocked:.*clear\(\)/);
- assert.match(player,/onError:.*clear\(\)/);
+ assert.match(player,/https:\/\/www\.youtube\.com\/iframe_api/); // módulo legado, não carregado na home
  assert.ok(validTrailerId('abcDEF123_4'));
  assert.equal(validTrailerId('https://youtube.com/watch?v=bad'),false);
  assert.equal(validTrailerId('abcDEF1234;'),false);

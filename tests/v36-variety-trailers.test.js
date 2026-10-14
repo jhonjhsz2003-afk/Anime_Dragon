@@ -20,14 +20,13 @@ test('v36: small catalogs retain short category results instead of inventing ani
  for(const name of ['updated','top','popular','trending','recent'])assert.deepEqual(result[name],data);
 });
 
-test('v36: trailers are not revealed until playback and do not persist when paused',()=>{
- const player=read('web/js/hero-trailers.js');
- assert.match(player,/getPlayerState\?\.\(\)===YT\.PlayerState\.PLAYING/);
- assert.match(player,/setTimeout\([\s\S]*?900\)/);
- assert.match(player,/else\{hide\(\);\}/);
+test('v37: o banner mantém somente capas, sem sobreposição de trailer e sem duas linhas de pontos',()=>{
+ const app=read('web/js/app.js');
  const css=read('web/css/refinements-v36.css');
- assert.match(css,/\.rotating-hero\.trailer-playing \.hero-art \{opacity:0!important/);
- assert.match(css,/\.rotating-hero\.trailer-playing \.hero-video-stage \{opacity:1!important/);
+ assert.doesNotMatch(app,/import \{mountHeroYouTubePreview/);
+ assert.match(css,/\.rotating-hero \.hero-video-stage\{display:none!important/);
+ assert.match(css,/\.rotating-hero \.hero-art\{opacity:1!important/);
+ assert.match(css,/\.rotating-hero \.hero-dots\{[^}]*flex-wrap:nowrap!important/);
 });
 
 test('v36: modal trailer button next to share and non-destructive dialog',()=>{
