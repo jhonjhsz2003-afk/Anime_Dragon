@@ -198,6 +198,15 @@ async function catalog(request, env, ctx) {
   }
   const similar=p.match(/^\/api\/catalog\/tv\/(\d+)\/recommendations$/);
   if(similar){await animeDetail(similar[1],env);const d=await tmdb(`/tv/${similar[1]}/recommendations`,{},env);return {ok:true,results:(d.results||[]).filter(isAnime).map(normalize)}}
+  const videos=p.match(/^\/api\/catalog\/tv\/(\d+)\/videos$/);
+  if(videos){
+    const anime=await animeDetail(videos[1],env);
+    if(!isAnime(anime))throw fail(404,'Anime não encontrado.');
+    const choose=payload=>(payload.results||[]).filter(video=>video.site==='YouTube'&&/^[a-zA-Z0-9_-]{11}$/.test(video.key||'')&&['Trailer','Teaser'].includes(video.type)).sort((a,b)=>Number(b.official===true)-Number(a.official===true)||Number(a.type!=='Trailer')-Number(b.type!=='Trailer'))[0];
+    const first=choose(await tmdb(`/tv/${videos[1]}/videos`,{},env));
+    const trailer=first||choose(await tmdb(`/tv/${videos[1]}/videos`,{language:'en-US'},env));
+    return {ok:true,trailer:trailer?{key:trailer.key,site:'YouTube',name:trailer.name||'Trailer oficial'}:null};
+  }
   const detail = p.match(/^\/api\/catalog\/tv\/(\d+)$/);
   if (detail) {
     const raw=await animeDetail(detail[1],env), item=normalize(raw);
@@ -231,7 +240,7 @@ export default {
       if (url.pathname.startsWith('/api/community/')) return await community(request,env,animeDetail);
       if (url.pathname.startsWith('/api/auth/')) return await auth(request,env);
       if (request.method !== 'GET') return json({ok:false,error:'Método não permitido.'},405,{Allow:'GET'});
-      if (url.pathname === '/api/health') return json({ok:true,service:'AnimeDragon',version:'33.0.0',catalogVersion:CATALOG_VERSION});
+      if (url.pathname === '/api/health') return json({ok:true,service:'AnimeDragon',version:'34.0.0',catalogVersion:CATALOG_VERSION});
       if(url.pathname==='/api/opening'){
         const id=url.searchParams.get('id'),s=url.searchParams.get('season'),ep=url.searchParams.get('episode'),duration=Number(url.searchParams.get('duration'));
         if(!/^\d{1,10}$/.test(id||'')||Number(id)<1||!/^\d{1,4}$/.test(s||'')||!/^\d{1,4}$/.test(ep||'')||Number(ep)<1||!Number.isFinite(duration)||duration<=0||duration>21600)throw fail(400,'Episódio ou duração inválidos.');

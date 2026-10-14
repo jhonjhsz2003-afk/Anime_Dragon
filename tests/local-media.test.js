@@ -40,7 +40,7 @@ test('local GIF selection validates the catalog index and exact framing',()=>{
  }finally{localGifPaths.delete(gif)}
 });
 
-test('only indexed stickers can be placed, 6 at most, with no duplicates',()=>{
+test('only indexed stickers can be placed, 6 at most, allowing duplicates',()=>{
  const files=Array.from({length:7},(_,i)=>`/assets/profile-media/Stickers/element-${i}.gif`);
  files.forEach(x=>localStickerPaths.add(x));
  try{
@@ -49,7 +49,7 @@ test('only indexed stickers can be placed, 6 at most, with no duplicates',()=>{
   assert.deepEqual(validateIdentity({cover:'aurora',frame:'stardust',title:'Meu mundo',stickers:items},base).stickers,items);
   assert.equal(localSticker(files[0]),true);
   assert.throws(()=>validateIdentity({title:'Meu mundo',stickers:files.map(id=>({id,x:50,y:50,size:17}))},base),/seis/);
-  assert.throws(()=>validateIdentity({title:'Meu mundo',stickers:[items[0],items[0]]},base),/repetido/);
+  assert.deepEqual(validateIdentity({title:'Meu mundo',stickers:[items[0],items[0]]},base).stickers,[items[0],items[0]]);
   assert.throws(()=>validateIdentity({title:'Meu mundo',stickers:[{id:'https://site.falso/sticker.gif',x:50,y:50,size:17}]},base),/inválido/);
  }finally{files.forEach(x=>localStickerPaths.delete(x))}
 });

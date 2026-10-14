@@ -22,9 +22,8 @@ export const identityColumns = "COALESCE(pi28.cover,pi.cover,'aurora') profile_c
 export const identityJoin = 'LEFT JOIN profile_identity pi ON pi.user_id=users.id LEFT JOIN profile_identity_v28 pi28 ON pi28.user_id=users.id LEFT JOIN profile_stickers_v29 pstick ON pstick.user_id=users.id';
 const validateStickers=value=>{
  if(!Array.isArray(value)||value.length>6)throw Object.assign(new Error('Escolha até seis stickers.'),{status:400});
- const ids=new Set();return value.map(row=>{
-  if(!row||typeof row!=='object'||!localSticker(row.id)||ids.has(row.id))throw Object.assign(new Error('Sticker inválido ou repetido.'),{status:400});
-  ids.add(row.id);
+ return value.map(row=>{
+  if(!row||typeof row!=='object'||!localSticker(row.id))throw Object.assign(new Error('Sticker inválido ou repetido.'),{status:400});
   const x=Number(row.x),y=Number(row.y),size=Number(row.size??17);
   if(!Number.isFinite(x)||!Number.isFinite(y)||!Number.isFinite(size)||x<0||x>100||y<0||y>100||size<10||size>28)throw Object.assign(new Error('Posição ou tamanho do sticker inválidos.'),{status:400});
   return {id:row.id,x:Math.round(x*10)/10,y:Math.round(y*10)/10,size:Math.round(size)};

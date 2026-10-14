@@ -20,5 +20,5 @@ test('v23: selects internos não aparecem para iframe e são restaurados no play
 });
 test('v28: recursos de interface usam nova versão e evitam cache de CSS antigo',()=>{
   assert.match(html,/\/css\/player\.css\?v=23\.0\.0/);
-  assert.match(html,/\/js\/app\.js\?v=33\.0\.0/);
+  assert.match(html,/\/js\/app\.js\?v=34\.0\.0/);
 });

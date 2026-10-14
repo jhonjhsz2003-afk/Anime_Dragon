@@ -1,0 +1,18 @@
+/* AnimeDragon v34: edição de stickers, legibilidade e previews com fallback. */
+.profile-cover-stickers .cover-sticker {max-width:none!important;max-height:none!important;min-width:0;min-height:0;}
+.sticker-preview .sticker-handle {max-width:none!important;max-height:none!important;}
+#sticker-replace[aria-pressed="true"] {border:1px solid #7fe4ff;background:#185a78;color:#fff;}
+#identity-title-preview-editor {font-size:13px;font-weight:750;letter-spacing:.2px;color:#f0f9ff;}
+/* A animação de texto RGB com fill transparente pode apagar as letras em chips estreitos. */
+.site-header .header-account .profile-chip .header-username {font-size:clamp(15px,1.08vw,17px)!important;font-weight:850;max-width:155px;min-width:0;line-height:1.35;text-shadow:0 1px 6px #000,0 1px 2px #000;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block;}
+.site-header .header-account .header-username .name-letters {color:#f5faff!important;-webkit-text-fill-color:#f5faff!important;background:none!important;animation:none!important;filter:none!important;text-shadow:0 1px 5px #02101c,0 0 2px #fff5;display:inline;}
+.site-header .header-account .profile-chip {max-width:250px!important;}
+@media(min-width:761px) and (max-width:1100px){.site-header .header-account .profile-chip{max-width:49px!important;}}
+@media(max-width:760px){.site-header .header-account .profile-chip{max-width:38px!important;}}
+.home-view .hero .hero-trailer {position:absolute;inset:0;width:100%;height:100%;border:0;z-index:0;pointer-events:none;opacity:.70;transform:scale(1.18);transform-origin:center center;}
+.home-view .rotating-hero.has-trailer .hero-art {opacity:.18;}
+.home-view .rotating-hero .hero-content,.home-view .rotating-hero .hero-switcher {position:relative;z-index:3;}
+@media(max-width:760px){.home-view .hero .hero-trailer{transform:scale(1.75);opacity:.50;}}
+@media(prefers-reduced-motion:reduce){.home-view .hero .hero-trailer{display:none;}}
+
+.home-view .rotating-hero::after {z-index:1!important;pointer-events:none;}

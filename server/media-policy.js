@@ -4,7 +4,7 @@ export function contentSecurityPolicy(){
     "default-src 'self'",
     "base-uri 'self'",
     "object-src 'none'",
-    'frame-src https://myembed.biz',
+    'frame-src https://myembed.biz https://www.youtube-nocookie.com',
     "child-src 'none'",
     "frame-ancestors 'none'",
     "form-action 'self'",

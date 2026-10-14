@@ -1,4 +1,4 @@
-# AnimeDragon v33 - Publicacao no GitHub
+# AnimeDragon v34 - Publicacao no GitHub
 # Pode ser executado como .ps1 ou colado no PowerShell aberto na pasta do projeto.
 # Nao usar "git push --force": este script preserva o historico do repositorio.
 $ErrorActionPreference = 'Stop'
@@ -13,7 +13,7 @@ $baseFolder = if (-not [string]::IsNullOrWhiteSpace($PSScriptRoot)) {
 # Aceita a pasta raiz do projeto ou a pasta onde o ZIP foi extraido.
 $candidates = @(
     $baseFolder
-    (Join-Path -Path $baseFolder -ChildPath 'AnimeDragon_v33')
+    (Join-Path -Path $baseFolder -ChildPath 'AnimeDragon_v34')
     (Join-Path -Path $baseFolder -ChildPath 'AnimeDragon')
 )
 $required = @('worker.js', 'wrangler.toml', 'package.json', 'web', 'server')
@@ -33,7 +33,7 @@ foreach ($folder in $candidates) {
 }
 
 if ([string]::IsNullOrWhiteSpace($source)) {
-    throw "Nao encontrei o projeto em '$baseFolder'. Extraia o ZIP, abra a pasta AnimeDragon_v33 (onde existe worker.js) e execute o script novamente."
+    throw "Nao encontrei o projeto em '$baseFolder'. Extraia o ZIP, abra a pasta AnimeDragon_v34 (onde existe worker.js) e execute o script novamente."
 }
 
 if (-not (Get-Command git -ErrorAction SilentlyContinue)) {
@@ -44,11 +44,11 @@ if (-not (Get-Command robocopy -ErrorAction SilentlyContinue)) {
 }
 
 $repo = 'https://github.com/jhonjhsz2003-afk/Anime_Dragon.git'
-$stage = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath ('AnimeDragon-v33-' + [guid]::NewGuid().ToString('N'))
+$stage = Join-Path -Path ([System.IO.Path]::GetTempPath()) -ChildPath ('AnimeDragon-v34-' + [guid]::NewGuid().ToString('N'))
 
 Write-Host "Pasta encontrada: $source" -ForegroundColor Cyan
 Write-Host "Repositorio destino: $repo" -ForegroundColor Cyan
-Write-Host 'Publicando AnimeDragon v33 (sem alterar o repositorio separado do DragonGIF)...' -ForegroundColor Cyan
+Write-Host 'Publicando AnimeDragon v34 (sem alterar o repositorio separado do DragonGIF)...' -ForegroundColor Cyan
 
 try {
     & git clone --branch main --single-branch $repo $stage
@@ -80,7 +80,7 @@ try {
         if ($LASTEXITCODE -ne 0) {
             throw 'Falha no push. Verifique o login no GitHub e a permissao da branch main.'
         }
-        Write-Host 'AnimeDragon v33 publicado com sucesso no GitHub!' -ForegroundColor Green
+        Write-Host 'AnimeDragon v34 publicado com sucesso no GitHub!' -ForegroundColor Green
     }
 } finally {
     if (Test-Path -LiteralPath $stage) {

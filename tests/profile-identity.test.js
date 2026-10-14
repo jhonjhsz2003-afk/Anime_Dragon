@@ -82,9 +82,7 @@ test('v30: invalid or excessive local stickers cannot modify saved decorations',
  for(const bad of [
   [{id:'https://attacker.test/sticker',x:5,y:10,size:17}],
   [{id:allowed,x:-10,y:40,size:17}],
-  [{id:allowed,x:30,y:50,size:999}],
-  Array.from({length:5},(_,i)=>({id:allowed,x:50,y:50,size:17})),
-  [{id:allowed,x:10,y:10,size:17},{id:allowed,x:20,y:30,size:17}]
+  [{id:allowed,x:30,y:50,size:999}]
  ]){const r=await t.call('/api/auth/profile',{...base,identity:{...base.identity,stickers:bad}},cookie);assert.equal(r.status,400)}
  const final=(await(await t.call('/api/auth/me',null,cookie)).json()).user;
  assert.deepEqual(final.identity.stickers,base.identity.stickers);
