@@ -1,0 +1,51 @@
+/* AnimeDragon v33: ajustes proporcionais e responsivos solicitados. */
+@media (min-width: 1201px) {
+  /* Capas ~6% menores em vez de encurtar ou achatar os pôsteres. */
+  .home-view .cards:not(.continue-cards) > .card { flex-basis: calc((100% - 100px) / 6.35); }
+  .home-view .cards:not(.continue-cards) { align-items: flex-start; }
+  /* Hero é independente dos trilhos, preservando a arte panorâmica. */
+  .home-view .hero, .home-view .rotating-hero { min-height: clamp(830px, 82svh, 980px); }
+  .home-view .hero-art { object-fit:cover; object-position:center 36%; }
+  .home-view .hero-content { padding-top:clamp(150px,17svh,215px);padding-bottom:120px; }
+}
+@media (min-width: 761px) {
+  :root { --header-space: 82px; }
+  .site-header .masthead { max-width: 1920px; min-height: var(--header-space); padding: 12px clamp(20px, 3.5vw, 68px); gap: clamp(14px, 1.5vw, 30px); }
+  .site-header .brand img { width: 43px; height: 43px; }
+  .site-header .brand strong { font-size: clamp(21px, 1.4vw, 25px); }
+  .site-header .top-nav { gap: clamp(14px, 1.8vw, 32px); }
+  .site-header .top-nav > a, .site-header .header-more > summary { font-size:clamp(14px, .94vw, 16px);font-weight:750;min-height:49px; }
+  .site-header .header-more > summary svg { width:17px;height:17px; }
+  .site-header .header-tools .icon-btn, .site-header .header-account .icon-btn { width:44px;height:44px;min-width:44px;min-height:44px; }
+  .site-header .header-tools .icon-btn svg, .site-header .header-account .icon-btn svg { width:23px;height:23px; }
+  .site-header .header-account .avatar { width:45px;height:45px;min-width:45px;min-height:45px; }
+  .site-header .header-account .profile-chip { max-width:210px;min-height:48px;gap:9px; }
+  .site-header .header-account .profile-chip b { max-width:126px;font-size:14px; }
+  .site-header .header-account { gap:10px; }
+  .site-header .header-account .ranking-toggle { font-size:25px; }
+  .site-header.header-compact .masthead { min-height:70px;padding-block:9px; }
+  .site-header.header-compact .brand img { width:37px;height:37px; }
+  .site-header.header-compact .brand strong { font-size:21px; }
+}
+@media (min-width:761px) and (max-width:1100px) {
+  .site-header .masthead { gap:10px;padding-inline:18px; }
+  .site-header .top-nav { gap:12px; }
+  .site-header .top-nav > a, .site-header .header-more > summary { font-size:13px; }
+  .site-header .header-account .profile-chip b {display:none;}
+  .site-header .header-account .profile-chip{max-width:49px;}
+  .site-header .brand strong{font-size:20px;}
+}
+@media (min-width:761px) and (max-width:1200px) {
+  .home-view .hero, .home-view .rotating-hero { min-height:clamp(640px,75svh,830px); }
+  .home-view .cards:not(.continue-cards) > .card { flex-basis: calc((100% - 54px) / 4.18); }
+}
+@media (max-width:760px) {
+  /* Não encolher controles móveis ao ampliar a navegação do desktop. */
+  .home-view .hero, .home-view .rotating-hero { min-height: min(78svh,760px); }
+  .home-view .cards:not(.continue-cards) > .card { flex-basis: 169px;min-width:169px; }
+  .site-header .header-account .avatar { width:37px;height:37px; }
+}
+/* Nome de usuário substitui a antiga descrição de título pessoal. */
+.profile-hero .identity-title, .public-profile-header .identity-title { text-transform:none;letter-spacing:.2px;font-size:13px;font-weight:750;color:#f0f9ff; }
+/* A prévia precisa caber seis elementos inteiros nas duas linhas. */
+.sticker-preview .sticker-handle { max-width:none;max-height:none; }

@@ -10,6 +10,16 @@ export function isEmbedMoviesEmbed(source){
   }catch{return false;}
 }
 
+/** O endpoint de episódio direto é documentado pelo EmbedMovies; sem parâmetros inventados. */
+export function directEpisodeEmbed(id,season,episode){
+ const parts=[id,season,episode];
+ if(parts.some(v=>!(typeof v==='number'||typeof v==='string')||!/^(?:0|[1-9]\d{0,9})$/.test(String(v))))return null;
+ const [tmdb,s,e]=parts.map(Number);
+ if(!Number.isSafeInteger(tmdb)||tmdb<=0||tmdb>9999999999||s>1000||e<=0||e>10000)return null;
+ const source={kind:'embed',url:`https://myembed.biz/serie/${tmdb}/${s}/${e}`,type:'text/html',name:'EmbedMovies · episódio',providerId:'embedmovies'};
+ return isEmbedMoviesEmbed(source)?source:null;
+}
+
 export function sourceKey(source){return isEmbedMoviesEmbed(source)?source.url:'';}
 function resultTtl(data){return data?.available?60000:5000;}
 export function createSourceLoader(request,now=Date.now,{schedule=setTimeout,cancel=clearTimeout}={}){

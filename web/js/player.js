@@ -222,7 +222,7 @@ export function mountWatchPlayer(host, options) {
     const badge=q('.watch-direct-label');badge.textContent='▶ EmbedMovies';
     badge.title='O áudio, a escolha do servidor e a disponibilidade são controlados pelo EmbedMovies.';
     status.textContent='';
-    watchdog.stop();recovery.success();
+    watchdog.stop();if(providersComplete)recovery.success();
     if(!activity){activity=true;Promise.resolve(o.onActivity()).catch(()=>{activity=false;});}
   }
   async function selectSource(index, keepPosition=true){
@@ -263,7 +263,7 @@ export function mountWatchPlayer(host, options) {
   }
   async function load(fresh=false,signal,attempt=1,timeoutMs=12000){
     const requestVersion=++loadGeneration;attempted.clear();shakaTried.clear();providersComplete=false;providerReport=[];const diagnostic=q('[data-diagnostic]');if(diagnostic)diagnostic.hidden=true;
-    const version=++generation;save();if(video.currentTime>0)resume=video.currentTime;resetMedia();started=false;sources=[];q('[data-play]').disabled=true;seek.disabled=true;host.querySelectorAll('[data-skip]').forEach(b=>b.disabled=true);note('Preparando seu episódio',`Buscando áudio dublado e vídeo compatível. Tentativa ${attempt} de 3…`);
+    const version=++generation;save();if(video.currentTime>0)resume=video.currentTime;resetMedia();started=false;sources=[];q('[data-play]').disabled=true;seek.disabled=true;host.querySelectorAll('[data-skip]').forEach(b=>b.disabled=true);note('Abrindo episódio',`Preparando reprodução automática. Tentativa ${attempt} de 3…`);
     function update(result){
       if(dead||requestVersion!==loadGeneration||signal?.aborted)return;
       providersComplete=result.complete!==false;providerReport=Array.isArray(result.providers)?result.providers:providerReport;
@@ -273,7 +273,7 @@ export function mountWatchPlayer(host, options) {
       selected=Math.max(0,sources.findIndex(s=>sourceId(s)===current));renderOptions();
       if(!hadSources)void selectSource(selected,false);
       else if(sourceFailed&&(providersComplete||sources.some(s=>!attempted.has(sourceId(s)))))failure(playbackError(video.error?.code));
-      else {const alternative=preferredAlternative(sources,selected,attempted,started,video.readyState);if(alternative>=0)void selectSource(alternative);}
+      else {if(providersComplete&&screen.classList.contains('is-external-embed'))recovery.success();const alternative=preferredAlternative(sources,selected,attempted,started,video.readyState);if(alternative>=0)void selectSource(alternative);}
     }
     try{const result=await o.loadSource({fresh,onUpdate:update,signal,timeoutMs});update(result);
     }catch(err){if(!dead&&requestVersion===loadGeneration&&!signal?.aborted){providersComplete=true;if(!sources.length||sourceFailed)failure('Não foi possível buscar o vídeo. Tente novamente em instantes.');}}

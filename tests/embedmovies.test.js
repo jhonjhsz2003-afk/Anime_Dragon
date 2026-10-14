@@ -29,7 +29,7 @@ test('worker preserva CSP e informa versão atualizada',async()=>{
  const doc=await worker.fetch(new Request('https://anime.test/'),env,{});
  assert.equal(doc.headers.get('Content-Security-Policy'),contentSecurityPolicy());
  const health=await(await worker.fetch(new Request('https://anime.test/api/health'),env,{})).json();
- assert.equal(health.version,'32.0.0');
+ assert.equal(health.version,'33.0.0');
  const p=await(await worker.fetch(new Request('https://anime.test/api/playback/providers'),env,{})).json();
  assert.deepEqual(p.providers.map(x=>x.id),['embedmovies']);
 });
