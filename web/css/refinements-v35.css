@@ -1,0 +1,62 @@
+/* AnimeDragon v35 — hero YouTube, controles sempre no canto inferior direito. */
+.home-view .rotating-hero .hero-content {position:relative;z-index:3;}
+.home-view .rotating-hero .hero-switcher {
+ position:absolute!important;
+ inset:auto var(--page-gutter) 46px auto!important;
+ z-index:6;
+ display:flex;
+ flex-wrap:nowrap;
+ align-items:center;
+ justify-content:flex-end;
+ width:max-content;
+ max-width:calc(100% - 2 * var(--page-gutter));
+ gap:12px;
+ margin:0;
+ transform:none;
+}
+.home-view .rotating-hero .hero-dots {display:flex;align-items:center;flex:none;gap:8px;}
+.home-view .rotating-hero .hero-switcher .icon-btn,
+.home-view .rotating-hero .hero-switcher .hero-pause {flex:0 0 36px;}
+.home-view .rotating-hero .hero-video-stage {
+ position:absolute;
+ inset:0;
+ z-index:0;
+ overflow:hidden;
+ opacity:0;
+ pointer-events:none;
+ transition:opacity .4s ease;
+}
+.home-view .rotating-hero.trailer-playing .hero-video-stage{opacity:.95;}
+/* O iframe fica maior que o banner, centralizado e recortado por overflow:hidden.
+   Nunca reduzimos a altura do vídeo para caber em uma janela 16:9. */
+.home-view .rotating-hero .hero-video-stage iframe{
+ position:absolute!important;
+ left:50%!important;top:50%!important;
+ width:var(--hero-video-width,2200px)!important;
+ height:var(--hero-video-height,1238px)!important;
+ max-width:none!important;
+ min-width:100%;min-height:100%;
+ display:block;
+ padding:0;margin:0;
+ border:0!important;
+ border-radius:0!important;
+ box-shadow:none!important;
+ transform:translate(-50%,-50%)!important;
+ pointer-events:none;
+}
+/* A capa permanece por trás da prévia durante carregamento/bloqueio. */
+.home-view .rotating-hero .hero-art{z-index:-1;opacity:1!important;}
+.home-view .rotating-hero::after{z-index:2!important;pointer-events:none;}
+@media(max-width:760px){
+ .home-view .rotating-hero .hero-switcher{
+  right:16px!important;
+  bottom:16px!important;
+  gap:7px;
+  max-width:calc(100% - 32px);
+ }
+ .home-view .rotating-hero .hero-switcher .icon-btn,
+ .home-view .rotating-hero .hero-switcher .hero-pause{flex-basis:31px;width:31px;height:31px;}
+ .home-view .rotating-hero .hero-content{padding-bottom:92px;}
+}
+@media(max-width:430px){.home-view .rotating-hero .hero-dots{gap:5px}.home-view .rotating-hero .hero-dots button{max-width:17px}}
+@media(prefers-reduced-motion:reduce){.home-view .rotating-hero .hero-video-stage{display:none!important}}
