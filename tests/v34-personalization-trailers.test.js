@@ -32,7 +32,7 @@ test('v34: editor replaces a sticker without saving first and keeps current tab'
 });
 test('v34: official muted videos are allowed only from the specific YouTube embed host',()=>{
  const csp=contentSecurityPolicy();
- assert.match(csp,/frame-src https:\/\/myembed\.biz https:\/\/www\.youtube-nocookie\.com/);
+ assert.match(csp,/frame-src https:\/\/streambetter\.lat https:\/\/www\.youtube-nocookie\.com/);
  assert.match(read('web/js/hero-trailers.js'),/youtube\.com\/iframe_api/);
  assert.match(read('web/js/hero-trailers.js'),/mute:1/);
  assert.match(read('web/js/app.js'),/state\.prefs\.economy/);

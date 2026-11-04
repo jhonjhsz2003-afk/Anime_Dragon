@@ -7,6 +7,7 @@ import {openingTimes} from './server/opening-times.js';
 import {providers} from './server/providers.js';
 import {media} from './server/media.js';
 import { community } from './server/community.js';
+import {streamBetterPlayback} from './server/streambetter.js';
 import {contentSecurityPolicy} from './server/media-policy.js';
 import { auth, cleanupSessions } from './server/auth.js';
 import {dragonRouter} from './server/dragongif.js';
@@ -275,15 +276,17 @@ export default {
         if(!/^\d{1,10}$/.test(id||'')||Number(id)<1||!/^\d{1,4}$/.test(s||'')||!/^\d{1,4}$/.test(ep||'')||Number(ep)<1||!Number.isFinite(duration)||duration<=0||duration>21600)throw fail(400,'Episódio ou duração inválidos.');
         return json(await openingTimes({anime:await animeDetail(id,env),season:Number(s),episode:Number(ep),duration,env,origin:url.origin}));
       }
-      // TMDB: catálogo e imagens. Nenhum provedor externo de reprodução está habilitado.
+      // TMDB: catálogo e imagens. StreamBetter: incorporação opcional em iframe de séries/animes.
       if(url.pathname==='/api/subtitles')return json({ok:true,available:false,subtitles:[],reason:'As legendas são fornecidas pela fonte de vídeo, quando disponíveis.'});
       if (url.pathname === '/api/playback/providers') return json({ok:true,providers:providers(env).map(({id,name,role})=>({id,name,role}))});
       if (url.pathname === '/api/playback') {
         const id=url.searchParams.get('id'),s=url.searchParams.get('season'),ep=url.searchParams.get('episode');
         if (![id,s,ep].every(x=>/^\d{1,10}$/.test(x||''))||Number(id)<1||Number(ep)<1||Number(s)>1000||Number(ep)>10000)
           throw fail(400,'Episódio inválido.');
-        if(url.searchParams.has('provider')&&!['auto'].includes(url.searchParams.get('provider')))throw fail(400,'Provedor não encontrado.');
-        return json({ok:true,available:false,streams:[],providers:[],reason:'Nenhum provedor de vídeo está habilitado. Configure uma fonte legítima antes de reproduzir.'});
+        if(url.searchParams.has('provider')&&!['auto','streambetter'].includes(url.searchParams.get('provider')))throw fail(400,'Provedor não encontrado.');
+        // TMDB é usado para metadados; o iframe do StreamBetter aceita o ID TMDB.
+        const anime=await animeDetail(id,env,true);
+        return json(streamBetterPlayback(anime,Number(s),Number(ep)));
       }
       if (!/^\/api\/(catalog|tmdb)\//.test(url.pathname)) throw fail(404,'Página não encontrada.');
       const cache=globalThis.caches?.default;

@@ -10,9 +10,9 @@
 - Salvar o perfil ou stickers não volta à primeira aba e não apaga a edição em andamento. Salvar fotos e privacidade também mantém a seção. Ao escolher avatar na biblioteca DragonGIF, volta para a área Foto e avatar.
 - Na tela inicial, quando o TMDB oferece trailer oficial do anime no YouTube, o destaque tenta exibir uma prévia de 12 segundos, sem áudio, com fallback automático para imagem quando não houver trailer. Não aparece com economia de dados ou redução de animações. Alguns navegadores e vídeos podem bloquear reprodução automática.
 
-## Limitação conhecida do EmbedMovies
+## Limitação conhecida do StreamBetter
 
-O iframe abre a URL do episódio diretamente, mas o seletor interno Blogger/Premium é controlado pelo EmbedMovies. O AnimeDragon não recebe APIs documentadas que permitam selecionar o player e iniciar vídeo sem essa interface. Esconder os botões seria incorreto e poderia bloquear a reprodução. É necessária uma fonte que disponibilize stream diretamente/autorizado para garantir reprodução sem a seleção.
+O iframe abre a URL do episódio diretamente, mas o seletor interno Blogger/Premium é controlado pelo StreamBetter. O AnimeDragon não recebe APIs documentadas que permitam selecionar o player e iniciar vídeo sem essa interface. Esconder os botões seria incorreto e poderia bloquear a reprodução. É necessária uma fonte que disponibilize stream diretamente/autorizado para garantir reprodução sem a seleção.
 
 ## Publicação
 
@@ -28,4 +28,4 @@ O script publica em `jhonjhsz2003-afk/Anime_Dragon`, sem forçar push e sem alte
 
 - `npm run check`: passou.
 - 174 testes passaram; os outros 6 testes de interface requerem a dependência `linkedom`, que não pôde ser instalada no ambiente de preparação.
-- A interface real, a autoplay do YouTube, a presença de trailers e a reprodução via EmbedMovies devem ser conferidas após a publicação.
+- A interface real, a autoplay do YouTube, a presença de trailers e a reprodução via StreamBetter devem ser conferidas após a publicação.

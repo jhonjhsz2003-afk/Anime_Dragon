@@ -3,13 +3,13 @@ import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {validateIdentity,profileIdentity} from '../server/profile-identity.js';
 import {providers} from '../server/providers.js';
-import {episodeEmbedUrl} from '../server/embedmovies.js';
+import {episodeEmbedUrl} from '../server/streambetter.js';
 import {contentSecurityPolicy} from '../server/media-policy.js';
 const txt=name=>readFileSync(new URL('../'+name,import.meta.url),'utf8');
 
-test('v28: only EmbedMovies is present in playback providers, scripts and CSP',()=>{
- assert.deepEqual(providers().map(x=>x.id),['embedmovies']);
- assert.equal(episodeEmbedUrl(30984,1,3),'https://myembed.biz/serie/30984/1/3');
+test('v28: only StreamBetter is present in playback providers, scripts and CSP',()=>{
+ assert.deepEqual(providers().map(x=>x.id),['streambetter']);
+ assert.equal(episodeEmbedUrl(30984,1,3),'https://streambetter.lat/serie/30984/1/3');
  assert.doesNotMatch(contentSecurityPolicy(),/akumast/);
  assert.doesNotMatch(txt('web/_headers'),/akumast|shaka-player/);
  assert.doesNotMatch(txt('worker.js'),/animefirePlayback|animefireEnabled/);

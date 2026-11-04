@@ -23,5 +23,5 @@ test('recent episode dates outrank popularity and future releases never enter up
   const r=await worker.fetch(new Request('https://test/api/catalog/home'),{TMDB_API_KEY:'home-order-test'},{}),d=await r.json();assert.deepEqual(d.updated.map(x=>x.id),[2,1]);assert.equal(d.featured[0].id,2);assert.equal(d.featured[0].last_episode_to_air.air_date,today);
 });
 test('provider addresses remain private configuration and arbitrary URLs cannot be selected',async()=>{
-  const r=await worker.fetch(new Request('https://test/api/playback/providers'),{TMDB_API_KEY:'not-used-here'},{});const body=await r.text();assert.deepEqual(JSON.parse(body).providers.map(p=>p.id),['embedmovies']);
+  const r=await worker.fetch(new Request('https://test/api/playback/providers'),{TMDB_API_KEY:'not-used-here'},{});const body=await r.text();assert.deepEqual(JSON.parse(body).providers.map(p=>p.id),['streambetter']);
 });

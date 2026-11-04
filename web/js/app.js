@@ -610,7 +610,7 @@ function resumeCard(p){
 }
 function continueWatching(){
  const items=state.history.filter(p=>Number(p.episode)>0).slice(0,8);if(!items.length)return '';
- return `<section class="section continue-section"><div class="section-head"><div><h2>Você parou na melhor parte.</h2><p>Volte aos últimos episódios que você abriu neste navegador. O EmbedMovies não informa o minuto exato.</p></div><a href="#history" class="text-link">Ver histórico →</a></div><div class="continue-rail" tabindex="0" aria-label="Retomar episódios">${items.map(resumeCard).join('')}</div></section>`;
+ return `<section class="section continue-section"><div class="section-head"><div><h2>Você parou na melhor parte.</h2><p>Volte aos últimos episódios que você abriu neste navegador. O StreamBetter não informa o minuto exato.</p></div><a href="#history" class="text-link">Ver histórico →</a></div><div class="continue-rail" tabindex="0" aria-label="Retomar episódios">${items.map(resumeCard).join('')}</div></section>`;
 }
 function bindResumeCards(root=document){
  $$('[data-resume]',root).forEach(b=>b.onclick=async()=>{const p=state.history.find(p=>Number(p.id)===Number(b.dataset.resume)&&Number(p.season)===Number(b.dataset.season)&&Number(p.episode)===Number(b.dataset.episode));if(!p)return;await openDetails(p.id,p.season);if(state.details?.id===p.id)openPlayer(p.episode)});

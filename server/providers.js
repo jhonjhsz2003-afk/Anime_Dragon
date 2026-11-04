@@ -1,2 +1,2 @@
-/** Nenhum provedor externo de reprodução está habilitado. */
-export function providers(){return [];}
+/** Apenas o StreamBetter é utilizado como fonte de reprodução. */
+export function providers(){return [{id:'streambetter',name:'StreamBetter',role:'stream'}];}

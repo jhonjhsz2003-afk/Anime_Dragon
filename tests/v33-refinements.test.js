@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {DatabaseSync} from 'node:sqlite';
-import {directEpisodeEmbed,isEmbedMoviesEmbed} from '../web/js/sources.js';
+import {directEpisodeEmbed,isStreamBetterEmbed} from '../web/js/sources.js';
 import {validateIdentity} from '../server/profile-identity.js';
 import {localStickerPaths} from '../server/local-media-index.js';
 import worker from '../worker.js';
@@ -10,8 +10,8 @@ const read=p=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
 
 test('v33: episodio direto validado localmente e sem selecao inventada de players',()=>{
  const direct=directEpisodeEmbed(30984,1,3);
- assert.equal(direct.url,'https://myembed.biz/serie/30984/1/3');
- assert.equal(isEmbedMoviesEmbed(direct),true);
+ assert.equal(direct.url,'https://streambetter.lat/serie/30984/1/3');
+ assert.equal(isStreamBetterEmbed(direct),true);
  for(const item of [[-1,1,1],[0,1,1],[12,1,-1],[12,1001,1],[12,1,10001],['12?x=1',1,1],[12,'1/2',1]])assert.equal(directEpisodeEmbed(...item),null);
  assert.match(read('web/js/app.js'),/onUpdate\?\.\(\{ok:true,available:true,streams:\[first\],complete:false/);
  assert.match(read('web/js/player.js'),/frame\.setAttribute\('allow','fullscreen; autoplay; encrypted-media; picture-in-picture'\)/);

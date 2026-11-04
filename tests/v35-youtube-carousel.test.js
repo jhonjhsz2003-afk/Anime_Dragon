@@ -42,7 +42,7 @@ test('v35: perfil público e privado mostram apenas o nome grande, sem duplicaç
 test('v35: CSP permite API oficial de vídeo, sem depender de chave YouTube Data API',()=>{
  const policy=contentSecurityPolicy();
  assert.match(policy,/script-src 'self' https:\/\/www\.youtube\.com/);
- assert.match(policy,/frame-src https:\/\/myembed\.biz https:\/\/www\.youtube-nocookie\.com https:\/\/www\.youtube\.com/);
+ assert.match(policy,/frame-src https:\/\/streambetter\.lat https:\/\/www\.youtube-nocookie\.com https:\/\/www\.youtube\.com/);
  assert.match(read('web/_headers'),/https:\/\/www\.youtube\.com/);
  assert.match(read('web/index.html'),/refinements-v35\.css\?v=35\.0\.0/);
 });

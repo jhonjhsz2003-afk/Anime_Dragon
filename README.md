@@ -62,14 +62,14 @@ A D1 e o nome do Worker continuam os mesmos e não há comando para excluir dado
 
 ---
 
-# AnimeDragon v28 — EmbedMovies e perfil renovado
+# AnimeDragon v28 — StreamBetter e perfil renovado
 
-Site exclusivo para animes. O TMDB fornece metadados, capas, episódios e datas previstas. O EmbedMovies é a única fonte de incorporação de vídeo no projeto.
+Site exclusivo para animes. O TMDB fornece metadados, capas, episódios e datas previstas. O StreamBetter é a única fonte de incorporação de vídeo no projeto.
 
 ## Novidades v28
 
 - Retirada completa do adaptador e configurações AnimeFire.
-- Episódios já listados pelo TMDB podem ser abertos mesmo antes da data indicada; a disponibilidade depende do EmbedMovies. **Não existe consulta oficial de disponibilidade por episódio no EmbedMovies.**
+- Episódios já listados pelo TMDB podem ser abertos mesmo antes da data indicada; a disponibilidade depende do StreamBetter. **Não existe consulta oficial de disponibilidade por episódio no StreamBetter.**
 - Redução do cache de detalhes de temporadas para atualizações mais frequentes; não implica atualização instantânea de publicação do TMDB.
 - Perfil com **Favoritos / Minha lista / Acompanhando**, apenas com adições explícitas. O histórico de episódios permanece separado e não altera as listas.
 - 30 molduras CSS inéditas (sem imagens externas) e 13 cores fixas + 14 gradientes RGB animados; usuários com molduras antigas recebem equivalente visual sem perder a conta.
@@ -86,7 +86,7 @@ O nome do Worker no `wrangler.toml` continua `site`, com banco D1 existente. A i
 
 ## Limites honestos
 
-- O iframe EmbedMovies pode exibir seleção de player ou anúncios. Não há API pública documentada para alterar os controles internos, idioma ou confirmar disponibilidade antecipadamente.
+- O iframe StreamBetter pode exibir seleção de player ou anúncios. Não há API pública documentada para alterar os controles internos, idioma ou confirmar disponibilidade antecipadamente.
 - A data TMDB é informativa; liberar clique não confirma que o vídeo foi publicado.
-- Não é possível recuperar posição ou pular abertura dentro do iframe, a menos que o EmbedMovies forneça uma API autorizada de controle.
+- Não é possível recuperar posição ou pular abertura dentro do iframe, a menos que o StreamBetter forneça uma API autorizada de controle.
 - Respeite os direitos de distribuição das obras e regras de incorporação do provedor.

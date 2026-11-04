@@ -1,26 +1,26 @@
 
-const PROVIDERS=[{id:'embedmovies',name:'EmbedMovies',role:'stream'}];
-export function isEmbedMoviesEmbed(source){
+const PROVIDERS=[{id:'streambetter',name:'StreamBetter',role:'stream'}];
+export function isStreamBetterEmbed(source){
   try{
     const u=new URL(source?.url||'');
-    return source?.kind==='embed' && u.protocol==='https:' && u.hostname==='myembed.biz' &&
+    return source?.kind==='embed' && u.protocol==='https:' && u.hostname==='streambetter.lat' &&
       !u.username && !u.password && !u.port && !u.hash && !u.search &&
       /^\/serie\/[1-9]\d{0,9}\/(?:0|[1-9]\d{0,3})\/[1-9]\d{0,4}$/.test(u.pathname) &&
       Number(u.pathname.split('/')[3])<=1000 && Number(u.pathname.split('/')[4])<=10000;
   }catch{return false;}
 }
 
-/** O endpoint de episódio direto é documentado pelo EmbedMovies; sem parâmetros inventados. */
+/** O endpoint de episódio direto é documentado pelo StreamBetter; sem parâmetros inventados. */
 export function directEpisodeEmbed(id,season,episode){
  const parts=[id,season,episode];
  if(parts.some(v=>!(typeof v==='number'||typeof v==='string')||!/^(?:0|[1-9]\d{0,9})$/.test(String(v))))return null;
  const [tmdb,s,e]=parts.map(Number);
  if(!Number.isSafeInteger(tmdb)||tmdb<=0||tmdb>9999999999||s>1000||e<=0||e>10000)return null;
- const source={kind:'embed',url:`https://myembed.biz/serie/${tmdb}/${s}/${e}`,type:'text/html',name:'EmbedMovies · episódio',providerId:'embedmovies'};
- return isEmbedMoviesEmbed(source)?source:null;
+ const source={kind:'embed',url:`https://streambetter.lat/serie/${tmdb}/${s}/${e}`,type:'text/html',name:'StreamBetter · episódio',providerId:'streambetter'};
+ return isStreamBetterEmbed(source)?source:null;
 }
 
-export function sourceKey(source){return isEmbedMoviesEmbed(source)?source.url:'';}
+export function sourceKey(source){return isStreamBetterEmbed(source)?source.url:'';}
 function resultTtl(data){return data?.available?60000:5000;}
 export function createSourceLoader(request,now=Date.now,{schedule=setTimeout,cancel=clearTimeout}={}){
   const cache=new Map(),pending=new Map();
@@ -55,10 +55,10 @@ export function createSourceLoader(request,now=Date.now,{schedule=setTimeout,can
       const result=await source(`/api/playback?id=${encodeURIComponent(id)}&season=${encodeURIComponent(season)}&episode=${encodeURIComponent(episode)}&provider=auto`,fresh,current);
       const candidates=result.streams?.length?result.streams:result.embed?[result.embed]:[];
       const unique=new Map();
-      for(const item of candidates){if(!isEmbedMoviesEmbed(item))continue;const key=sourceKey(item);if(key&&!unique.has(key))unique.set(key,{...item,key});}
+      for(const item of candidates){if(!isStreamBetterEmbed(item))continue;const key=sourceKey(item);if(key&&!unique.has(key))unique.set(key,{...item,key});}
       const streams=[...unique.values()];
       const response={ok:true,available:!!streams.length,streams,externalStreams:[],complete:true,pending:[],
-        providers:PROVIDERS.map(p=>({name:p.name,complete:true,available:streams.some(s=>s.providerId===p.id||p.id==='embedmovies'&&isEmbedMoviesEmbed(s)),reason:''})),
+        providers:PROVIDERS.map(p=>({name:p.name,complete:true,available:streams.some(s=>s.providerId===p.id||p.id==='streambetter'&&isStreamBetterEmbed(s)),reason:''})),
         reason:streams.length?'':result.reason||'Não foi possível preparar uma fonte de vídeo.'};
       if(!current.aborted)onUpdate(response);
       return response;

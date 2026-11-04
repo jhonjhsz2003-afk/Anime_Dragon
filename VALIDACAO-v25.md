@@ -13,7 +13,7 @@
 
 Contamos somente **dias de sessão ativa no player** nos últimos 30 dias, com autenticação e opção de participar. Cada dia vale no máximo um ponto; episódio marcado manualmente não pontua. São exigidos ao menos 8 minutos de sinais de atividade espaçados e aceitos pelo servidor, com proteção contra chamadas rápidas, sessões repetidas e tentativas sem token válido. Ao sair do ranking, os dados da pontuação são excluídos.
 
-**O EmbedMovies não fornece prova de reprodução por iframe.** Portanto, essa pontuação é uma medida de presença na tela do player, não prova de que um vídeo foi assistido. Não se pode garantir proteção total contra automação. Para contabilizar minutos realmente vistos, é preciso um provedor com API autenticada de eventos de reprodução confiáveis.
+**O StreamBetter não fornece prova de reprodução por iframe.** Portanto, essa pontuação é uma medida de presença na tela do player, não prova de que um vídeo foi assistido. Não se pode garantir proteção total contra automação. Para contabilizar minutos realmente vistos, é preciso um provedor com API autenticada de eventos de reprodução confiáveis.
 
 ## GitHub — solução para falhas frequentes
 

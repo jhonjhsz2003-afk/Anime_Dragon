@@ -4,7 +4,7 @@ export function contentSecurityPolicy(){
     "default-src 'self'",
     "base-uri 'self'",
     "object-src 'none'",
-    'frame-src https://www.youtube-nocookie.com https://www.youtube.com',
+    'frame-src https://streambetter.lat https://www.youtube-nocookie.com https://www.youtube.com',
     "child-src 'none'",
     "frame-ancestors 'none'",
     "form-action 'self'",

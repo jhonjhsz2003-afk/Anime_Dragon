@@ -1,4 +1,4 @@
-import {isEmbedMoviesEmbed} from './sources.js?v=28.0.0';
+import {isStreamBetterEmbed} from './sources.js?v=28.0.0';
 import {chooseCaption} from './caption-language.js?v=9.6.1';
 import {disposeMedia} from './media-lifecycle.js?v=9.6.1';
 import {createPlaybackWatchdog,preferredAlternative,createPlaybackRecovery} from './playback-watchdog.js?v=14.0.0';
@@ -201,17 +201,17 @@ export function mountWatchPlayer(host, options) {
     catch{if(!dead&&version===generation){engineSwitching=false;failure(message);}}
   }
   function mountExternalEmbed(source){
-    if(!isEmbedMoviesEmbed(source))throw new Error('O player EmbedMovies retornou um endereço inválido.');
+    if(!isStreamBetterEmbed(source))throw new Error('O player StreamBetter retornou um endereço inválido.');
     const frame=document.createElement('iframe');
     frame.src=source.url;
-    frame.title=`Episódio ${o.episode} no player do EmbedMovies`;
+    frame.title=`Episódio ${o.episode} no player do StreamBetter`;
     frame.loading='eager';
+    frame.width='100%';frame.height='100%';frame.setAttribute('frameborder','0');
     frame.setAttribute('fetchpriority','high');
     frame.referrerPolicy='strict-origin-when-cross-origin';
-    // Permite formulários internos necessários ao player, mas bloqueia pop-ups, downloads e navegação da página principal.
-    // O iframe é de outra origem: o AnimeDragon não controla anúncios ou disponibilidade dentro dele.
-    frame.setAttribute('sandbox','allow-scripts allow-same-origin allow-forms allow-presentation');
-    frame.setAttribute('allow','fullscreen; autoplay; encrypted-media; picture-in-picture');
+    // Não usar sandbox: o StreamBetter exige o iframe sem esse atributo.
+    // Anúncios e disponibilidade são controlados pelo provedor externo.
+    frame.setAttribute('allow','autoplay; encrypted-media; picture-in-picture; fullscreen');
     frame.setAttribute('allowfullscreen','');
     embedHost.replaceChildren(frame);embedHost.hidden=false;video.hidden=true;
     screen.classList.add('is-external-embed');screen.classList.remove('controls-hidden');
@@ -219,8 +219,8 @@ export function mountWatchPlayer(host, options) {
     // Não apresentar escolhas duplicadas que não podem controlar o iframe externo.
     q('[data-settings]').disabled=true;q('[data-video-options]').disabled=true;q('[data-caption-options]').disabled=true;
     q('[data-video-options]').hidden=true;q('[data-caption-options]').hidden=true;
-    const badge=q('.watch-direct-label');badge.textContent='▶ EmbedMovies';
-    badge.title='O áudio, a escolha do servidor e a disponibilidade são controlados pelo EmbedMovies.';
+    const badge=q('.watch-direct-label');badge.textContent='▶ StreamBetter';
+    badge.title='O áudio, a escolha do servidor e a disponibilidade são controlados pelo StreamBetter.';
     status.textContent='';
     watchdog.stop();if(providersComplete)recovery.success();
     if(!activity){activity=true;Promise.resolve(o.onActivity()).catch(()=>{activity=false;});}
