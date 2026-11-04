@@ -1,2 +1,2 @@
-/** Apenas o EmbedMovies é utilizado como fonte de reprodução. */
-export function providers(){return [{id:'embedmovies',name:'EmbedMovies',role:'stream'}];}
+/** Nenhum provedor externo de reprodução está habilitado. */
+export function providers(){return [];}
